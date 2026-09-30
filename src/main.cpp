@@ -394,11 +394,15 @@ Preferences preferences;
 
 volatile uint8_t lastDisconnectReason = 0;
 volatile int8_t lastDisconnectRSSI = 0;
+volatile uint8_t disconnectEventCount = 0;
+volatile uint8_t lastDisconnectBSSID[6] = {0, 0, 0, 0, 0, 0};
 
 void onWiFiDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
   (void)event;
   lastDisconnectReason = info.wifi_sta_disconnected.reason;
   lastDisconnectRSSI = info.wifi_sta_disconnected.rssi;
+  memcpy((void*)lastDisconnectBSSID, info.wifi_sta_disconnected.bssid, 6);
+  ++disconnectEventCount;
 }
 
 const char* authModeName(wifi_auth_mode_t authMode) {
@@ -487,6 +491,9 @@ bool connect() {
   Serial.println(Network::mode() == Network::Mode::STATIC ? "STATIC" : "DHCP");
   Serial.print("Password:  ");
   Serial.println(password.isEmpty() ? "none (open network)" : "configured");
+  Serial.print("ESP32 STA MAC: ");
+  Serial.println(WiFi.macAddress());
+  Serial.println("Minimum security: WPA2-PSK");
   printWPA3Support();
   Serial.println();
 
@@ -506,6 +513,12 @@ bool connect() {
 
   lastDisconnectReason = 0;
   lastDisconnectRSSI = 0;
+  disconnectEventCount = 0;
+  memset((void*)lastDisconnectBSSID, 0, sizeof(lastDisconnectBSSID));
+
+  // The scan already reports this AP as WPA2-PSK. Keep the station threshold
+  // explicit so the diagnostic is not affected by a weaker security mode.
+  WiFi.setMinSecurity(WIFI_AUTH_WPA2_PSK);
 
   Serial.println("[3/6] Starting connection attempt...");
   if (Network::DIAGNOSTIC_PIN_BSSID) {
@@ -552,12 +565,22 @@ bool connect() {
   Serial.print("      Final WiFi status: ");
   Serial.println(static_cast<int>(finalStatus));
 
-  if (lastDisconnectReason != 0) {
-    Serial.print("      802.11 disconnect reason: ");
+  if (disconnectEventCount != 0) {
+    Serial.print("      802.11 disconnect events captured: ");
+    Serial.println(static_cast<unsigned>(disconnectEventCount));
+    Serial.print("      Last 802.11 disconnect reason: ");
     Serial.print(static_cast<unsigned>(lastDisconnectReason));
-    Serial.print("  RSSI at disconnect: ");
+    Serial.print("  RSSI: ");
     Serial.print(static_cast<int>(lastDisconnectRSSI));
     Serial.println(" dBm");
+    Serial.print("      BSSID at disconnect: ");
+    char disconnectBSSID[18];
+    snprintf(disconnectBSSID, sizeof(disconnectBSSID),
+             "%02X:%02X:%02X:%02X:%02X:%02X",
+             lastDisconnectBSSID[0], lastDisconnectBSSID[1],
+             lastDisconnectBSSID[2], lastDisconnectBSSID[3],
+             lastDisconnectBSSID[4], lastDisconnectBSSID[5]);
+    Serial.println(disconnectBSSID);
     Serial.println("      This is the AP/802.11 reason, which is more specific than WL status 6.");
   } else {
     Serial.println("      No 802.11 disconnect reason was captured.");
