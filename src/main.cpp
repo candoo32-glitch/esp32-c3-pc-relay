@@ -393,11 +393,43 @@ void printGridSeparator(size_t ssidWidth) {
   Serial.println();
 }
 
-void printScanGrid(int count) {
+constexpr size_t MAX_UNIQUE_SSIDS = 128;
+
+int buildUniqueSSIDList(int scanCount, int* representatives, int maxEntries) {
+  int uniqueCount = 0;
+
+  for (int i = 0; i < scanCount; ++i) {
+    const String ssid = WiFi.SSID(i);
+
+    int existing = -1;
+    for (int u = 0; u < uniqueCount; ++u) {
+      if (WiFi.SSID(representatives[u]) == ssid) {
+        existing = u;
+        break;
+      }
+    }
+
+    if (existing >= 0) {
+      // Keep the strongest AP for this SSID.
+      if (WiFi.RSSI(i) > WiFi.RSSI(representatives[existing])) {
+        representatives[existing] = i;
+      }
+      continue;
+    }
+
+    if (uniqueCount < maxEntries) {
+      representatives[uniqueCount++] = i;
+    }
+  }
+
+  return uniqueCount;
+}
+
+void printScanGrid(const int* representatives, int uniqueCount) {
   size_t ssidWidth = 4;
 
-  for (int i = 0; i < count; ++i) {
-    const size_t length = WiFi.SSID(i).length();
+  for (int i = 0; i < uniqueCount; ++i) {
+    const size_t length = WiFi.SSID(representatives[i]).length();
     if (length > ssidWidth) {
       ssidWidth = length;
     }
@@ -412,11 +444,12 @@ void printScanGrid(int count) {
   Serial.println(" | RSSI   | CH | SECURITY   | BSSID             |");
   printGridSeparator(ssidWidth);
 
-  for (int i = 0; i < count; ++i) {
-    String ssid = WiFi.SSID(i);
+  for (int i = 0; i < uniqueCount; ++i) {
+    const int index = representatives[i];
+    String ssid = WiFi.SSID(index);
     String security =
-        WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "OPEN" : "SECURED";
-    String bssid = WiFi.BSSIDstr(i);
+        WiFi.encryptionType(index) == WIFI_AUTH_OPEN ? "OPEN" : "SECURED";
+    String bssid = WiFi.BSSIDstr(index);
 
     Serial.printf("| %-3d | ", i + 1);
     Serial.print(ssid);
@@ -427,8 +460,8 @@ void printScanGrid(int count) {
 
     Serial.print(" | ");
     Serial.printf("%-6d | %-2d | %-10s | %-17s |\n",
-                  WiFi.RSSI(i),
-                  WiFi.channel(i),
+                  WiFi.RSSI(index),
+                  WiFi.channel(index),
                   security.c_str(),
                   bssid.c_str());
   }
@@ -457,10 +490,20 @@ void scan() {
     return;
   }
 
-  printScanGrid(count);
+  int representatives[MAX_UNIQUE_SSIDS];
+  const int uniqueCount =
+      buildUniqueSSIDList(count, representatives, MAX_UNIQUE_SSIDS);
+
+  printScanGrid(representatives, uniqueCount);
 
   Serial.println();
+  Serial.print("Found ");
+  Serial.print(count);
+  Serial.print(" access points across ");
+  Serial.print(uniqueCount);
+  Serial.println(" unique SSIDs.");
   Serial.println("B. Back");
+
   String choice = Console::readPrompt("Select (B=Back): ");
   choice.trim();
   choice.toUpperCase();
@@ -480,13 +523,13 @@ void scan() {
 
   int selected = numeric ? choice.toInt() : 0;
 
-  if (selected < 1 || selected > count) {
+  if (selected < 1 || selected > uniqueCount) {
     Serial.println("Invalid network selection.");
     WiFi.scanDelete();
     return;
   }
 
-  const int index = selected - 1;
+  const int index = representatives[selected - 1];
   String ssid = WiFi.SSID(index);
   wifi_auth_mode_t encryption = WiFi.encryptionType(index);
 
