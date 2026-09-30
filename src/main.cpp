@@ -23,20 +23,15 @@ namespace Console {
 bool ansiSupported = false;
 volatile bool sessionLost = false;
 
-void usbEventCallback(void* arg, esp_event_base_t eventBase, int32_t eventId, void* eventData) {
-  if (eventBase == ARDUINO_HW_CDC_EVENTS &&
-      (eventId == ARDUINO_HW_CDC_BUS_RESET_EVENT ||
-       eventId == ARDUINO_HW_CDC_CONNECTED_EVENT)) {
-    sessionLost = true;
-  }
-}
-
 bool connected() {
   return Serial.isConnected();
 }
 
 bool disconnected() {
-  return sessionLost || !connected();
+  if (!connected()) {
+    sessionLost = true;
+  }
+  return sessionLost;
 }
 
 void waitForConnection() {
@@ -58,6 +53,7 @@ void detectANSI() {
   ansiSupported = false;
 }
 
+String readLine();
 
 void begin() {
   resetSession();
@@ -847,7 +843,6 @@ void setup() {
   Relay::begin();
 
   Serial.begin(115200);
-  Serial.onEvent(Console::usbEventCallback);
   delay(250);
 
   Serial.println();
