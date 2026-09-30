@@ -88,7 +88,7 @@ jobs:
           if not defined GH_TOKEN (
               echo GitHub token is not configured for this session.
               echo.
-              for /f "delims=" %%T in ('powershell -NoProfile -Command "$s=Read-Host ''GitHub fine-grained token'' -AsSecureString; $b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($s); try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }"') do set "GH_TOKEN=%%T"
+              for /f "delims=" %%T in ('powershell -NoProfile -Command "$s=Read-Host Token -AsSecureString; $b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($s); try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }"') do set "GH_TOKEN=%%T"
               echo.
           )
 
