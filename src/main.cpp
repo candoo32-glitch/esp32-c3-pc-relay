@@ -423,23 +423,23 @@ bool connect() {
 }
 
 // Terminal table geometry.
-// The rendered table is exactly 76 columns wide, leaving four columns of
-// headroom under the common 80-column terminal limit.
-constexpr size_t TABLE_WIDTH = 76;
+// The rendered table is exactly 78 columns wide, safely within the common
+// 80-column terminal limit.
+constexpr size_t TABLE_WIDTH = 78;
 constexpr size_t NUMBER_WIDTH = 3;
-constexpr size_t SSID_WIDTH = 24;
-constexpr size_t RSSI_WIDTH = 5;
+constexpr size_t SSID_WIDTH = 22;
+constexpr size_t RSSI_WIDTH = 6;
 constexpr size_t CHANNEL_WIDTH = 2;
-constexpr size_t SECURITY_WIDTH = 8;
+constexpr size_t SECURITY_WIDTH = 9;
 constexpr size_t BSSID_WIDTH = 17;
 
 static_assert(
     NUMBER_WIDTH + SSID_WIDTH + RSSI_WIDTH + CHANNEL_WIDTH +
-    SECURITY_WIDTH + BSSID_WIDTH + 16 == TABLE_WIDTH,
+    SECURITY_WIDTH + BSSID_WIDTH + 19 == TABLE_WIDTH,
     "WiFi scan table geometry must remain fixed");
 
 void printGridSeparator() {
-  Serial.println("+---+------------------------+-----+--+--------+-----------------+");
+  Serial.println("+-----+------------------------+--------+----+-----------+-------------------+");
 }
 
 constexpr size_t MAX_UNIQUE_SSIDS = 128;
@@ -475,16 +475,16 @@ int buildUniqueSSIDList(int scanCount, int* representatives, int maxEntries) {
 }
 
 void printSSIDContinuation(const String& part) {
-  Serial.printf("|   | %-24s |     |  |        |                 |\n",
-                part.c_str());
+  Serial.printf("|     | %-22s | %-6s | %-2s | %-9s | %-17s |\n",
+                part.c_str(), "", "", "", "");
 }
 
 void printScanGrid(const int* representatives, int uniqueCount) {
-  // Every row has exactly the same 76-column geometry. Long SSIDs wrap only
+  // Every row has exactly the same 78-column geometry. Long SSIDs wrap only
   // inside the SSID field.
   Serial.println();
   printGridSeparator();
-  Serial.println("| # | SSID                     |RSSI |CH| SECURITY | BSSID           |");
+  Serial.println("| #   | SSID                   | RSSI   | CH | SECURITY  | BSSID             |");
   printGridSeparator();
 
   for (int i = 0; i < uniqueCount; ++i) {
@@ -503,7 +503,7 @@ void printScanGrid(const int* representatives, int uniqueCount) {
           ssid.substring(offset, min(offset + SSID_WIDTH, ssid.length()));
 
       if (line == 0) {
-        Serial.printf("| %-3d | %-24s | %-5d | %-2d | %-8s | %-17s |\n",
+        Serial.printf("| %-3d | %-22s | %-6d | %-2d | %-9s | %-17s |\n",
                       i + 1,
                       part.c_str(),
                       WiFi.RSSI(index),
