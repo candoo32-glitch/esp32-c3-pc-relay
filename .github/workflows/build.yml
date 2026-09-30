@@ -74,9 +74,63 @@ jobs:
           echo ========================================
           echo.
 
+          rem Pull the newest successful main-branch build before flashing.
+          rem Set ESP32_RELAY_FLASH_LOCAL=1 when this script is invoked by the
+          rem downloaded artifact, so the downloaded copy flashes its local image.
+          if not "%ESP32_RELAY_FLASH_LOCAL%"=="1" (
+              where gh >nul 2>&1
+              if errorlevel 1 (
+                  echo ERROR: GitHub CLI ^(gh^) was not found.
+                  echo Install GitHub CLI and run "gh auth login" once.
+                  echo.
+                  pause
+                  exit /b 1
+              )
+
+              echo Checking GitHub Actions for the latest successful main build...
+              for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch main --status success --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
+
+              if not defined LATEST_RUN (
+                  echo ERROR: No successful main-branch build was found.
+                  echo.
+                  pause
+                  exit /b 1
+              )
+
+              echo Latest successful build: %LATEST_RUN%
+              set "DOWNLOAD_DIR=%TEMP%\esp32-c3-relay-%RANDOM%%RANDOM%"
+              mkdir "%DOWNLOAD_DIR%" >nul 2>&1
+
+              echo Downloading compiled firmware artifact...
+              gh run download %LATEST_RUN% --repo candoo32-glitch/esp32-c3-pc-relay --name esp32-c3-pc-relay-firmware --dir "%DOWNLOAD_DIR%"
+              if errorlevel 1 (
+                  echo ERROR: Could not download the GitHub Actions artifact.
+                  rmdir /s /q "%DOWNLOAD_DIR%" >nul 2>&1
+                  echo.
+                  pause
+                  exit /b 1
+              )
+
+              if not exist "%DOWNLOAD_DIR%\factory.bin" (
+                  echo ERROR: Download completed but factory.bin was not found.
+                  rmdir /s /q "%DOWNLOAD_DIR%" >nul 2>&1
+                  echo.
+                  pause
+                  exit /b 1
+              )
+
+              echo.
+              echo Launching the downloaded build flasher...
+              set "ESP32_RELAY_FLASH_LOCAL=1"
+              call "%DOWNLOAD_DIR%\flash.bat"
+              set "FLASH_EXIT=%ERRORLEVEL%"
+              set "ESP32_RELAY_FLASH_LOCAL="
+              rmdir /s /q "%DOWNLOAD_DIR%" >nul 2>&1
+              exit /b %FLASH_EXIT%
+          )
+
           if not exist "factory.bin" (
-              echo ERROR: factory.bin was not found.
-              echo Run this file from the extracted firmware folder.
+              echo ERROR: factory.bin was not found in the downloaded artifact.
               echo.
               pause
               exit /b 1
