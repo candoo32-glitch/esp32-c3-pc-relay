@@ -7,31 +7,43 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: Compile firmware
     runs-on: ubuntu-latest
+
     steps:
-      - name: Check out source
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.12"
+          cache: "pip"
 
       - name: Install PlatformIO
         run: python -m pip install --upgrade platformio
 
-      - name: Build firmware
+      - name: Build ESP32-C3 firmware
         run: pio run
+
+      - name: Package firmware
+        run: |
+          mkdir -p dist
+          cp .pio/build/esp32-c3-devkitm-1/firmware.bin dist/
+          cp .pio/build/esp32-c3-devkitm-1/firmware.elf dist/
+          cp .pio/build/esp32-c3-devkitm-1/partitions.bin dist/
+          cp .pio/build/esp32-c3-devkitm-1/bootloader.bin dist/
+          sha256sum dist/* > dist/SHA256SUMS.txt
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
           name: esp32-c3-pc-relay-firmware
-          path: |
-            .pio/build/esp32-c3-devkitm-1/firmware.bin
-            .pio/build/esp32-c3-devkitm-1/firmware.elf
-            .pio/build/esp32-c3-devkitm-1/partitions.bin
-            .pio/build/esp32-c3-devkitm-1/bootloader.bin
+          path: dist/
           if-no-files-found: error
+          retention-days: 30
