@@ -20,6 +20,53 @@ void begin() {
 }
 
 namespace Console {
+bool ansiSupported = false;
+
+void detectANSI() {
+  // VT/xterm-compatible terminals answer the Device Attributes query.
+  // If nothing answers, keep the console in plain-text mode.
+  while (Serial.available()) {
+    Serial.read();
+  }
+
+  Serial.print("\\x1B[c");
+  Serial.flush();
+
+  const uint32_t start = millis();
+  String response;
+  while (millis() - start < 500) {
+    while (Serial.available()) {
+      char c = static_cast<char>(Serial.read());
+      response += c;
+
+      // A Device Attributes response begins with ESC[ and ends in 'c'.
+      if (response.length() >= 3 &&
+          response[0] == 27 && response[1] == '[' && c == 'c') {
+        ansiSupported = true;
+        return;
+      }
+    }
+    delay(5);
+  }
+}
+
+void begin() {
+  detectANSI();
+}
+
+void ansi(const char* sequence) {
+  if (ansiSupported) {
+    Serial.print("\\x1B[");
+    Serial.print(sequence);
+  }
+}
+
+void resetStyle() {
+  if (ansiSupported) {
+    Serial.print("\\x1B[0m");
+  }
+}
+
 String readLine() {
   String value;
 
@@ -174,7 +221,9 @@ void configureStatic() {
 void menu() {
   while (true) {
     Serial.println();
+    Console::ansi("1;33m");
     Serial.println("NETWORK SETUP");
+    Console::resetStyle();
     Serial.println("=============");
     Serial.println("1. DHCP");
     Serial.println("2. Manual / Static IPv4");
@@ -434,7 +483,9 @@ void setupCredentials() {
 void menu() {
   while (true) {
     Serial.println();
+    Console::ansi("1;33m");
     Serial.println("WIFI SETUP");
+    Console::resetStyle();
     Serial.println("==========");
     Serial.println("1. Scan nearby networks");
     Serial.println("2. Configure SSID/password");
@@ -475,7 +526,9 @@ namespace Setup {
 void menu() {
   while (true) {
     Serial.println();
+    Console::ansi("1;33m");
     Serial.println("SETUP");
+    Console::resetStyle();
     Serial.println("=====");
     Serial.println("1. WiFi");
     Serial.println("2. Network");
@@ -502,7 +555,9 @@ void menu() {
 namespace MainMenu {
 void print() {
   Serial.println();
+  Console::ansi("1;36m");
   Serial.println("ESP32-C3 PC RELAY CONTROLLER");
+  Console::resetStyle();
   Serial.println("============================");
   Serial.println("1. Status");
   Serial.println("2. Setup");
@@ -552,6 +607,10 @@ void setup() {
   Serial.println("ESP32-C3 PC Relay Controller");
   Serial.println("Relay test firmware - no automatic pulses");
   Serial.println("POWER=GPIO5, RESET=GPIO6");
+
+  Console::begin();
+  Serial.print("Terminal mode: ");
+  Serial.println(Console::ansiSupported ? "ANSI detected" : "plain text");
 
   Network::begin();
   WiFiControl::begin();
