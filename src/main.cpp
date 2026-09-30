@@ -21,6 +21,38 @@ void begin() {
 
 namespace Console {
 bool ansiSupported = false;
+volatile bool sessionLost = false;
+
+void usbEventCallback(void* arg, esp_event_base_t eventBase, int32_t eventId, void* eventData) {
+  if (eventBase == ARDUINO_HW_CDC_EVENTS &&
+      (eventId == ARDUINO_HW_CDC_BUS_RESET_EVENT ||
+       eventId == ARDUINO_HW_CDC_CONNECTED_EVENT)) {
+    sessionLost = true;
+  }
+}
+
+bool connected() {
+  return Serial.isConnected();
+}
+
+bool disconnected() {
+  return sessionLost || !connected();
+}
+
+void waitForConnection() {
+  while (!connected()) {
+    delay(50);
+  }
+  sessionLost = false;
+}
+
+void resetSession() {
+  sessionLost = false;
+  ansiSupported = false;
+  while (Serial.available()) {
+    Serial.read();
+  }
+}
 
 void detectANSI() {
   ansiSupported = false;
@@ -28,7 +60,8 @@ void detectANSI() {
 
 
 void begin() {
-  detectANSI();
+  resetSession();
+  waitForConnection();
 
   Serial.println();
   Serial.println("Terminal display mode");
@@ -83,6 +116,11 @@ String readLine() {
   String value;
 
   while (true) {
+    if (disconnected()) {
+      sessionLost = true;
+      return "";
+    }
+
     while (Serial.available()) {
       char c = static_cast<char>(Serial.read());
 
@@ -211,10 +249,15 @@ void configureStatic() {
   Serial.println("----------------------------------");
 
   String ip = Console::readPrompt("IP address: ");
+  if (Console::disconnected()) return;
   String gateway = Console::readPrompt("Gateway: ");
+  if (Console::disconnected()) return;
   String subnet = Console::readPrompt("Subnet mask: ");
+  if (Console::disconnected()) return;
   String dns1 = Console::readPrompt("DNS 1: ");
+  if (Console::disconnected()) return;
   String dns2 = Console::readPrompt("DNS 2: ");
+  if (Console::disconnected()) return;
 
   IPAddress testIP;
   IPAddress testGateway;
@@ -264,6 +307,7 @@ void menu() {
     Serial.println();
 
     String choice = Console::readPrompt("Select: ");
+    if (Console::disconnected()) return;
     choice.trim();
     choice.toUpperCase();
 
@@ -503,6 +547,7 @@ void scan() {
   Serial.println("B. Back");
 
   String choice = Console::readPrompt("Select (B=Back): ");
+  if (Console::disconnected()) return;
   choice.trim();
   choice.toUpperCase();
 
@@ -544,6 +589,10 @@ void scan() {
   } else {
     Serial.println("Security: password required.");
     String password = Console::readPrompt("PASSWORD: ");
+    if (Console::disconnected()) {
+      WiFi.scanDelete();
+      return;
+    }
 
     WiFi.scanDelete();
 
@@ -615,7 +664,9 @@ void setupCredentials() {
   Serial.println();
 
   String ssid = Console::readPrompt("SSID: ");
+  if (Console::disconnected()) return;
   String password = Console::readPrompt("PASSWORD: ");
+  if (Console::disconnected()) return;
 
   if (ssid.isEmpty()) {
     Serial.println("WiFi: SSID cannot be empty. Nothing was changed.");
@@ -761,9 +812,19 @@ void showStatus() {
 
 void loop() {
   while (true) {
+    if (Console::disconnected()) {
+      // Reset only the console session; keep the ESP32 running.
+      Console::waitForConnection();
+      Console::begin();
+      continue;
+    }
+
     print();
 
     String choice = Console::readPrompt("Select: ");
+    if (Console::disconnected()) {
+      continue;
+    }
     choice.trim();
     choice.toUpperCase();
 
@@ -786,6 +847,7 @@ void setup() {
   Relay::begin();
 
   Serial.begin(115200);
+  Serial.onEvent(Console::usbEventCallback);
   delay(250);
 
   Serial.println();
