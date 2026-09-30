@@ -383,6 +383,15 @@ bool apply() {
 namespace WiFiControl {
 Preferences preferences;
 
+volatile uint8_t lastDisconnectReason = 0;
+volatile int8_t lastDisconnectRSSI = 0;
+
+void onWiFiDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
+  (void)event;
+  lastDisconnectReason = info.wifi_sta_disconnected.reason;
+  lastDisconnectRSSI = info.wifi_sta_disconnected.rssi;
+}
+
 const char* authModeName(wifi_auth_mode_t authMode) {
   switch (authMode) {
     case WIFI_AUTH_OPEN: return "OPEN";
@@ -486,6 +495,9 @@ bool connect() {
   }
   Serial.println("      Network configuration applied.");
 
+  lastDisconnectReason = 0;
+  lastDisconnectRSSI = 0;
+
   Serial.println("[3/6] Starting connection attempt...");
   WiFi.begin(ssid.c_str(), password.c_str());
   Serial.println("      WiFi.begin() accepted.");
@@ -523,6 +535,17 @@ bool connect() {
   Serial.println("[5/6] Connection attempt did not complete.");
   Serial.print("      Final WiFi status: ");
   Serial.println(static_cast<int>(finalStatus));
+
+  if (lastDisconnectReason != 0) {
+    Serial.print("      802.11 disconnect reason: ");
+    Serial.print(static_cast<unsigned>(lastDisconnectReason));
+    Serial.print("  RSSI at disconnect: ");
+    Serial.print(static_cast<int>(lastDisconnectRSSI));
+    Serial.println(" dBm");
+    Serial.println("      This is the AP/802.11 reason, which is more specific than WL status 6.");
+  } else {
+    Serial.println("      No 802.11 disconnect reason was captured.");
+  }
 
   if (finalStatus == WL_NO_SSID_AVAIL) {
     Serial.println("      Diagnosis: SSID is not currently available.");
@@ -897,6 +920,7 @@ void menu() {
 
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
+  WiFi.onEvent(onWiFiDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
   Serial.println();
   Serial.println("WiFi subsystem starting...");
   connect();
