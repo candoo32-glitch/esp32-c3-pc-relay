@@ -177,6 +177,15 @@ constexpr char DNS2_KEY[] = "dns2";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
+// Temporary WiFi diagnostic: force the connection attempt to the strongest
+// Orbi access point observed during the scan. This is intentionally not the
+// normal mesh behavior; disable it after the diagnostic test.
+constexpr bool DIAGNOSTIC_PIN_BSSID = true;
+constexpr uint8_t DIAGNOSTIC_CHANNEL = 1;
+constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
+  0x86, 0xCC, 0x9C, 0x94, 0x4E, 0x18
+};
+
 enum class Mode : uint8_t {
   DHCP = 0,
   STATIC = 1
@@ -499,7 +508,14 @@ bool connect() {
   lastDisconnectRSSI = 0;
 
   Serial.println("[3/6] Starting connection attempt...");
-  WiFi.begin(ssid.c_str(), password.c_str());
+  if (DIAGNOSTIC_PIN_BSSID) {
+    Serial.println("      DIAGNOSTIC: pinning to BSSID 86:CC:9C:94:4E:18");
+    Serial.println("      DIAGNOSTIC: channel 1, bypassing mesh AP selection");
+    WiFi.begin(ssid.c_str(), password.c_str(),
+               DIAGNOSTIC_CHANNEL, DIAGNOSTIC_BSSID, true);
+  } else {
+    WiFi.begin(ssid.c_str(), password.c_str());
+  }
   Serial.println("      WiFi.begin() accepted.");
 
   Serial.println("[4/6] Waiting for association/authentication...");
@@ -815,8 +831,9 @@ void scan() {
   }
 
   // Keep the selected AP details visible through the credential prompt.
-  // The normal connection still uses SSID/password only so an Orbi/mesh
-  // network remains free to roam between its access points.
+  // The temporary diagnostic pin is applied inside connect(), not saved with
+  // the credentials. Normal mesh roaming can be restored by setting
+  // DIAGNOSTIC_PIN_BSSID to false after this test.
   
   // Selecting a network from a scan always uses DHCP for the connection.
   WiFi.scanDelete();
