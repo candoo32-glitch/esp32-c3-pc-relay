@@ -91,9 +91,9 @@ jobs:
               exit /b 1
           )
 
-          echo Flashing factory.bin to ESP32-C3 on COM7...
+          echo Detecting ESP32-C3 USB Serial/JTAG device...
           echo.
-          py -m esptool --chip esp32c3 --port COM7 write-flash --after hard-reset 0x0 factory.bin
+          py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 write-flash --after hard-reset 0x0 factory.bin
           set "FLASH_EXIT=%ERRORLEVEL%"
 
           echo.
@@ -105,8 +105,8 @@ jobs:
               echo esptool exited with error code %FLASH_EXIT%.
               echo The complete esptool output is shown above.
               echo.
-              echo Check the USB connection and confirm the
-              echo ESP32-C3 is still connected as COM7.
+              echo Make sure the ESP32-C3 is connected by USB
+              echo and is in download mode if required.
               echo.
               echo Press any key to close this window...
               pause >nul
@@ -131,9 +131,10 @@ jobs:
           First-time USB flashing on Windows:
 
           1. Connect the ESP32-C3 to USB.
-          2. Confirm it appears as COM7.
-          3. Make sure Python and esptool are installed.
-          4. Double-click flash.bat.
+          2. Make sure Python and esptool are installed.
+          3. Double-click flash.bat.
+          4. The flasher automatically searches for the Espressif USB
+             Serial/JTAG interface instead of assuming a COM port number.
           5. Do not connect the motherboard power/reset switch wires until the
              firmware has been bench-tested.
 
