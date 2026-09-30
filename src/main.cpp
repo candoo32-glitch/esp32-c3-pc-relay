@@ -461,7 +461,7 @@ int buildUniqueSSIDList(int scanCount, int* representatives, int maxEntries) {
 }
 
 void printSSIDLine(const String& ssidPart) {
-  Serial.printf("|     | %-24s |        |    |            |                   |\\n",
+  Serial.printf("|     | %-24s |        |    |            |                   |\n",
                 ssidPart.c_str());
 }
 
@@ -487,7 +487,7 @@ void printScanGrid(const int* representatives, int uniqueCount) {
       const String part = ssid.substring(offset, min(offset + SSID_WIDTH, ssid.length()));
 
       if (line == 0) {
-        Serial.printf("| %-3d | %-24s | %-6d | %-2d | %-10s | %-17s |\\n",
+        Serial.printf("| %-3d | %-24s | %-6d | %-2d | %-10s | %-17s |\n",
                       i + 1,
                       part.c_str(),
                       WiFi.RSSI(index),
