@@ -335,8 +335,8 @@ void scan() {
   }
 
   Serial.println();
-  Serial.println("Select a network to configure it, or B to go back.");
-  String choice = Console::readPrompt("Select: ");
+  Serial.println("B. Back");
+  String choice = Console::readPrompt("Select (B=Back): ");
   choice.trim();
   choice.toUpperCase();
 
@@ -507,6 +507,7 @@ void print() {
   Serial.println("1. Status");
   Serial.println("2. Setup");
   Serial.println("3. Reconnect WiFi");
+  Serial.println("Q. Quit menu");
   Serial.println();
 }
 
@@ -532,8 +533,10 @@ void loop() {
       Setup::menu();
     } else if (choice == "3") {
       WiFiControl::connect();
+    } else if (choice == "Q") {
+      return;
     } else {
-      Serial.println("Please select 1, 2, or 3.");
+      Serial.println("Please select 1, 2, 3, or Q.");
     }
   }
 }
