@@ -83,6 +83,10 @@ Mode mode() {
          : Mode::DHCP;
 }
 
+void begin() {
+  preferences.begin(PREF_NAMESPACE, false);
+}
+
 void printSettings() {
   Serial.println();
   Serial.println("Network settings");
@@ -432,8 +436,7 @@ void print() {
   Serial.println("============================");
   Serial.println("1. Status");
   Serial.println("2. Setup");
-  Serial.println("3. WiFi scan");
-  Serial.println("B. (none)");
+  Serial.println("3. Reconnect WiFi");
   Serial.println();
 }
 
@@ -458,7 +461,7 @@ void loop() {
     } else if (choice == "2") {
       Setup::menu();
     } else if (choice == "3") {
-      WiFiControl::scan();
+      WiFiControl::connect();
     } else {
       Serial.println("Please select 1, 2, or 3.");
     }
@@ -477,7 +480,7 @@ void setup() {
   Serial.println("Relay test firmware - no automatic pulses");
   Serial.println("POWER=GPIO5, RESET=GPIO6");
 
-  Network::preferences.begin("network", false);
+  Network::begin();
   WiFiControl::begin();
 
   Serial.println();
