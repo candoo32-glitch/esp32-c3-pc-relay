@@ -508,11 +508,11 @@ bool connect() {
   lastDisconnectRSSI = 0;
 
   Serial.println("[3/6] Starting connection attempt...");
-  if (DIAGNOSTIC_PIN_BSSID) {
+  if (Network::DIAGNOSTIC_PIN_BSSID) {
     Serial.println("      DIAGNOSTIC: pinning to BSSID 86:CC:9C:94:4E:18");
     Serial.println("      DIAGNOSTIC: channel 1, bypassing mesh AP selection");
     WiFi.begin(ssid.c_str(), password.c_str(),
-               DIAGNOSTIC_CHANNEL, DIAGNOSTIC_BSSID, true);
+               Network::DIAGNOSTIC_CHANNEL, Network::DIAGNOSTIC_BSSID, true);
   } else {
     WiFi.begin(ssid.c_str(), password.c_str());
   }
