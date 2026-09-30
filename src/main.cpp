@@ -88,12 +88,9 @@ String readLine() {
     while (Serial.available()) {
       char c = static_cast<char>(Serial.read());
 
-      if (c == '\r') {
-        // Wait for the matching LF from terminals configured for CRLF.
-        continue;
-      }
-
-      if (c == '\n') {
+      if (c == '\r' || c == '\n') {
+        // Treat either CR or LF as Enter. PuTTY commonly sends CR for
+        // the Return key, while other terminals may send LF or CRLF.
         Serial.println();
         return value;
       }
