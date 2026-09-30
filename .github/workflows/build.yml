@@ -93,7 +93,7 @@ jobs:
 
           echo Detecting ESP32-C3 USB Serial/JTAG device...
           echo.
-          py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 write-flash --after hard-reset 0x0 factory.bin
+          py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 factory.bin
           set "FLASH_EXIT=%ERRORLEVEL%"
 
           echo.
