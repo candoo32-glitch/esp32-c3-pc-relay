@@ -28,10 +28,26 @@ jobs:
       - name: Package firmware
         run: |
           mkdir -p dist
-          cp .pio/build/esp32-c3-devkitm-1/firmware.bin dist/
-          cp .pio/build/esp32-c3-devkitm-1/firmware.elf dist/
-          cp .pio/build/esp32-c3-devkitm-1/partitions.bin dist/
-          cp .pio/build/esp32-c3-devkitm-1/bootloader.bin dist/
+          BUILD=.pio/build/esp32-c3-devkitm-1
+          FRAMEWORK=.pio/packages/framework-arduinoespressif32
+
+          cp "$BUILD/firmware.bin" dist/firmware.bin
+          cp "$BUILD/firmware.elf" dist/firmware.elf
+          cp "$BUILD/partitions.bin" dist/partitions.bin
+          cp "$BUILD/bootloader.bin" dist/bootloader.bin
+          cp "$FRAMEWORK/tools/partitions/boot_app0.bin" dist/boot_app0.bin
+
+          esptool --chip esp32c3 merge-bin \
+            -o dist/factory.bin \
+            --pad-to-size 4MB \
+            --flash-mode keep \
+            --flash-freq keep \
+            --flash-size keep \
+            0x0 "$BUILD/bootloader.bin" \
+            0x8000 "$BUILD/partitions.bin" \
+            0xe000 "$FRAMEWORK/tools/partitions/boot_app0.bin" \
+            0x10000 "$BUILD/firmware.bin"
+
           sha256sum dist/* > dist/SHA256SUMS.txt
 
       - name: Upload firmware artifact
