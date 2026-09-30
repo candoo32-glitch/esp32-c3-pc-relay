@@ -575,6 +575,9 @@ void scan() {
   Serial.println("---------");
   Serial.println("Scanning nearby networks...");
 
+  // WiFi setup through scanning always uses DHCP.
+  Network::configureDHCP();
+
   // Always start a fresh scan from a clean STA state. This is especially
   // important after a failed password/connection attempt, which can leave
   // the WiFi state machine in a transient connecting/failed state.
