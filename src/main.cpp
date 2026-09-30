@@ -443,7 +443,7 @@ bool connect() {
   Serial.print("SSID:      ");
   Serial.println(ssid);
   Serial.print("Mode:      ");
-  Serial.println(mode() == Network::Mode::STATIC ? "STATIC" : "DHCP");
+  Serial.println(Network::mode() == Network::Mode::STATIC ? "STATIC" : "DHCP");
   Serial.print("Password:  ");
   Serial.println(password.isEmpty() ? "none (open network)" : "configured");
   Serial.println();
