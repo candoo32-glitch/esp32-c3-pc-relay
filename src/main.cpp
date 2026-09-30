@@ -417,8 +417,18 @@ bool connect() {
     return true;
   }
 
+  const wl_status_t failureStatus = WiFi.status();
+
+  // A failed connection attempt can leave the ESP32 STA state machine
+  // holding a pending connection attempt. Clear that transient state without
+  // erasing the saved SSID/password so the user can immediately retry or
+  // perform another scan.
+  WiFi.disconnect(false, false);
+  delay(100);
+
   Serial.print("WiFi: connection failed, status=");
-  Serial.println(static_cast<int>(WiFi.status()));
+  Serial.println(static_cast<int>(failureStatus));
+  Serial.println("WiFi: connection state cleared; retry or rescan is available.");
   return false;
 }
 
@@ -525,12 +535,23 @@ void scan() {
   Serial.println("---------");
   Serial.println("Scanning nearby networks...");
 
+  // Always start a fresh scan from a clean STA state. This is especially
+  // important after a failed password/connection attempt, which can leave
+  // the WiFi state machine in a transient connecting/failed state.
+  WiFi.scanDelete();
+  WiFi.disconnect(false, false);
+  delay(100);
   WiFi.mode(WIFI_STA);
   int count = WiFi.scanNetworks();
 
   if (count < 0) {
     Serial.println("WiFi scan failed.");
     WiFi.scanDelete();
+
+    // Leave the STA interface in a clean idle state so the next scan or
+    // connection attempt starts from a known state.
+    WiFi.disconnect(false, false);
+    delay(100);
     return;
   }
 
