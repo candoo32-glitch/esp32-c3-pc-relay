@@ -23,36 +23,34 @@ namespace Console {
 bool ansiSupported = false;
 
 void detectANSI() {
-  // VT/xterm-compatible terminals answer the Device Attributes query.
-  // If nothing answers, keep the console in plain-text mode.
-  while (Serial.available()) {
-    Serial.read();
-  }
-
-  Serial.write(0x1B);
-  Serial.print("[c");
-  Serial.flush();
-
-  const uint32_t start = millis();
-  String response;
-  while (millis() - start < 500) {
-    while (Serial.available()) {
-      char c = static_cast<char>(Serial.read());
-      response += c;
-
-      // A Device Attributes response begins with ESC[ and ends in 'c'.
-      if (response.length() >= 3 &&
-          response[0] == 27 && response[1] == '[' && c == 'c') {
-        ansiSupported = true;
-        return;
-      }
-    }
-    delay(5);
-  }
+  ansiSupported = false;
 }
+
 
 void begin() {
   detectANSI();
+
+  Serial.println();
+  Serial.println("Terminal display mode");
+  Serial.println("---------------------");
+  Serial.println("Use ANSI colors and boxed menus?");
+  Serial.println("Y = ANSI");
+  Serial.println("N = Plain text");
+  Serial.print("Select [Y/N]: ");
+
+  while (!Serial.available()) {
+    delay(10);
+  }
+
+  String choice = readLine();
+  choice.trim();
+  choice.toUpperCase();
+
+  ansiSupported = (choice == "Y" || choice == "YES");
+
+  Serial.println();
+  Serial.print("Terminal mode: ");
+  Serial.println(ansiSupported ? "ANSI" : "plain text");
 }
 
 void ansi(const char* sequence) {
@@ -796,8 +794,6 @@ void setup() {
   Serial.println("POWER=GPIO5, RESET=GPIO6");
 
   Console::begin();
-  Serial.print("Terminal mode: ");
-  Serial.println(Console::ansiSupported ? "ANSI detected" : "plain text");
 
   Network::begin();
   WiFiControl::begin();
