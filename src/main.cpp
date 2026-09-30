@@ -384,6 +384,59 @@ bool connect() {
   return false;
 }
 
+void printGridSeparator(size_t ssidWidth) {
+  Serial.print("+-----+");
+  Serial.print("---------------------");
+  for (size_t i = 21; i < ssidWidth + 2; ++i) {
+    Serial.print("-");
+  }
+  Serial.print("+--------+----+----------+-------------------+");
+  Serial.println();
+}
+
+void printScanGrid(int count) {
+  size_t ssidWidth = 4;
+
+  for (int i = 0; i < count; ++i) {
+    const size_t length = WiFi.SSID(i).length();
+    if (length > ssidWidth) {
+      ssidWidth = length;
+    }
+  }
+
+  Serial.println();
+  printGridSeparator(ssidWidth);
+  Serial.print("| #   | SSID");
+  for (size_t i = 4; i < ssidWidth; ++i) {
+    Serial.print(" ");
+  }
+  Serial.println(" | RSSI   | CH | SECURITY   | BSSID             |");
+  printGridSeparator(ssidWidth);
+
+  for (int i = 0; i < count; ++i) {
+    String ssid = WiFi.SSID(i);
+    String security =
+        WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "OPEN" : "SECURED";
+    String bssid = WiFi.BSSIDstr(i);
+
+    Serial.printf("| %-3d | ", i + 1);
+    Serial.print(ssid);
+
+    for (size_t padding = ssid.length(); padding < ssidWidth; ++padding) {
+      Serial.print(" ");
+    }
+
+    Serial.print(" | ");
+    Serial.printf("%-6d | %-2d | %-10s | %-17s |\n",
+                  WiFi.RSSI(i),
+                  WiFi.channel(i),
+                  security.c_str(),
+                  bssid.c_str());
+  }
+
+  printGridSeparator(ssidWidth);
+}
+
 void scan() {
   Serial.println();
   Serial.println("WiFi scan");
@@ -405,17 +458,7 @@ void scan() {
     return;
   }
 
-  for (int i = 0; i < count; ++i) {
-    Serial.print(i + 1);
-    Serial.print(". ");
-    Serial.print(WiFi.SSID(i));
-    Serial.print("  RSSI=");
-    Serial.print(WiFi.RSSI(i));
-    Serial.print(" dBm  CH=");
-    Serial.print(WiFi.channel(i));
-    Serial.print("  ");
-    Serial.println(WiFi.encryptionType(i) == WIFI_AUTH_OPEN ? "OPEN" : "SECURED");
-  }
+  printScanGrid(count);
 
   Serial.println();
   Serial.println("B. Back");
@@ -452,19 +495,51 @@ void scan() {
   Serial.print("Selected SSID: ");
   Serial.println(ssid);
 
-  String password;
+  Serial.print("BSSID: ");
+  Serial.println(WiFi.BSSIDstr(index));
+
   if (encryption == WIFI_AUTH_OPEN) {
     Serial.println("Security: OPEN");
     Serial.println("No password required.");
   } else {
     Serial.println("Security: password required.");
-    password = Console::readPrompt("PASSWORD: ");
+    String password = Console::readPrompt("PASSWORD: ");
+
+    WiFi.scanDelete();
+
+    preferences.putString(SSID_KEY, ssid);
+    preferences.putString(PASSWORD_KEY, password);
+
+    Serial.println();
+    Serial.println("WiFi credentials saved.");
+    Serial.println("Connecting...");
+
+    if (connect()) {
+      Serial.println();
+      Serial.println("================================");
+      Serial.println("WiFi connection SUCCESSFUL");
+      Serial.println("================================");
+      Serial.print("SSID: ");
+      Serial.println(WiFi.SSID());
+      Serial.print("IP: ");
+      Serial.println(WiFi.localIP());
+      Serial.println();
+    } else {
+      Serial.println();
+      Serial.println("================================");
+      Serial.println("WiFi connection FAILED");
+      Serial.println("================================");
+      Serial.println("Credentials were saved.");
+      Serial.println("You can try again from WiFi setup.");
+      Serial.println();
+    }
+    return;
   }
 
   WiFi.scanDelete();
 
   preferences.putString(SSID_KEY, ssid);
-  preferences.putString(PASSWORD_KEY, password);
+  preferences.putString(PASSWORD_KEY, "");
 
   Serial.println();
   Serial.println("WiFi credentials saved.");
