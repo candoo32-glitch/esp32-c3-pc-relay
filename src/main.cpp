@@ -386,11 +386,10 @@ bool connect() {
 
 void printGridSeparator(size_t ssidWidth) {
   Serial.print("+-----+");
-  Serial.print("---------------------");
-  for (size_t i = 21; i < ssidWidth + 2; ++i) {
+  for (size_t i = 0; i < ssidWidth + 2; ++i) {
     Serial.print("-");
   }
-  Serial.print("+--------+----+----------+-------------------+");
+  Serial.print("+--------+----+------------+-------------------+");
   Serial.println();
 }
 
