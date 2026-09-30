@@ -437,38 +437,87 @@ bool connect() {
 
   String password = preferences.getString(PASSWORD_KEY, "");
 
-  Serial.print("WiFi: connecting to ");
+  Serial.println();
+  Serial.println("WiFi connection");
+  Serial.println("----------------");
+  Serial.print("SSID:      ");
   Serial.println(ssid);
+  Serial.print("Mode:      ");
+  Serial.println(mode() == Network::Mode::STATIC ? "STATIC" : "DHCP");
+  Serial.print("Password:  ");
+  Serial.println(password.isEmpty() ? "none (open network)" : "configured");
+  Serial.println();
 
+  Serial.println("[1/6] Preparing WiFi station...");
+  WiFi.disconnect(false, false);
+  delay(100);
+  WiFi.mode(WIFI_STA);
+  WiFi.setHostname(HOSTNAME);
+  Serial.println("      Station ready.");
+
+  Serial.println("[2/6] Applying network configuration...");
+  if (!Network::apply()) {
+    Serial.println("      FAILED: network configuration could not be applied.");
+    return false;
+  }
+  Serial.println("      Network configuration applied.");
+
+  Serial.println("[3/6] Starting connection attempt...");
   WiFi.begin(ssid.c_str(), password.c_str());
+  Serial.println("      WiFi.begin() accepted.");
 
+  Serial.println("[4/6] Waiting for association/authentication...");
   const uint32_t start = millis();
+  wl_status_t lastStatus = WiFi.status();
+  uint32_t lastReport = start;
+
   while (WiFi.status() != WL_CONNECTED &&
          millis() - start < CONNECT_TIMEOUT_MS) {
     delay(250);
-    Serial.print(".");
+
+    const wl_status_t currentStatus = WiFi.status();
+    if (currentStatus != lastStatus || millis() - lastReport >= 2000) {
+      Serial.print("      status=");
+      Serial.print(static_cast<int>(currentStatus));
+      Serial.print("  elapsed=");
+      Serial.print((millis() - start) / 1000);
+      Serial.println("s");
+      lastStatus = currentStatus;
+      lastReport = millis();
+    }
   }
 
-  Serial.println();
+  const wl_status_t finalStatus = WiFi.status();
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("WiFi: CONNECTED");
+  if (finalStatus == WL_CONNECTED) {
+    Serial.println("[5/6] Associated and authenticated.");
+    Serial.println("[6/6] Network address acquired.");
     printStatus();
     return true;
   }
 
-  const wl_status_t failureStatus = WiFi.status();
+  Serial.println("[5/6] Connection attempt did not complete.");
+  Serial.print("      Final WiFi status: ");
+  Serial.println(static_cast<int>(finalStatus));
 
-  // A failed connection attempt can leave the ESP32 STA state machine
-  // holding a pending connection attempt. Clear that transient state without
-  // erasing the saved SSID/password so the user can immediately retry or
-  // perform another scan.
+  if (finalStatus == WL_NO_SSID_AVAIL) {
+    Serial.println("      Diagnosis: SSID is not currently available.");
+  } else if (finalStatus == WL_CONNECT_FAILED) {
+    Serial.println("      Diagnosis: association/authentication failed.");
+    Serial.println("      This does NOT by itself prove the password is wrong.");
+  } else if (finalStatus == WL_CONNECTION_LOST) {
+    Serial.println("      Diagnosis: connection was established then lost.");
+  } else if (finalStatus == WL_IDLE_STATUS) {
+    Serial.println("      Diagnosis: WiFi remained idle.");
+  } else {
+    Serial.println("      Diagnosis: see final status code above.");
+  }
+
+  Serial.println("[6/6] Clearing transient connection state...");
   WiFi.disconnect(false, false);
   delay(100);
+  Serial.println("      Ready for retry or rescan.");
 
-  Serial.print("WiFi: connection failed, status=");
-  Serial.println(static_cast<int>(failureStatus));
-  Serial.println("WiFi: connection state cleared; retry or rescan is available.");
   return false;
 }
 
