@@ -33,6 +33,11 @@ jobs:
           mkdir -p dist
           BUILD=.pio/build/esp32-c3-devkitm-1
 
+          test -s "$BUILD/firmware.bin"
+          test -s "$BUILD/firmware.elf"
+          test -s "$BUILD/partitions.bin"
+          test -s "$BUILD/bootloader.bin"
+
           cp "$BUILD/firmware.bin" dist/firmware.bin
           cp "$BUILD/firmware.elf" dist/firmware.elf
           cp "$BUILD/partitions.bin" dist/partitions.bin
@@ -56,7 +61,91 @@ jobs:
             0x10000 "$BUILD/firmware.bin"
 
           test -s dist/factory.bin
+          test "$(stat -c%s dist/factory.bin)" -eq 4194304
+
+          cat > dist/flash.bat <<'EOF'
+          @echo off
+          setlocal
+          title ESP32-C3 PC Relay Firmware Flasher
+
+          echo.
+          echo ========================================
+          echo   ESP32-C3 PC Relay Firmware Flasher
+          echo ========================================
+          echo.
+
+          if not exist "factory.bin" (
+              echo ERROR: factory.bin was not found.
+              echo Run this file from the extracted firmware folder.
+              echo.
+              pause
+              exit /b 1
+          )
+
+          where py >nul 2>&1
+          if errorlevel 1 (
+              echo ERROR: Python launcher ^(py^) was not found.
+              echo Install Python for Windows with the py launcher enabled.
+              echo.
+              pause
+              exit /b 1
+          )
+
+          echo Flashing factory.bin to ESP32-C3 on COM7...
+          echo.
+          py -m esptool --chip esp32c3 --port COM7 write-flash --after hard-reset 0x0 factory.bin
+
+          if errorlevel 1 (
+              echo.
+              echo ========================================
+              echo   FLASH FAILED
+              echo ========================================
+              echo.
+              pause
+              exit /b 1
+          )
+
+          echo.
+          echo ========================================
+          echo   FLASH SUCCESSFUL
+          echo ========================================
+          echo.
+          pause
+          endlocal
+          EOF
+
+          cat > dist/README.txt <<'EOF'
+          ESP32-C3 PC Relay Firmware
+          ==========================
+
+          First-time USB flashing on Windows:
+
+          1. Connect the ESP32-C3 to USB.
+          2. Confirm it appears as COM7.
+          3. Make sure Python and esptool are installed.
+          4. Double-click flash.bat.
+          5. Do not connect the motherboard power/reset switch wires until the
+             firmware has been bench-tested.
+
+          The factory.bin file is a complete 4 MB ESP32-C3 flash image and is
+          written at flash address 0x0.
+          EOF
+
           sha256sum dist/* > dist/SHA256SUMS.txt
+
+          test -s dist/flash.bat
+          test -s dist/README.txt
+          test -s dist/SHA256SUMS.txt
+
+          (
+            cd dist
+            zip -q esp32-c3-pc-relay-firmware.zip \
+              factory.bin firmware.bin firmware.elf bootloader.bin \
+              partitions.bin boot_app0.bin flash.bat README.txt SHA256SUMS.txt
+          )
+
+          test -s dist/esp32-c3-pc-relay-firmware.zip
+          unzip -tq dist/esp32-c3-pc-relay-firmware.zip
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
