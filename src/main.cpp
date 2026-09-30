@@ -422,17 +422,7 @@ bool connect() {
   return false;
 }
 
-constexpr size_t MAX_DISPLAY_SSID = 24;
-
-String displaySSID(const String& ssid) {
-  if (ssid.length() <= MAX_DISPLAY_SSID) {
-    return ssid;
-  }
-
-  String shortened = ssid.substring(0, MAX_DISPLAY_SSID - 3);
-  shortened += "...";
-  return shortened;
-}
+constexpr size_t SSID_WIDTH = 24;
 
 void printGridSeparator() {
   Serial.println("+-----+--------------------------+--------+----+------------+-------------------+");
@@ -470,12 +460,14 @@ int buildUniqueSSIDList(int scanCount, int* representatives, int maxEntries) {
   return uniqueCount;
 }
 
-void printScanGrid(const int* representatives, int uniqueCount) {
-  // Keep the table within a predictable terminal width.
-  // Long SSIDs are shortened only for display; the full SSID is retained
-  // internally and is used when a network is selected.
-  constexpr size_t SSID_WIDTH = MAX_DISPLAY_SSID;
+void printSSIDLine(const String& ssidPart) {
+  Serial.printf("|     | %-24s |        |    |            |                   |\\n",
+                ssidPart.c_str());
+}
 
+void printScanGrid(const int* representatives, int uniqueCount) {
+  // Keep the table within a predictable terminal width. Long SSIDs are
+  // wrapped inside the SSID cell rather than truncated.
   Serial.println();
   printGridSeparator();
   Serial.println("| #   | SSID                     | RSSI   | CH | SECURITY   | BSSID             |");
@@ -483,18 +475,29 @@ void printScanGrid(const int* representatives, int uniqueCount) {
 
   for (int i = 0; i < uniqueCount; ++i) {
     const int index = representatives[i];
-    const String ssid = displaySSID(WiFi.SSID(index));
+    const String ssid = WiFi.SSID(index);
     const String security =
         WiFi.encryptionType(index) == WIFI_AUTH_OPEN ? "OPEN" : "SECURED";
     const String bssid = WiFi.BSSIDstr(index);
 
-    Serial.printf("| %-3d | %-24s | %-6d | %-2d | %-10s | %-17s |\\n",
-                  i + 1,
-                  ssid.c_str(),
-                  WiFi.RSSI(index),
-                  WiFi.channel(index),
-                  security.c_str(),
-                  bssid.c_str());
+    const size_t lineCount = max<size_t>(1, (ssid.length() + SSID_WIDTH - 1) / SSID_WIDTH);
+
+    for (size_t line = 0; line < lineCount; ++line) {
+      const size_t offset = line * SSID_WIDTH;
+      const String part = ssid.substring(offset, min(offset + SSID_WIDTH, ssid.length()));
+
+      if (line == 0) {
+        Serial.printf("| %-3d | %-24s | %-6d | %-2d | %-10s | %-17s |\\n",
+                      i + 1,
+                      part.c_str(),
+                      WiFi.RSSI(index),
+                      WiFi.channel(index),
+                      security.c_str(),
+                      bssid.c_str());
+      } else {
+        printSSIDLine(part);
+      }
+    }
   }
 
   printGridSeparator();
