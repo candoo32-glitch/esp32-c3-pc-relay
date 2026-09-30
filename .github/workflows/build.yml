@@ -29,19 +29,17 @@ jobs:
         run: |
           mkdir -p dist
           BUILD=.pio/build/esp32-c3-devkitm-1
-          FRAMEWORK=.pio/packages/framework-arduinoespressif32
 
           cp "$BUILD/firmware.bin" dist/firmware.bin
           cp "$BUILD/firmware.elf" dist/firmware.elf
           cp "$BUILD/partitions.bin" dist/partitions.bin
           cp "$BUILD/bootloader.bin" dist/bootloader.bin
-          BOOT_APP0=$(find .pio/packages -name boot_app0.bin -print -quit)
-          if [ -z "$BOOT_APP0" ]; then
-            echo "boot_app0.bin not present in the PlatformIO package; downloading the Arduino ESP32 core copy."
-            curl -fsSL -o dist/boot_app0.bin https://github.com/espressif/arduino-esp32/raw/refs/heads/master/tools/partitions/boot_app0.bin
-          else
-            cp "$BOOT_APP0" dist/boot_app0.bin
-          fi
+
+          echo "Downloading boot_app0.bin"
+          curl -fsSL -o dist/boot_app0.bin \
+            https://github.com/espressif/arduino-esp32/raw/refs/heads/master/tools/partitions/boot_app0.bin
+
+          test -s dist/boot_app0.bin
 
           esptool --chip esp32c3 merge-bin \
             -o dist/factory.bin \
@@ -51,9 +49,10 @@ jobs:
             --flash-size keep \
             0x0 "$BUILD/bootloader.bin" \
             0x8000 "$BUILD/partitions.bin" \
-            0xe000 "$FRAMEWORK/tools/partitions/boot_app0.bin" \
+            0xe000 dist/boot_app0.bin \
             0x10000 "$BUILD/firmware.bin"
 
+          test -s dist/factory.bin
           sha256sum dist/* > dist/SHA256SUMS.txt
 
       - name: Upload firmware artifact
