@@ -94,23 +94,33 @@ jobs:
           echo Flashing factory.bin to ESP32-C3 on COM7...
           echo.
           py -m esptool --chip esp32c3 --port COM7 write-flash --after hard-reset 0x0 factory.bin
+          set "FLASH_EXIT=%ERRORLEVEL%"
 
-          if errorlevel 1 (
-              echo.
+          echo.
+          if not "%FLASH_EXIT%"=="0" (
               echo ========================================
               echo   FLASH FAILED
               echo ========================================
               echo.
-              pause
-              exit /b 1
+              echo esptool exited with error code %FLASH_EXIT%.
+              echo The complete esptool output is shown above.
+              echo.
+              echo Check the USB connection and confirm the
+              echo ESP32-C3 is still connected as COM7.
+              echo.
+              echo Press any key to close this window...
+              pause >nul
+              exit /b %FLASH_EXIT%
           )
 
-          echo.
           echo ========================================
           echo   FLASH SUCCESSFUL
           echo ========================================
           echo.
-          pause
+          echo The ESP32-C3 has been flashed successfully.
+          echo.
+          echo Press any key to close this window...
+          pause >nul
           endlocal
           EOF
 
@@ -129,6 +139,9 @@ jobs:
 
           The factory.bin file is a complete 4 MB ESP32-C3 flash image and is
           written at flash address 0x0.
+
+          The flasher window remains open after success or failure so that the
+          complete esptool output and any error information can be reviewed.
           EOF
 
           sha256sum \
