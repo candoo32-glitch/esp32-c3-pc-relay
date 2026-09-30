@@ -71,8 +71,8 @@ bool connect() {
     return false;
   }
 
-  WiFi.mode(WIFI_STA);
   WiFi.setHostname(HOSTNAME);
+  WiFi.mode(WIFI_STA);
 
   Serial.print("WiFi: connecting to ");
   Serial.println(ssid);
