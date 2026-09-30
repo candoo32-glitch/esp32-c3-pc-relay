@@ -35,7 +35,13 @@ jobs:
           cp "$BUILD/firmware.elf" dist/firmware.elf
           cp "$BUILD/partitions.bin" dist/partitions.bin
           cp "$BUILD/bootloader.bin" dist/bootloader.bin
-          cp "$FRAMEWORK/tools/partitions/boot_app0.bin" dist/boot_app0.bin
+          BOOT_APP0=$(find .pio/packages -name boot_app0.bin -print -quit)
+          if [ -z "$BOOT_APP0" ]; then
+            echo "boot_app0.bin not present in the PlatformIO package; downloading the Arduino ESP32 core copy."
+            curl -fsSL -o dist/boot_app0.bin https://github.com/espressif/arduino-esp32/raw/refs/heads/master/tools/partitions/boot_app0.bin
+          else
+            cp "$BOOT_APP0" dist/boot_app0.bin
+          fi
 
           esptool --chip esp32c3 merge-bin \
             -o dist/factory.bin \
