@@ -1,0 +1,37 @@
+name: Build ESP32-C3 firmware
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade platformio
+
+      - name: Build firmware
+        run: pio run
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-c3-pc-relay-firmware
+          path: |
+            .pio/build/esp32-c3-devkitm-1/firmware.bin
+            .pio/build/esp32-c3-devkitm-1/firmware.elf
+            .pio/build/esp32-c3-devkitm-1/partitions.bin
+            .pio/build/esp32-c3-devkitm-1/bootloader.bin
+          if-no-files-found: error
