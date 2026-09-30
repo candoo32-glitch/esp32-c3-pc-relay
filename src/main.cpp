@@ -335,7 +335,77 @@ void scan() {
   }
 
   Serial.println();
+  Serial.println("Select a network to configure it, or B to go back.");
+  String choice = Console::readPrompt("Select: ");
+  choice.trim();
+  choice.toUpperCase();
+
+  if (choice == "B") {
+    WiFi.scanDelete();
+    return;
+  }
+
+  bool numeric = choice.length() > 0;
+  for (size_t i = 0; i < choice.length(); ++i) {
+    if (!isDigit(choice[i])) {
+      numeric = false;
+      break;
+    }
+  }
+
+  int selected = numeric ? choice.toInt() : 0;
+
+  if (selected < 1 || selected > count) {
+    Serial.println("Invalid network selection.");
+    WiFi.scanDelete();
+    return;
+  }
+
+  const int index = selected - 1;
+  String ssid = WiFi.SSID(index);
+  wifi_auth_mode_t encryption = WiFi.encryptionType(index);
+
+  Serial.println();
+  Serial.print("Selected SSID: ");
+  Serial.println(ssid);
+
+  String password;
+  if (encryption == WIFI_AUTH_OPEN) {
+    Serial.println("Security: OPEN");
+    Serial.println("No password required.");
+  } else {
+    Serial.println("Security: password required.");
+    password = Console::readPrompt("PASSWORD: ");
+  }
+
   WiFi.scanDelete();
+
+  preferences.putString(SSID_KEY, ssid);
+  preferences.putString(PASSWORD_KEY, password);
+
+  Serial.println();
+  Serial.println("WiFi credentials saved.");
+  Serial.println("Connecting...");
+
+  if (connect()) {
+    Serial.println();
+    Serial.println("================================");
+    Serial.println("WiFi connection SUCCESSFUL");
+    Serial.println("================================");
+    Serial.print("SSID: ");
+    Serial.println(WiFi.SSID());
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+    Serial.println();
+  } else {
+    Serial.println();
+    Serial.println("================================");
+    Serial.println("WiFi connection FAILED");
+    Serial.println("================================");
+    Serial.println("Credentials were saved.");
+    Serial.println("You can try again from WiFi setup.");
+    Serial.println();
+  }
 }
 
 void setupCredentials() {
