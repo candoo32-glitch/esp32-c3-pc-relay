@@ -131,21 +131,20 @@ jobs:
           written at flash address 0x0.
           EOF
 
-          sha256sum dist/* > dist/SHA256SUMS.txt
+          sha256sum \
+            dist/factory.bin \
+            dist/firmware.bin \
+            dist/firmware.elf \
+            dist/bootloader.bin \
+            dist/partitions.bin \
+            dist/boot_app0.bin \
+            dist/flash.bat \
+            dist/README.txt \
+            > dist/SHA256SUMS.txt
 
           test -s dist/flash.bat
           test -s dist/README.txt
           test -s dist/SHA256SUMS.txt
-
-          (
-            cd dist
-            zip -q esp32-c3-pc-relay-firmware.zip \
-              factory.bin firmware.bin firmware.elf bootloader.bin \
-              partitions.bin boot_app0.bin flash.bat README.txt SHA256SUMS.txt
-          )
-
-          test -s dist/esp32-c3-pc-relay-firmware.zip
-          unzip -tq dist/esp32-c3-pc-relay-firmware.zip
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
