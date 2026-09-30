@@ -239,21 +239,61 @@ void configureDHCP() {
   Serial.println("Network mode saved: DHCP.");
 }
 
+String currentIP() {
+  if (WiFi.status() == WL_CONNECTED) {
+    return WiFi.localIP().toString();
+  }
+  return preferences.getString(IP_KEY, "192.168.1.50");
+}
+
+String currentGateway() {
+  if (WiFi.status() == WL_CONNECTED) {
+    return WiFi.gatewayIP().toString();
+  }
+  return preferences.getString(GATEWAY_KEY, "192.168.1.1");
+}
+
+String currentSubnet() {
+  if (WiFi.status() == WL_CONNECTED) {
+    return WiFi.subnetMask().toString();
+  }
+  return preferences.getString(SUBNET_KEY, "255.255.255.0");
+}
+
+String currentDNS1() {
+  if (WiFi.status() == WL_CONNECTED) {
+    return WiFi.dnsIP().toString();
+  }
+  return preferences.getString(DNS1_KEY, "192.168.1.1");
+}
+
+String currentDNS2() {
+  return preferences.getString(DNS2_KEY, "8.8.8.8");
+}
+
 void configureStatic() {
   Serial.println();
   Serial.println("Manual / static IPv4 configuration");
   Serial.println("----------------------------------");
+  Serial.println("Current network values are pre-filled. Press Enter to keep them.");
+  Serial.println();
 
-  String ip = Console::readPrompt("IP address: ");
+  String ip = Console::readPrompt(("IP address [" + currentIP() + "]: ").c_str());
   if (Console::disconnected()) return;
-  String gateway = Console::readPrompt("Gateway: ");
+  String gateway = Console::readPrompt(("Gateway [" + currentGateway() + "]: ").c_str());
   if (Console::disconnected()) return;
-  String subnet = Console::readPrompt("Subnet mask: ");
+  String subnet = Console::readPrompt(("Subnet mask [" + currentSubnet() + "]: ").c_str());
   if (Console::disconnected()) return;
-  String dns1 = Console::readPrompt("DNS 1: ");
+  String dns1 = Console::readPrompt(("DNS 1 [" + currentDNS1() + "]: ").c_str());
   if (Console::disconnected()) return;
-  String dns2 = Console::readPrompt("DNS 2: ");
+  String dns2 = Console::readPrompt(("DNS 2 [" + currentDNS2() + "]: ").c_str());
   if (Console::disconnected()) return;
+
+  if (ip.isEmpty()) ip = currentIP();
+  if (gateway.isEmpty()) gateway = currentGateway();
+  if (subnet.isEmpty()) subnet = currentSubnet();
+  if (dns1.isEmpty()) dns1 = currentDNS1();
+  if (dns2.isEmpty()) dns2 = currentDNS2();
 
   IPAddress testIP;
   IPAddress testGateway;
@@ -625,6 +665,8 @@ void scan() {
 
     WiFi.scanDelete();
 
+    // Selecting a network from a scan always uses DHCP for the connection.
+    Network::configureDHCP();
     preferences.putString(SSID_KEY, ssid);
     preferences.putString(PASSWORD_KEY, password);
 
@@ -656,6 +698,8 @@ void scan() {
 
   WiFi.scanDelete();
 
+  // Selecting a network from a scan always uses DHCP for the connection.
+  Network::configureDHCP();
   preferences.putString(SSID_KEY, ssid);
   preferences.putString(PASSWORD_KEY, "");
 
@@ -696,6 +740,9 @@ void setupCredentials() {
   if (Console::disconnected()) return;
   String password = Console::readPrompt("PASSWORD: ");
   if (Console::disconnected()) return;
+
+  // Entering SSID/password always starts from DHCP.
+  Network::configureDHCP();
 
   if (ssid.isEmpty()) {
     Serial.println("WiFi: SSID cannot be empty. Nothing was changed.");
