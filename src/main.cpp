@@ -383,6 +383,29 @@ bool apply() {
 namespace WiFiControl {
 Preferences preferences;
 
+const char* authModeName(wifi_auth_mode_t authMode) {
+  switch (authMode) {
+    case WIFI_AUTH_OPEN: return "OPEN";
+    case WIFI_AUTH_WEP: return "WEP";
+    case WIFI_AUTH_WPA_PSK: return "WPA-PSK";
+    case WIFI_AUTH_WPA2_PSK: return "WPA2-PSK";
+    case WIFI_AUTH_WPA_WPA2_PSK: return "WPA/WPA2";
+    case WIFI_AUTH_WPA2_ENTERPRISE: return "WPA2-ENT";
+    case WIFI_AUTH_WPA3_PSK: return "WPA3-PSK";
+    case WIFI_AUTH_WPA2_WPA3_PSK: return "WPA2/WPA3";
+    case WIFI_AUTH_WAPI_PSK: return "WAPI-PSK";
+    default: return "UNKNOWN";
+  }
+}
+
+void printWPA3Support() {
+#ifdef CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE
+  Serial.println("WPA3 SAE support: compiled in");
+#else
+  Serial.println("WPA3 SAE support: NOT compiled in");
+#endif
+}
+
 constexpr char PREF_NAMESPACE[] = "wifi";
 constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
@@ -446,6 +469,7 @@ bool connect() {
   Serial.println(Network::mode() == Network::Mode::STATIC ? "STATIC" : "DHCP");
   Serial.print("Password:  ");
   Serial.println(password.isEmpty() ? "none (open network)" : "configured");
+  printWPA3Support();
   Serial.println();
 
   Serial.println("[1/6] Preparing WiFi station...");
@@ -589,8 +613,7 @@ void printScanGrid(const int* representatives, int uniqueCount) {
   for (int i = 0; i < uniqueCount; ++i) {
     const int index = representatives[i];
     const String ssid = WiFi.SSID(index);
-    const String security =
-        WiFi.encryptionType(index) == WIFI_AUTH_OPEN ? "OPEN" : "SECURED";
+    const String security = authModeName(WiFi.encryptionType(index));
     const String bssid = WiFi.BSSIDstr(index);
 
     const size_t lineCount =
@@ -703,9 +726,29 @@ void scan() {
 
   Serial.print("BSSID: ");
   Serial.println(WiFi.BSSIDstr(index));
+  Serial.print("Channel: ");
+  Serial.println(WiFi.channel(index));
+  Serial.print("Security: ");
+  Serial.println(authModeName(encryption));
+
+  // The scan is SSID-deduplicated, so show every BSS advertising the
+  // selected SSID. This lets us see whether the mesh APs agree on security
+  // and which AP was chosen as the strongest representative.
+  Serial.println("Matching access points:");
+  for (int i = 0; i < WiFi.scanComplete(); ++i) {
+    if (WiFi.SSID(i) == ssid) {
+      Serial.print("  ");
+      Serial.print(WiFi.BSSIDstr(i));
+      Serial.print("  CH ");
+      Serial.print(WiFi.channel(i));
+      Serial.print("  RSSI ");
+      Serial.print(WiFi.RSSI(i));
+      Serial.print("  ");
+      Serial.println(authModeName(WiFi.encryptionType(i)));
+    }
+  }
 
   if (encryption == WIFI_AUTH_OPEN) {
-    Serial.println("Security: OPEN");
     Serial.println("No password required.");
   } else {
     Serial.println("Security: password required.");
@@ -748,9 +791,12 @@ void scan() {
     return;
   }
 
-  WiFi.scanDelete();
-
+  // Keep the selected AP details visible through the credential prompt.
+  // The normal connection still uses SSID/password only so an Orbi/mesh
+  // network remains free to roam between its access points.
+  
   // Selecting a network from a scan always uses DHCP for the connection.
+  WiFi.scanDelete();
   Network::configureDHCP();
   preferences.putString(SSID_KEY, ssid);
   preferences.putString(PASSWORD_KEY, "");
