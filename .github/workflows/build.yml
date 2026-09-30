@@ -65,7 +65,7 @@ jobs:
 
           cat > dist/flash.bat <<'EOF'
           @echo off
-          setlocal
+          setlocal EnableExtensions EnableDelayedExpansion
           title ESP32-C3 PC Relay Firmware Flasher
 
           echo.
@@ -97,23 +97,23 @@ jobs:
                   exit /b 1
               )
 
-              echo Latest successful build: %LATEST_RUN%
+              echo Latest successful build: !LATEST_RUN!
               set "DOWNLOAD_DIR=%TEMP%\esp32-c3-relay-%RANDOM%%RANDOM%"
-              mkdir "%DOWNLOAD_DIR%" >nul 2>&1
+              mkdir "!DOWNLOAD_DIR!" >nul 2>&1
 
               echo Downloading compiled firmware artifact...
-              gh run download %LATEST_RUN% --repo candoo32-glitch/esp32-c3-pc-relay --name esp32-c3-pc-relay-firmware --dir "%DOWNLOAD_DIR%"
+              gh run download !LATEST_RUN! --repo candoo32-glitch/esp32-c3-pc-relay --name esp32-c3-pc-relay-firmware --dir "!DOWNLOAD_DIR!"
               if errorlevel 1 (
                   echo ERROR: Could not download the GitHub Actions artifact.
-                  rmdir /s /q "%DOWNLOAD_DIR%" >nul 2>&1
+                  rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
                   echo.
                   pause
                   exit /b 1
               )
 
-              if not exist "%DOWNLOAD_DIR%\factory.bin" (
+              if not exist "!DOWNLOAD_DIR!\factory.bin" (
                   echo ERROR: Download completed but factory.bin was not found.
-                  rmdir /s /q "%DOWNLOAD_DIR%" >nul 2>&1
+                  rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
                   echo.
                   pause
                   exit /b 1
@@ -122,11 +122,11 @@ jobs:
               echo.
               echo Launching the downloaded build flasher...
               set "ESP32_RELAY_FLASH_LOCAL=1"
-              call "%DOWNLOAD_DIR%\flash.bat"
-              set "FLASH_EXIT=%ERRORLEVEL%"
+              call "!DOWNLOAD_DIR!\flash.bat"
+              set "FLASH_EXIT=!ERRORLEVEL!"
               set "ESP32_RELAY_FLASH_LOCAL="
               rmdir /s /q "%DOWNLOAD_DIR%" >nul 2>&1
-              exit /b %FLASH_EXIT%
+              exit /b !FLASH_EXIT!
           )
 
           if not exist "factory.bin" (
