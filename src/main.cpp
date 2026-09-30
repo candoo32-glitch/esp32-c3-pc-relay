@@ -88,16 +88,32 @@ String readLine() {
     while (Serial.available()) {
       char c = static_cast<char>(Serial.read());
 
-      if (c == '\r') continue;
-      if (c == '\n') return value;
+      if (c == '\r') {
+        // Wait for the matching LF from terminals configured for CRLF.
+        continue;
+      }
+
+      if (c == '\n') {
+        Serial.println();
+        return value;
+      }
 
       if (c == '\b' || c == 127) {
         if (value.length() > 0) {
           value.remove(value.length() - 1);
+
+          // Erase one character on ANSI terminals. Plain terminals still
+          // receive a best-effort backspace sequence.
+          Serial.write('\b');
+          Serial.print(' ');
+          Serial.write('\b');
         }
         continue;
       }
 
+      // Echo typed characters so the ESP32 console works even when the
+      // terminal application's local echo is disabled.
+      Serial.write(c);
       value += c;
     }
 
