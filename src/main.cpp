@@ -29,7 +29,8 @@ void detectANSI() {
     Serial.read();
   }
 
-  Serial.print("\\x1B[c");
+  Serial.write(0x1B);
+  Serial.print("[c");
   Serial.flush();
 
   const uint32_t start = millis();
@@ -56,15 +57,28 @@ void begin() {
 
 void ansi(const char* sequence) {
   if (ansiSupported) {
-    Serial.print("\\x1B[");
+    Serial.write(0x1B);
+    Serial.print("[");
     Serial.print(sequence);
   }
 }
 
 void resetStyle() {
   if (ansiSupported) {
-    Serial.print("\\x1B[0m");
+    Serial.write(0x1B);
+    Serial.print("[0m");
   }
+}
+
+void clearScreen() {
+  if (!ansiSupported) return;
+  Serial.write(0x1B); Serial.print("[2J");
+  Serial.write(0x1B); Serial.print("[H");
+}
+
+void color(const char* code) {
+  if (!ansiSupported) return;
+  Serial.write(0x1B); Serial.print("["); Serial.print(code);
 }
 
 String readLine() {
@@ -221,10 +235,17 @@ void configureStatic() {
 void menu() {
   while (true) {
     Serial.println();
-    Console::ansi("1;33m");
-    Serial.println("NETWORK SETUP");
-    Console::resetStyle();
-    Serial.println("=============");
+    if (Console::ansiSupported) {
+      Console::color("1;33m");
+      Serial.println("+---------------------------+");
+      Serial.println("|       NETWORK SETUP       |");
+      Serial.println("+---------------------------+");
+      Console::resetStyle();
+      Console::color("1;36m");
+    } else {
+      Serial.println("NETWORK SETUP");
+      Serial.println("=============");
+    }
     Serial.println("1. DHCP");
     Serial.println("2. Manual / Static IPv4");
     Serial.println("3. Show current settings");
@@ -483,10 +504,17 @@ void setupCredentials() {
 void menu() {
   while (true) {
     Serial.println();
-    Console::ansi("1;33m");
-    Serial.println("WIFI SETUP");
-    Console::resetStyle();
-    Serial.println("==========");
+    if (Console::ansiSupported) {
+      Console::color("1;33m");
+      Serial.println("+---------------------------+");
+      Serial.println("|         WIFI SETUP        |");
+      Serial.println("+---------------------------+");
+      Console::resetStyle();
+      Console::color("1;36m");
+    } else {
+      Serial.println("WIFI SETUP");
+      Serial.println("==========");
+    }
     Serial.println("1. Scan nearby networks");
     Serial.println("2. Configure SSID/password");
     Serial.println("3. Show WiFi status");
@@ -526,10 +554,17 @@ namespace Setup {
 void menu() {
   while (true) {
     Serial.println();
-    Console::ansi("1;33m");
-    Serial.println("SETUP");
-    Console::resetStyle();
-    Serial.println("=====");
+    if (Console::ansiSupported) {
+      Console::color("1;33m");
+      Serial.println("+---------------------------+");
+      Serial.println("|            SETUP          |");
+      Serial.println("+---------------------------+");
+      Console::resetStyle();
+      Console::color("1;36m");
+    } else {
+      Serial.println("SETUP");
+      Serial.println("=====");
+    }
     Serial.println("1. WiFi");
     Serial.println("2. Network");
     Serial.println("B. Back");
@@ -555,21 +590,43 @@ void menu() {
 namespace MainMenu {
 void print() {
   Serial.println();
-  Console::ansi("1;36m");
-  Serial.println("ESP32-C3 PC RELAY CONTROLLER");
-  Console::resetStyle();
-  Serial.println("============================");
-  Serial.println("1. Status");
-  Serial.println("2. Setup");
-  Serial.println("3. Reconnect WiFi");
-  Serial.println("Q. Quit menu");
+  if (Console::ansiSupported) {
+    Console::clearScreen();
+    Console::color("1;36m");
+    Serial.println("+================================+");
+    Console::color("1;37m");
+    Serial.println("|     ESP32-C3 PC RELAY CONTROL  |");
+    Console::color("1;36m");
+    Serial.println("+================================+");
+    Console::resetStyle();
+    Console::color("1;32m"); Serial.println("  1  Status");
+    Console::color("1;33m"); Serial.println("  2  Setup");
+    Console::color("1;34m"); Serial.println("  3  Reconnect WiFi");
+    Console::color("1;31m"); Serial.println("  Q  Quit menu");
+    Console::resetStyle();
+  } else {
+    Serial.println("ESP32-C3 PC RELAY CONTROLLER");
+    Serial.println("============================");
+    Serial.println("1. Status");
+    Serial.println("2. Setup");
+    Serial.println("3. Reconnect WiFi");
+    Serial.println("Q. Quit menu");
+  }
   Serial.println();
 }
 
 void showStatus() {
   Serial.println();
-  Serial.println("SYSTEM STATUS");
-  Serial.println("=============");
+  if (Console::ansiSupported) {
+    Console::color("1;36m");
+    Serial.println("+=============================+");
+    Serial.println("|        SYSTEM STATUS        |");
+    Serial.println("+=============================+");
+    Console::resetStyle();
+  } else {
+    Serial.println("SYSTEM STATUS");
+    Serial.println("=============");
+  }
   WiFiControl::printStatus();
   Network::printSettings();
 }
