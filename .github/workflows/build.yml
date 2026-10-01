@@ -110,11 +110,20 @@ jobs:
               echo.
           )
 
-          echo Finding the latest main-branch build...
           set "LATEST_RUN="
-          for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch main --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
+          if exist "%~dp0RUN_ID.txt" (
+              set /p "BUNDLED_RUN_ID="<"%~dp0RUN_ID.txt"
+              if defined BUNDLED_RUN_ID (
+                  echo Found bundled run ID: !BUNDLED_RUN_ID!
+                  set "LATEST_RUN=!BUNDLED_RUN_ID!"
+              )
+          )
           if not defined LATEST_RUN (
-              echo ERROR: No main-branch GitHub Actions build was found.
+              echo Finding the latest main-branch build...
+              for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch main --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
+          )
+          if not defined LATEST_RUN (
+              echo ERROR: No usable GitHub Actions build was found.
               echo.
               pause
               exit /b 1
