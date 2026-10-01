@@ -553,11 +553,11 @@ ConnectResult connectWithCredentials(const String& ssid,
   wl_status_t beginStatus;
 
   if (requestedTarget != nullptr && requestedTarget->valid) {
-    beginStatus = static_cast<wl_status_t>(
-        startExplicitStation(ssid, password, requestedTarget, minSecurity));
+    beginStatus = startExplicitStation(ssid, password, requestedTarget, minSecurity) == ConnectResult::SUCCESS
+                      ? WL_CONNECTED : WL_CONNECT_FAILED;
   } else {
-    beginStatus = static_cast<wl_status_t>(
-        startExplicitStation(ssid, password, nullptr, minSecurity));
+    beginStatus = startExplicitStation(ssid, password, nullptr, minSecurity) == ConnectResult::SUCCESS
+                      ? WL_CONNECTED : WL_CONNECT_FAILED;
   }
 
   if (beginStatus == WL_CONNECT_FAILED) {
