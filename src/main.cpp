@@ -158,6 +158,7 @@ void color(const char* code) {
 
 String readLine() {
   String value;
+  bool inEscapeSequence = false;
 
   while (true) {
     if (disconnected()) {
@@ -165,14 +166,30 @@ String readLine() {
     }
 
     while (Serial.available()) {
-      char c = static_cast<char>(Serial.read());
+      const uint8_t byte = static_cast<uint8_t>(Serial.read());
+      const char c = static_cast<char>(byte);
 
-      // CRLF is one Enter. If LF arrives later, discard exactly that LF.
+      // CRLF is one Enter even when the USB CDC packet boundary splits the
+      // pair. Consume only the matching LF; never treat it as a second command.
       if (consumePendingLineFeed) {
         consumePendingLineFeed = false;
         if (c == '\n') {
           continue;
         }
+      }
+
+      // Terminals can send cursor/function-key escape sequences. Do not let
+      // their printable bytes ([, A, B, etc.) become menu commands.
+      if (inEscapeSequence) {
+        if ((byte >= 0x40 && byte <= 0x7E) || byte == 0x1B) {
+          inEscapeSequence = (byte == 0x1B);
+        }
+        continue;
+      }
+
+      if (byte == 0x1B) {
+        inEscapeSequence = true;
+        continue;
       }
 
       if (c == '\r' || c == '\n') {
@@ -181,12 +198,9 @@ String readLine() {
         return value;
       }
 
-      if (c == '\b' || c == 127) {
+      if (c == '\b' || byte == 127) {
         if (value.length() > 0) {
           value.remove(value.length() - 1);
-
-          // Erase one character on ANSI terminals. Plain terminals still
-          // receive a best-effort backspace sequence.
           Serial.write('\b');
           Serial.print(' ');
           Serial.write('\b');
@@ -194,18 +208,13 @@ String readLine() {
         continue;
       }
 
-      // Never allow terminal/USB control traffic to become a command.
-      if (static_cast<uint8_t>(c) < 0x20 ||
-          static_cast<uint8_t>(c) == 0x7F) {
+      // Never allow control traffic to become a command. This includes NUL,
+      // CDC framing artifacts, and other non-printable bytes.
+      if (byte < 0x20 || byte == 0x7F) {
         continue;
       }
 
-      // Echo typed characters so the ESP32 console works even when the
-      // terminal application's local echo is disabled.
       Serial.write(c);
-
-      // Bound malformed input so a corrupted USB stream cannot grow the
-      // command String indefinitely.
       if (value.length() < 64) {
         value += c;
       }
@@ -591,7 +600,7 @@ constexpr char PASSWORD_KEY[] = "password";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
-constexpr bool WIFI_DIAGNOSTICS = true;
+// A/B baseline: keep the station path identical to the diagnostic build, but\n// disable promiscuous capture so we can determine whether the sniffer itself\n// interferes with association. Re-enable only after this baseline is tested.\nconstexpr bool WIFI_DIAGNOSTICS = false;
 
 // Capture the actual 802.11 management-frame exchange during a diagnostic
 // connection attempt. ESP-IDF exposes management frames through promiscuous
