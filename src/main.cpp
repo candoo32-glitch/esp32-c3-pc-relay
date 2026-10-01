@@ -794,13 +794,24 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
   Serial.println(password.isEmpty() ? "none (open network)" : "configured");
   Serial.print("ESP32 STA MAC: ");
   Serial.println(WiFi.macAddress());
-  Serial.println("Minimum security: not forced by firmware");
+  Serial.print("Minimum security policy: ");
+  Serial.println(password.isEmpty() ? "OPEN (open-network test)" : "WPA2-PSK (authenticated network)");
   printWPA3Support();
   Serial.println();
 
   Serial.println("[1/6] Preparing WiFi station...");
   WiFi.disconnect(true, false);
   delay(150);
+
+  // Start a fresh event trace before bringing the STA back up. This ensures
+  // STA_START belongs to this connection attempt rather than the previous
+  // WiFi reset.
+  lastDisconnectReason = 0;
+  lastDisconnectRSSI = 0;
+  disconnectEventCount = 0;
+  memset((void*)lastDisconnectBSSID, 0, sizeof(lastDisconnectBSSID));
+  resetWiFiEventTrace();
+
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(HOSTNAME);
   Serial.println("      Station reset and ready.");
@@ -812,14 +823,17 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
   }
   Serial.println("      Network configuration applied.");
 
-  lastDisconnectReason = 0;
-  lastDisconnectRSSI = 0;
-  disconnectEventCount = 0;
-  memset((void*)lastDisconnectBSSID, 0, sizeof(lastDisconnectBSSID));
-  resetWiFiEventTrace();
+  // Arduino-ESP32 defaults its STA minimum security policy to WPA2-PSK.
+  // Make the policy explicit for every attempt. An open-network test must
+  // explicitly allow OPEN, while password-authenticated tests retain WPA2-PSK.
+  const wifi_auth_mode_t minimumSecurity =
+      password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
+  WiFi.setMinSecurity(minimumSecurity);
 
   Serial.println("[3/6] Starting connection attempt...");
-  Serial.println("      Station security configuration:");
+  Serial.print("      Configured minimum security: ");
+  Serial.println(authModeName(minimumSecurity));
+  Serial.println("      Station security configuration before WiFi.begin():");
   printStationSecurityConfig();
   if (WIFI_DIAGNOSTICS) {
     esp_log_level_set("wifi", ESP_LOG_DEBUG);
@@ -840,6 +854,8 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
     WiFi.begin(ssid.c_str(), password.c_str());
   }
   Serial.println("      WiFi.begin() accepted.");
+  Serial.println("      Station security configuration after WiFi.begin():");
+  printStationSecurityConfig();
 
   Serial.println("[4/6] Waiting for association/authentication...");
   const uint32_t start = millis();
