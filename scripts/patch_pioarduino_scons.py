@@ -23,11 +23,14 @@ OLD_FIRST_RECONNECT_RE = re.compile(
     r'log_d\("WiFi Reconnect Running"\);\s*$'
 )
 
-NEW_FIRST_RECONNECT = '''\\1} else if (first_connect && _sta_network_if->getAutoReconnect()) {
-\\1  first_connect = false;
-\\1  DoReconnect = true;
-\\1  log_d("WiFi Reconnect Running");
-'''
+def replace_first_reconnect(match: re.Match) -> str:
+    indent = match.group(1)
+    return (
+        f'{indent}}} else if (first_connect && _sta_network_if->getAutoReconnect()) {{"\n'
+        f'{indent}  first_connect = false;\n'
+        f'{indent}  DoReconnect = true;\n'
+        f'{indent}  log_d("WiFi Reconnect Running");\n'
+    )
 
 def patch_elf_helper(target: Path) -> bool:
     text = target.read_text(encoding="utf-8")
@@ -46,7 +49,7 @@ def patch_sta_retry(target: Path) -> bool:
     text = target.read_text(encoding="utf-8")
     matches = list(OLD_FIRST_RECONNECT_RE.finditer(text))
     if len(matches) == 1:
-        text = OLD_FIRST_RECONNECT_RE.sub(NEW_FIRST_RECONNECT, text, count=1)
+        text = OLD_FIRST_RECONNECT_RE.sub(replace_first_reconnect, text, count=1)
         target.write_text(text, encoding="utf-8")
         print(f"Patched STA first-retry behavior for single-attempt diagnostics: {target}")
         return True
