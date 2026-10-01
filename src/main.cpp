@@ -502,11 +502,14 @@ bool connect() {
   Serial.println();
 
   Serial.println("[1/6] Preparing WiFi station...");
-  WiFi.disconnect(false, false);
-  delay(100);
+  // A failed authentication attempt can leave the ESP32 Wi-Fi state machine
+  // in a transient state. Turn the station/radio fully off before starting
+  // every new attempt so retries begin from a known state.
+  WiFi.disconnect(true, false);
+  delay(150);
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(HOSTNAME);
-  Serial.println("      Station ready.");
+  Serial.println("      Station reset and ready.");
 
   Serial.println("[2/6] Applying network configuration...");
   if (!NetConfig::apply()) {
@@ -547,6 +550,17 @@ bool connect() {
   while (WiFi.status() != WL_CONNECTED &&
          millis() - start < CONNECT_TIMEOUT_MS) {
     delay(250);
+
+    // Do not remain blocked in a Wi-Fi operation after the USB serial
+    // session has gone away. This is especially important during a failed
+    // connection, where the loop can otherwise run for the full timeout.
+    if (Console::disconnected()) {
+      Serial.println("      Serial session disconnected during WiFi connection attempt.");
+      Serial.println("      Aborting connection attempt.");
+      WiFi.disconnect(true, false);
+      delay(100);
+      return false;
+    }
 
     const wl_status_t currentStatus = WiFi.status();
     if (currentStatus != lastStatus || millis() - lastReport >= 2000) {
@@ -607,10 +621,16 @@ bool connect() {
     Serial.println("      Diagnosis: see final status code above.");
   }
 
-  Serial.println("[6/6] Clearing transient connection state...");
-  WiFi.disconnect(false, false);
-  delay(100);
-  Serial.println("      Ready for retry or rescan.");
+  Serial.println("[6/6] Resetting WiFi after failed connection...");
+  // Fully stop the station/radio. A plain disconnect() only breaks the
+  // association; it does not guarantee that the next attempt starts with
+  // the Wi-Fi subsystem completely reset.
+  if (!WiFi.disconnect(true, false)) {
+    Serial.println("      WARNING: WiFi radio shutdown reported failure.");
+  }
+  delay(150);
+  WiFi.mode(WIFI_STA);
+  Serial.println("      WiFi station reset complete; ready for retry or rescan.");
 
   return false;
 }
@@ -733,10 +753,11 @@ void scan() {
     Serial.println("WiFi scan failed.");
     WiFi.scanDelete();
 
-    // Leave the STA interface in a clean idle state so the next scan or
-    // connection attempt starts from a known state.
-    WiFi.disconnect(false, false);
-    delay(100);
+    // Leave the STA interface completely reset so a failed scan cannot
+    // contaminate the next connection attempt.
+    WiFi.disconnect(true, false);
+    delay(150);
+    WiFi.mode(WIFI_STA);
     return;
   }
 
