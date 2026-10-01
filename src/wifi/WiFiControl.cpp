@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "esp_arduino_version.h"
 #include "esp_idf_version.h"
+#include "esp_system.h"
 #include "WiFiControl.h"
 #include "../interface/Console.h"
 #include "../network/NetConfig.h"
@@ -104,263 +105,6 @@ constexpr char PASSWORD_KEY[] = "password";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
-// The promiscuous management-frame sniffer is disabled for the baseline
-// connection test. Its callback runs in the Wi-Fi driver context and the
-// captured probe-response stream can be extremely busy. We must first prove
-// association without that diagnostic load.
-constexpr bool WIFI_DIAGNOSTICS = false;
-
-// Capture the actual 802.11 management-frame exchange during a diagnostic
-// connection attempt. ESP-IDF exposes management frames through promiscuous
-// mode even while the station is in STA mode. The callback runs in the Wi-Fi
-// driver task, so it only copies small records into a ring buffer; all Serial
-// output happens later from the application task.
-namespace WiFiFrameCapture {
-constexpr size_t MAX_ENTRIES = 64;
-
-struct Entry {
-  uint32_t timestampMs;
-  int8_t rssi;
-  uint8_t channel;
-  uint8_t subtype;
-  uint16_t length;
-  uint16_t sequence;
-  uint16_t code;
-  uint8_t source[6];
-  uint8_t destination[6];
-  uint8_t bssid[6];
-};
-
-Entry entries[MAX_ENTRIES];
-volatile size_t count = 0;
-portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-uint8_t targetBSSID[6] = {0};
-uint8_t stationMAC[6] = {0};
-bool enabled = false;
-
-uint16_t littleEndian16(const uint8_t* p) {
-  return static_cast<uint16_t>(p[0]) |
-         (static_cast<uint16_t>(p[1]) << 8);
-}
-
-bool addressEquals(const uint8_t* a, const uint8_t* b) {
-  return memcmp(a, b, 6) == 0;
-}
-
-const char* subtypeName(uint8_t subtype) {
-  switch (subtype) {
-    case 0: return "ASSOC_REQ";
-    case 1: return "ASSOC_RESP";
-    case 2: return "REASSOC_REQ";
-    case 3: return "REASSOC_RESP";
-    case 4: return "PROBE_REQ";
-    case 5: return "PROBE_RESP";
-    case 8: return "BEACON";
-    case 10: return "DISASSOC";
-    case 11: return "AUTH";
-    case 12: return "DEAUTH";
-    case 13: return "ACTION";
-    default: return "MGMT";
-  }
-}
-
-void captureCallback(void* buffer, wifi_promiscuous_pkt_type_t type) {
-  if (!enabled || buffer == nullptr || type != WIFI_PKT_MGMT) {
-    return;
-  }
-
-  const wifi_promiscuous_pkt_t* packet =
-      static_cast<const wifi_promiscuous_pkt_t*>(buffer);
-
-  const uint16_t length = packet->rx_ctrl.sig_len;
-  if (length < 24) {
-    return;
-  }
-
-  const uint8_t* frame = packet->payload;
-  const uint16_t frameControl = littleEndian16(frame);
-  const uint8_t frameType = static_cast<uint8_t>((frameControl >> 2) & 0x03);
-  const uint8_t subtype = static_cast<uint8_t>((frameControl >> 4) & 0x0F);
-
-  if (frameType != 0) {
-    return;
-  }
-
-  // Only retain frames that can tell us something about the association
-  // exchange. We intentionally do not buffer the continuous beacon stream.
-  if (subtype != 0 && subtype != 1 &&
-      subtype != 2 && subtype != 3 &&
-      subtype != 5 && subtype != 10 &&
-      subtype != 11 && subtype != 12 &&
-      subtype != 13) {
-    return;
-  }
-
-  const uint8_t* destination = frame + 4;
-  const uint8_t* source = frame + 10;
-  const uint8_t* bssid = frame + 16;
-
-  // For infrastructure management frames the AP can appear in any of these
-  // address positions depending on the frame direction. Matching all three
-  // makes the diagnostic robust to the particular management subtype.
-  const bool relevant =
-      addressEquals(destination, targetBSSID) ||
-      addressEquals(source, targetBSSID) ||
-      addressEquals(bssid, targetBSSID) ||
-      addressEquals(destination, stationMAC) ||
-      addressEquals(source, stationMAC) ||
-      addressEquals(bssid, stationMAC);
-
-  if (!relevant) {
-    return;
-  }
-
-  Entry entry = {};
-  entry.timestampMs = millis();
-  entry.rssi = packet->rx_ctrl.rssi;
-  entry.channel = packet->rx_ctrl.channel;
-  entry.subtype = subtype;
-  entry.length = length;
-  entry.sequence =
-      static_cast<uint16_t>(littleEndian16(frame + 22) >> 4);
-  entry.code = 0xFFFF;
-  memcpy(entry.source, source, 6);
-  memcpy(entry.destination, destination, 6);
-  memcpy(entry.bssid, bssid, 6);
-
-  // Management header is 24 bytes. Decode the fixed fields that identify
-  // exactly why an AP accepted or rejected the request.
-  if (subtype == 11 && length >= 30) {
-    // Authentication: algorithm, transaction sequence, status code.
-    entry.sequence = littleEndian16(frame + 26);
-    entry.code = littleEndian16(frame + 28);
-  } else if ((subtype == 1 || subtype == 3) && length >= 30) {
-    // Association/Reassociation response: capability, status, AID.
-    entry.code = littleEndian16(frame + 26);
-  } else if ((subtype == 10 || subtype == 12) && length >= 26) {
-    // Disassociation/Deauthentication: reason code.
-    entry.code = littleEndian16(frame + 24);
-  }
-
-  portENTER_CRITICAL_ISR(&mux);
-  if (count < MAX_ENTRIES) {
-    entries[count++] = entry;
-  } else {
-    for (size_t i = 1; i < MAX_ENTRIES; ++i) {
-      entries[i - 1] = entries[i];
-    }
-    entries[MAX_ENTRIES - 1] = entry;
-  }
-  portEXIT_CRITICAL_ISR(&mux);
-}
-
-bool begin(const uint8_t target[6]) {
-  memcpy(targetBSSID, target, 6);
-
-  esp_err_t err = esp_wifi_get_mac(WIFI_IF_STA, stationMAC);
-  if (err != ESP_OK) {
-    Serial.print("      802.11 capture: failed to read STA MAC: ");
-    Serial.println(esp_err_to_name(err));
-    return false;
-  }
-
-  count = 0;
-  enabled = true;
-
-  wifi_promiscuous_filter_t filter = {};
-  filter.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT;
-
-  err = esp_wifi_set_promiscuous_rx_cb(captureCallback);
-  if (err != ESP_OK) {
-    enabled = false;
-    Serial.print("      802.11 capture: callback setup failed: ");
-    Serial.println(esp_err_to_name(err));
-    return false;
-  }
-
-  err = esp_wifi_set_promiscuous_filter(&filter);
-  if (err != ESP_OK) {
-    enabled = false;
-    Serial.print("      802.11 capture: filter setup failed: ");
-    Serial.println(esp_err_to_name(err));
-    return false;
-  }
-
-  err = esp_wifi_set_promiscuous(true);
-  if (err != ESP_OK) {
-    enabled = false;
-    Serial.print("      802.11 capture: enable failed: ");
-    Serial.println(esp_err_to_name(err));
-    return false;
-  }
-
-  Serial.println("      802.11 management capture: ENABLED");
-  Serial.printf("      Capture target BSSID: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                targetBSSID[0], targetBSSID[1], targetBSSID[2],
-                targetBSSID[3], targetBSSID[4], targetBSSID[5]);
-  Serial.printf("      Capture STA MAC:      %02X:%02X:%02X:%02X:%02X:%02X\n",
-                stationMAC[0], stationMAC[1], stationMAC[2],
-                stationMAC[3], stationMAC[4], stationMAC[5]);
-  return true;
-}
-
-void end() {
-  if (!enabled) {
-    return;
-  }
-
-  enabled = false;
-  esp_err_t err = esp_wifi_set_promiscuous(false);
-  if (err != ESP_OK) {
-    Serial.print("      802.11 capture: disable warning: ");
-    Serial.println(esp_err_to_name(err));
-  }
-}
-
-void print() {
-  Serial.println();
-  Serial.println("      802.11 management-frame capture:");
-  const size_t captured = count;
-
-  if (captured == 0) {
-    Serial.println("      <no matching management frames received>");
-    Serial.println("      This means the ESP32 did not observe an AP response on the selected channel.");
-    return;
-  }
-
-  for (size_t i = 0; i < captured; ++i) {
-    Entry entry;
-    portENTER_CRITICAL(&mux);
-    entry = entries[i];
-    portEXIT_CRITICAL(&mux);
-
-    Serial.printf(
-        "      [%lu ms] %s  RSSI %d dBm  CH %u  len %u  seq %u",
-        static_cast<unsigned long>(entry.timestampMs),
-        subtypeName(entry.subtype),
-        static_cast<int>(entry.rssi),
-        static_cast<unsigned>(entry.channel),
-        static_cast<unsigned>(entry.length),
-        static_cast<unsigned>(entry.sequence));
-
-    if (entry.code != 0xFFFF) {
-      Serial.printf("  code %u", static_cast<unsigned>(entry.code));
-    }
-
-    Serial.printf(
-        "  SRC %02X:%02X:%02X:%02X:%02X:%02X"
-        "  DST %02X:%02X:%02X:%02X:%02X:%02X"
-        "  BSSID %02X:%02X:%02X:%02X:%02X:%02X\n",
-        entry.source[0], entry.source[1], entry.source[2],
-        entry.source[3], entry.source[4], entry.source[5],
-        entry.destination[0], entry.destination[1], entry.destination[2],
-        entry.destination[3], entry.destination[4], entry.destination[5],
-        entry.bssid[0], entry.bssid[1], entry.bssid[2],
-        entry.bssid[3], entry.bssid[4], entry.bssid[5]);
-  }
-}
-}
-
 const char* disconnectReasonName(uint8_t reason) {
   switch (reason) {
     case 1: return "UNSPECIFIED";
@@ -403,10 +147,10 @@ void printDriverVersion() {
 }
 
 void configureVerboseWiFiLogging() {
-  // ESP-IDF 5.5.5 + Arduino-ESP32 3.3.12 expose the Wi-Fi driver's normal
-  // ESP_LOG stream. Runtime verbosity is preferable to calling undocumented
-  // internal Wi-Fi logging functions.
+  // ESP-IDF documents per-component runtime log control. We deliberately use
+  // only the public logging API; no internal Wi-Fi logging functions.
   esp_log_level_set("wifi", ESP_LOG_VERBOSE);
+  esp_log_level_set("wpa", ESP_LOG_DEBUG);
 }
 
 void printConnectionDiagnostics() {
@@ -831,10 +575,7 @@ void scan() {
     // asynchronous state transition.
     WiFi.disconnect(false, false);
     delay(100);
-    WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(false);
-    WiFi.setAutoReconnect(false);
-    clearTransientStationConfig();
     return;
   }
 
@@ -1077,32 +818,34 @@ void menu() {
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
 
-  // The application owns persistent Wi-Fi credentials in the "wifi"
-  // Preferences namespace. Arduino-ESP32 is configured below with
-  // persistent(false), so the ESP-IDF Wi-Fi driver configuration is RAM-only
-  // as well. This keeps failed/test station configuration out of Wi-Fi NVS.
   Serial.println();
   Serial.println("WiFi subsystem starting...");
-  WiFi.persistent(false);
-  WiFi.setHostname(HOSTNAME);
-  // Register events before enabling STA so STA_START is not missed.
-  WiFi.onEvent(onWiFiEvent);
 
-  // Configure hostname and RAM-only Wi-Fi storage before WiFi.mode() starts
-  // the Arduino/ESP-IDF Wi-Fi stack.
+  /*
+   * Versioned baseline:
+   *   Arduino-ESP32 3.3.12
+   *   ESP-IDF 5.5.5
+   *
+   * persistent(false) is deliberately set BEFORE WiFi.mode(). Arduino-ESP32
+   * applies that setting during low-level Wi-Fi initialization and selects
+   * WIFI_STORAGE_RAM for the ESP-IDF driver configuration. Application
+   * credentials remain in this module's own Preferences namespace.
+   */
   WiFi.persistent(false);
   WiFi.setHostname(HOSTNAME);
   WiFi.setAutoReconnect(false);
+
+  // Register before WiFi.mode() so the STA_START event is observable.
+  WiFi.onEvent(onWiFiEvent);
+
   configureVerboseWiFiLogging();
   printDriverVersion();
 
-  // WiFi.mode() performs Arduino-ESP32's low-level Wi-Fi initialization.
-  // With persistent(false), that initialization selects WIFI_STORAGE_RAM
-  // before the driver is started.
   if (!WiFi.mode(WIFI_STA)) {
     Serial.println("WARNING: WiFi station mode failed to start.");
     return;
   }
+
   Serial.println("WiFi driver configuration storage: RAM (NVS writes disabled).");
 
   connect();
