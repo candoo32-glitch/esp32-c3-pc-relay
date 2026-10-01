@@ -685,6 +685,7 @@ void print() {
     }
   }
 }
+}
 
 const char* disconnectReasonName(uint8_t reason);
 
