@@ -580,10 +580,59 @@ void printStatus() {
   Serial.println();
 }
 
-bool connectWithCredentials(const String& ssid, const String& password) {
+enum class ConnectResult : uint8_t {
+  SUCCESS,
+  SSID_NOT_FOUND,
+  AUTH_EXPIRED,
+  AUTH_FAILED,
+  HANDSHAKE_FAILED,
+  CONNECTION_LOST,
+  TIMEOUT,
+  NETWORK_CONFIG_FAILED,
+  SERIAL_DISCONNECTED,
+  UNKNOWN
+};
+
+const char* connectResultName(ConnectResult result) {
+  switch (result) {
+    case ConnectResult::SUCCESS: return "SUCCESS";
+    case ConnectResult::SSID_NOT_FOUND: return "SSID_NOT_FOUND";
+    case ConnectResult::AUTH_EXPIRED: return "AUTH_EXPIRED";
+    case ConnectResult::AUTH_FAILED: return "AUTH_FAILED";
+    case ConnectResult::HANDSHAKE_FAILED: return "HANDSHAKE_FAILED";
+    case ConnectResult::CONNECTION_LOST: return "CONNECTION_LOST";
+    case ConnectResult::TIMEOUT: return "TIMEOUT";
+    case ConnectResult::NETWORK_CONFIG_FAILED: return "NETWORK_CONFIG_FAILED";
+    case ConnectResult::SERIAL_DISCONNECTED: return "SERIAL_DISCONNECTED";
+    default: return "UNKNOWN";
+  }
+}
+
+const char* disconnectReasonName(uint8_t reason) {
+  switch (reason) {
+    case 1: return "UNSPECIFIED";
+    case 2: return "AUTH_EXPIRE";
+    case 3: return "AUTH_LEAVE";
+    case 4: return "ASSOC_EXPIRE";
+    case 5: return "ASSOC_TOOMANY";
+    case 6: return "NOT_AUTHED";
+    case 7: return "NOT_ASSOCED";
+    case 8: return "ASSOC_LEAVE";
+    case 15: return "4WAY_HANDSHAKE_TIMEOUT";
+    case 23: return "IEEE802_1X_AUTH_FAILED";
+    case 24: return "CIPHER_SUITE_REJECTED";
+    case 34: return "HANDSHAKE_TIMEOUT";
+    case 53: return "INVALID_PMKID";
+    case 204: return "SAE_HASH_TO_ELEMENT";
+    case 205: return "SAE_PK";
+    default: return "UNKNOWN";
+  }
+}
+
+ConnectResult connectWithCredentials(const String& ssid, const String& password) {
   if (ssid.isEmpty()) {
     Serial.println("WiFi: not configured.");
-    return false;
+    return ConnectResult::SSID_NOT_FOUND;
   }
 
   WiFi.setHostname(HOSTNAME);
@@ -591,7 +640,7 @@ bool connectWithCredentials(const String& ssid, const String& password) {
 
   if (!NetConfig::apply()) {
     Serial.println("WiFi: network configuration failed.");
-    return false;
+    return ConnectResult::NETWORK_CONFIG_FAILED;
   }
 
   Serial.println();
@@ -605,14 +654,11 @@ bool connectWithCredentials(const String& ssid, const String& password) {
   Serial.println(password.isEmpty() ? "none (open network)" : "configured");
   Serial.print("ESP32 STA MAC: ");
   Serial.println(WiFi.macAddress());
-  Serial.println("Minimum security: WPA2-PSK");
+  Serial.println("Minimum security: not forced by firmware");
   printWPA3Support();
   Serial.println();
 
   Serial.println("[1/6] Preparing WiFi station...");
-  // A failed authentication attempt can leave the ESP32 Wi-Fi state machine
-  // in a transient state. Turn the station/radio fully off before starting
-  // every new attempt so retries begin from a known state.
   WiFi.disconnect(true, false);
   delay(150);
   WiFi.mode(WIFI_STA);
@@ -622,7 +668,7 @@ bool connectWithCredentials(const String& ssid, const String& password) {
   Serial.println("[2/6] Applying network configuration...");
   if (!NetConfig::apply()) {
     Serial.println("      FAILED: network configuration could not be applied.");
-    return false;
+    return ConnectResult::NETWORK_CONFIG_FAILED;
   }
   Serial.println("      Network configuration applied.");
 
@@ -631,14 +677,8 @@ bool connectWithCredentials(const String& ssid, const String& password) {
   disconnectEventCount = 0;
   memset((void*)lastDisconnectBSSID, 0, sizeof(lastDisconnectBSSID));
 
-  // Keep the station security floor explicit. This does not select an AP;
-  // normal WiFi.begin() below is allowed to choose the BSSID/channel.
-
   Serial.println("[3/6] Starting connection attempt...");
   if (WIFI_DIAGNOSTICS) {
-    // Espressif documents the Wi-Fi authentication path as a timed phase.
-    // DEBUG logging lets us distinguish a locally generated AUTH_EXPIRE
-    // timeout from a reason=2 deauthentication actually received from the AP.
     esp_log_level_set("wifi", ESP_LOG_DEBUG);
     esp_log_level_set("wpa", ESP_LOG_DEBUG);
     Serial.println("      WiFi diagnostic logging: DEBUG (wifi + wpa)");
@@ -667,15 +707,12 @@ bool connectWithCredentials(const String& ssid, const String& password) {
          millis() - start < CONNECT_TIMEOUT_MS) {
     delay(250);
 
-    // Do not remain blocked in a Wi-Fi operation after the USB serial
-    // session has gone away. This is especially important during a failed
-    // connection, where the loop can otherwise run for the full timeout.
     if (Console::disconnected()) {
       Serial.println("      Serial session disconnected during WiFi connection attempt.");
       Serial.println("      Aborting connection attempt.");
       WiFi.disconnect(true, false);
       delay(100);
-      return false;
+      return ConnectResult::SERIAL_DISCONNECTED;
     }
 
     const wl_status_t currentStatus = WiFi.status();
@@ -701,12 +738,11 @@ bool connectWithCredentials(const String& ssid, const String& password) {
     Serial.println("[6/6] Network address acquired.");
     printStatus();
 
-    // Commit credentials only after the AP has successfully authenticated
-    // and the station has received a network address.
     preferences.putString(SSID_KEY, ssid);
     preferences.putString(PASSWORD_KEY, password);
     Serial.println("WiFi credentials committed to NVS.");
-    return true;
+    Serial.println("Connection result: SUCCESS");
+    return ConnectResult::SUCCESS;
   }
 
   if (WIFI_DIAGNOSTICS) {
@@ -718,14 +754,19 @@ bool connectWithCredentials(const String& ssid, const String& password) {
   Serial.print("      Final WiFi status: ");
   Serial.println(static_cast<int>(finalStatus));
 
+  ConnectResult result = ConnectResult::UNKNOWN;
+
   if (disconnectEventCount != 0) {
     Serial.print("      802.11 disconnect events captured: ");
     Serial.println(static_cast<unsigned>(disconnectEventCount));
     Serial.print("      Last 802.11 disconnect reason: ");
     Serial.print(static_cast<unsigned>(lastDisconnectReason));
-    Serial.print("  RSSI: ");
+    Serial.print(" (");
+    Serial.print(disconnectReasonName(lastDisconnectReason));
+    Serial.print(")  RSSI: ");
     Serial.print(static_cast<int>(lastDisconnectRSSI));
     Serial.println(" dBm");
+
     Serial.print("      BSSID at disconnect: ");
     char disconnectBSSID[18];
     snprintf(disconnectBSSID, sizeof(disconnectBSSID),
@@ -734,28 +775,48 @@ bool connectWithCredentials(const String& ssid, const String& password) {
              lastDisconnectBSSID[2], lastDisconnectBSSID[3],
              lastDisconnectBSSID[4], lastDisconnectBSSID[5]);
     Serial.println(disconnectBSSID);
-    Serial.println("      This is the AP/802.11 reason, which is more specific than WL status 6.");
-  } else {
-    Serial.println("      No 802.11 disconnect reason was captured.");
+
+    if (lastDisconnectReason == 2) {
+      result = ConnectResult::AUTH_EXPIRED;
+      Serial.println("      Authentication response timed out.");
+      Serial.println("      Password validity: NOT DETERMINED.");
+    } else if (lastDisconnectReason == 15 ||
+               lastDisconnectReason == 34 ||
+               lastDisconnectReason == 23 ||
+               lastDisconnectReason == 24) {
+      result = ConnectResult::HANDSHAKE_FAILED;
+      Serial.println("      WPA/802.1X handshake failed.");
+      Serial.println("      Password may be incorrect, but this is not treated as proof.");
+    } else if (lastDisconnectReason == 3 ||
+               lastDisconnectReason == 8) {
+      result = ConnectResult::CONNECTION_LOST;
+    }
   }
 
-  if (finalStatus == WL_NO_SSID_AVAIL) {
-    Serial.println("      Diagnosis: SSID is not currently available.");
-  } else if (finalStatus == WL_CONNECT_FAILED) {
-    Serial.println("      Diagnosis: association/authentication failed.");
-    Serial.println("      This does NOT by itself prove the password is wrong.");
-  } else if (finalStatus == WL_CONNECTION_LOST) {
-    Serial.println("      Diagnosis: connection was established then lost.");
-  } else if (finalStatus == WL_IDLE_STATUS) {
-    Serial.println("      Diagnosis: WiFi remained idle.");
-  } else {
-    Serial.println("      Diagnosis: see final status code above.");
+  if (result == ConnectResult::UNKNOWN) {
+    if (finalStatus == WL_NO_SSID_AVAIL) {
+      result = ConnectResult::SSID_NOT_FOUND;
+      Serial.println("      Diagnosis: SSID is not currently available.");
+    } else if (finalStatus == WL_CONNECTION_LOST) {
+      result = ConnectResult::CONNECTION_LOST;
+      Serial.println("      Diagnosis: connection was established then lost.");
+    } else if (millis() - start >= CONNECT_TIMEOUT_MS) {
+      result = ConnectResult::TIMEOUT;
+      Serial.println("      Diagnosis: connection attempt timed out.");
+    } else if (finalStatus == WL_CONNECT_FAILED) {
+      result = ConnectResult::AUTH_FAILED;
+      Serial.println("      Diagnosis: association/authentication failed.");
+      Serial.println("      Password validity: NOT DETERMINED unless a WPA handshake failure is reported.");
+    } else {
+      result = ConnectResult::UNKNOWN;
+      Serial.println("      Diagnosis: see final status and 802.11 reason above.");
+    }
   }
+
+  Serial.print("      Connection result: ");
+  Serial.println(connectResultName(result));
 
   Serial.println("[6/6] Resetting WiFi after failed connection...");
-  // Fully stop the station/radio. A plain disconnect() only breaks the
-  // association; it does not guarantee that the next attempt starts with
-  // the Wi-Fi subsystem completely reset.
   if (!WiFi.disconnect(true, false)) {
     Serial.println("      WARNING: WiFi radio shutdown reported failure.");
   }
@@ -763,13 +824,12 @@ bool connectWithCredentials(const String& ssid, const String& password) {
   WiFi.mode(WIFI_STA);
   Serial.println("      WiFi station reset complete; ready for retry or rescan.");
 
-  return false;
+  return result;
 }
-
 bool connect() {
   const String ssid = preferences.getString(SSID_KEY, "");
   const String password = preferences.getString(PASSWORD_KEY, "");
-  return connectWithCredentials(ssid, password);
+  return connectWithCredentials(ssid, password) == ConnectResult::SUCCESS;
 }
 
 // Terminal table geometry.
@@ -999,7 +1059,7 @@ void scan() {
     Serial.println("Testing credentials...");
     Serial.println("Credentials will be saved only if the connection succeeds.");
 
-    if (connectWithCredentials(ssid, password)) {
+    if (connectWithCredentials(ssid, password) == ConnectResult::SUCCESS) {
       Serial.println();
       Serial.println("================================");
       Serial.println("WiFi connection SUCCESSFUL");
@@ -1033,7 +1093,7 @@ void scan() {
   Serial.println("Testing open-network credentials...");
   Serial.println("Credentials will be saved only if the connection succeeds.");
 
-  if (connectWithCredentials(ssid, "")) {
+  if (connectWithCredentials(ssid, "") == ConnectResult::SUCCESS) {
     Serial.println();
     Serial.println("================================");
     Serial.println("WiFi connection SUCCESSFUL");
