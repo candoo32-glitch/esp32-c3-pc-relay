@@ -120,10 +120,8 @@ jobs:
           echo Searching GitHub for the newest successful build on this branch...
           echo.
 
-          for /f "tokens=1,2" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch "!TARGET_BRANCH!" --status success --limit 1 --json databaseId,number --jq ".[] | [(.databaseId|tostring),(.number|tostring)] | @tsv"') do (
-              set "LATEST_RUN=%%I"
-              set "LATEST_RUN_NUMBER=%%J"
-          )
+          rem Use only databaseId here. Older GitHub CLI versions do not expose run number as a gh run list JSON field.
+          for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch "!TARGET_BRANCH!" --status success --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
 
           if not defined LATEST_RUN (
               echo ERROR: No successful build was found for branch !TARGET_BRANCH!.
@@ -131,6 +129,10 @@ jobs:
               pause
               exit /b 1
           )
+
+          rem Get the workflow run number through the GitHub API; this works with older gh CLI releases.
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!LATEST_RUN!" --jq ".run_number"') do set "LATEST_RUN_NUMBER=%%I"
+
           if not defined LATEST_RUN_NUMBER (
               echo ERROR: Could not determine the build number for run !LATEST_RUN!.
               echo.
@@ -143,32 +145,6 @@ jobs:
           echo Selected build number       : !LATEST_RUN_NUMBER!
           echo Expected artifact          : !EXPECTED_ARTIFACT_NAME!
           echo.
-
-          set "RUN_STATUS="
-          set "RUN_CONCLUSION="
-          for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json status --jq ".status"') do set "RUN_STATUS=%%I"
-          for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json conclusion --jq ".conclusion"') do set "RUN_CONCLUSION=%%I"
-
-          if not defined RUN_STATUS (
-              echo ERROR: Could not determine the status of GitHub Actions run !LATEST_RUN!.
-              echo.
-              pause
-              exit /b 1
-          )
-          if /i not "!RUN_STATUS!"=="completed" (
-              echo ERROR: Selected run !LATEST_RUN! is still !RUN_STATUS!.
-              echo Wait for a successful build and run this flasher again.
-              echo.
-              pause
-              exit /b 1
-          )
-          if /i not "!RUN_CONCLUSION!"=="success" (
-              echo ERROR: Selected run !LATEST_RUN! concluded !RUN_CONCLUSION!.
-              echo Nothing was downloaded or flashed.
-              echo.
-              pause
-              exit /b 1
-          )
 
           set "DOWNLOAD_DIR=%TEMP%\esp32-c3-relay-%RANDOM%%RANDOM%"
           set "EXTRACT_DIR=!DOWNLOAD_DIR!\extracted"
