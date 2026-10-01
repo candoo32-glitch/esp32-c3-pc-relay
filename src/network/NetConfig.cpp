@@ -18,14 +18,6 @@ constexpr char DNS2_KEY[] = "dns2";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
-// Normal WiFi operation: let the ESP32-C3 select the AP/BSSID normally.
-constexpr bool DIAGNOSTIC_PIN_BSSID = false;
-// Let the ESP32 scan for this BSSID instead of assuming its channel.
-constexpr uint8_t DIAGNOSTIC_CHANNEL = 0;
-constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
-  0x86, 0xCC, 0x9C, 0x94, 0x4E, 0x18
-};
-
 Mode mode() {
   return preferences.getUChar(MODE_KEY, static_cast<uint8_t>(Mode::DHCP))
            == static_cast<uint8_t>(Mode::STATIC)
