@@ -123,7 +123,7 @@ jobs:
           echo.
 
           :FIND_LATEST_RUN
-          for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch "!TARGET_BRANCH!" --limit 20 --json databaseId,status,conclusion --jq "map(select(.status==\"completed\" and .conclusion==\"success\"))[0].databaseId"') do set "LATEST_RUN=%%I"
+          for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch "!TARGET_BRANCH!" --limit 20 --json databaseId,status,conclusion --jq ".[] | select(.status==\"completed\" and .conclusion==\"success\") | .databaseId"') do set "LATEST_RUN=%%I"
 
           if not defined LATEST_RUN (
               echo ERROR: No successful build was found for branch !TARGET_BRANCH!.
