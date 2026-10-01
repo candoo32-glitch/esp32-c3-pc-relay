@@ -12,10 +12,14 @@ constexpr uint8_t OFF = HIGH;
 constexpr uint8_t ON  = LOW;
 
 void begin() {
+  // Relays are active-low. Set the output latch HIGH before switching the
+  // GPIOs to OUTPUT so startup cannot intentionally drive a relay ON.
   digitalWrite(Pins::POWER_RELAY, OFF);
   digitalWrite(Pins::RESET_RELAY, OFF);
   pinMode(Pins::POWER_RELAY, OUTPUT);
   pinMode(Pins::RESET_RELAY, OUTPUT);
+  digitalWrite(Pins::POWER_RELAY, OFF);
+  digitalWrite(Pins::RESET_RELAY, OFF);
 }
 }
 
@@ -163,7 +167,7 @@ bool yesNo(const char* prompt) {
 }
 }
 
-namespace Network {
+namespace NetConfig {
 Preferences preferences;
 
 constexpr char PREF_NAMESPACE[] = "network";
@@ -475,7 +479,7 @@ bool connect() {
   WiFi.setHostname(HOSTNAME);
   WiFi.mode(WIFI_STA);
 
-  if (!Network::apply()) {
+  if (!NetConfig::apply()) {
     Serial.println("WiFi: network configuration failed.");
     return false;
   }
@@ -488,7 +492,7 @@ bool connect() {
   Serial.print("SSID:      ");
   Serial.println(ssid);
   Serial.print("Mode:      ");
-  Serial.println(Network::mode() == Network::Mode::STATIC ? "STATIC" : "DHCP");
+  Serial.println(NetConfig::mode() == NetConfig::Mode::STATIC ? "STATIC" : "DHCP");
   Serial.print("Password:  ");
   Serial.println(password.isEmpty() ? "none (open network)" : "configured");
   Serial.print("ESP32 STA MAC: ");
@@ -505,7 +509,7 @@ bool connect() {
   Serial.println("      Station ready.");
 
   Serial.println("[2/6] Applying network configuration...");
-  if (!Network::apply()) {
+  if (!NetConfig::apply()) {
     Serial.println("      FAILED: network configuration could not be applied.");
     return false;
   }
@@ -521,11 +525,11 @@ bool connect() {
   WiFi.setMinSecurity(WIFI_AUTH_WPA2_PSK);
 
   Serial.println("[3/6] Starting connection attempt...");
-  if (Network::DIAGNOSTIC_PIN_BSSID) {
+  if (NetConfig::DIAGNOSTIC_PIN_BSSID) {
     Serial.println("      DIAGNOSTIC: pinning to BSSID 86:CC:9C:94:4E:18");
     Serial.println("      DIAGNOSTIC: channel 1, bypassing mesh AP selection");
     WiFi.begin(ssid.c_str(), password.c_str(),
-               Network::DIAGNOSTIC_CHANNEL, Network::DIAGNOSTIC_BSSID, true);
+               NetConfig::DIAGNOSTIC_CHANNEL, NetConfig::DIAGNOSTIC_BSSID, true);
   } else {
     WiFi.begin(ssid.c_str(), password.c_str());
   }
@@ -710,7 +714,7 @@ void scan() {
   Serial.println("Scanning nearby networks...");
 
   // WiFi setup through scanning always uses DHCP.
-  Network::configureDHCP();
+  NetConfig::configureDHCP();
 
   // Always start a fresh scan from a clean STA state. This is especially
   // important after a failed password/connection attempt, which can leave
@@ -823,7 +827,7 @@ void scan() {
     WiFi.scanDelete();
 
     // Selecting a network from a scan always uses DHCP for the connection.
-    Network::configureDHCP();
+    NetConfig::configureDHCP();
     preferences.putString(SSID_KEY, ssid);
     preferences.putString(PASSWORD_KEY, password);
 
@@ -860,7 +864,7 @@ void scan() {
   
   // Selecting a network from a scan always uses DHCP for the connection.
   WiFi.scanDelete();
-  Network::configureDHCP();
+  NetConfig::configureDHCP();
   preferences.putString(SSID_KEY, ssid);
   preferences.putString(PASSWORD_KEY, "");
 
@@ -903,7 +907,7 @@ void setupCredentials() {
   if (Console::disconnected()) return;
 
   // Entering SSID/password always starts from DHCP.
-  Network::configureDHCP();
+  NetConfig::configureDHCP();
 
   if (ssid.isEmpty()) {
     Serial.println("WiFi: SSID cannot be empty. Nothing was changed.");
@@ -994,7 +998,7 @@ void menu() {
     if (choice == "1") {
       WiFiControl::menu();
     } else if (choice == "2") {
-      Network::menu();
+      NetConfig::menu();
     } else if (choice == "B") {
       return;
     } else {
@@ -1045,7 +1049,7 @@ void showStatus() {
     Serial.println("=============");
   }
   WiFiControl::printStatus();
-  Network::printSettings();
+  NetConfig::printSettings();
 }
 
 void loop() {
@@ -1094,7 +1098,7 @@ void setup() {
 
   Console::begin();
 
-  Network::begin();
+  NetConfig::begin();
   WiFiControl::begin();
 
   Serial.println();
