@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <stdarg.h>
 #include <Preferences.h>
 #include <WiFi.h>
 #include "esp_log.h"
@@ -591,7 +592,97 @@ constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
+
 constexpr bool WIFI_DIAGNOSTICS = true;
+
+// Capture the ESP-IDF Wi-Fi/WPA log stream during a diagnostic attempt.
+// The normal ESP-IDF vprintf handler is still called, so these messages remain
+// visible on the serial console. The ring buffer gives us a second copy after
+// the attempt, even if the live output scrolls past too quickly.
+namespace WiFiRawLog {
+constexpr size_t MAX_ENTRIES = 96;
+constexpr size_t MAX_ENTRY_LENGTH = 256;
+
+struct Entry {
+  uint32_t timestamp;
+  char text[MAX_ENTRY_LENGTH];
+};
+
+Entry entries[MAX_ENTRIES];
+volatile size_t count = 0;
+vprintf_like_t previousHandler = nullptr;
+portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+
+int captureVprintf(const char* format, va_list args) {
+  char line[MAX_ENTRY_LENGTH];
+  va_list copy;
+  va_copy(copy, args);
+  const int result = vsnprintf(line, sizeof(line), format, copy);
+  va_end(copy);
+
+  portENTER_CRITICAL(&mux);
+  if (count < MAX_ENTRIES) {
+    entries[count].timestamp = millis();
+    strncpy(entries[count].text, line, MAX_ENTRY_LENGTH - 1);
+    entries[count].text[MAX_ENTRY_LENGTH - 1] = '\\0';
+    ++count;
+  } else {
+    // Keep the newest diagnostics when the buffer fills.
+    for (size_t i = 1; i < MAX_ENTRIES; ++i) {
+      entries[i - 1] = entries[i];
+    }
+    entries[MAX_ENTRIES - 1].timestamp = millis();
+    strncpy(entries[MAX_ENTRIES - 1].text, line, MAX_ENTRY_LENGTH - 1);
+    entries[MAX_ENTRIES - 1].text[MAX_ENTRY_LENGTH - 1] = '\\0';
+  }
+  portEXIT_CRITICAL(&mux);
+
+  if (previousHandler != nullptr) {
+    va_list forward;
+    va_copy(forward, args);
+    const int forwarded = previousHandler(format, forward);
+    va_end(forward);
+    return forwarded;
+  }
+
+  return result;
+}
+
+void begin() {
+  count = 0;
+  previousHandler = esp_log_set_vprintf(captureVprintf);
+}
+
+void end() {
+  if (previousHandler != nullptr) {
+    esp_log_set_vprintf(previousHandler);
+    previousHandler = nullptr;
+  }
+}
+
+void print() {
+  Serial.println();
+  Serial.println("      Raw ESP-IDF WiFi/WPA log capture:");
+  if (count == 0) {
+    Serial.println("      <no wifi/wpa log records were emitted>");
+    return;
+  }
+
+  portENTER_CRITICAL(&mux);
+  const size_t captured = count;
+  for (size_t i = 0; i < captured; ++i) {
+    Serial.print("      [");
+    Serial.print(entries[i].timestamp);
+    Serial.print(" ms] ");
+    Serial.print(entries[i].text);
+    if (entries[i].text[0] != '\\0' &&
+        entries[i].text[strlen(entries[i].text) - 1] != '\\n') {
+      Serial.println();
+    }
+  }
+  portEXIT_CRITICAL(&mux);
+}
+}
 
 const char* disconnectReasonName(uint8_t reason);
 
@@ -936,9 +1027,11 @@ ConnectResult connectWithCredentials(const String& ssid,
   printStationSecurityConfig();
 
   if (WIFI_DIAGNOSTICS) {
-    esp_log_level_set("wifi", ESP_LOG_DEBUG);
-    esp_log_level_set("wpa", ESP_LOG_DEBUG);
-    Serial.println("      WiFi diagnostic logging: DEBUG (wifi + wpa)");
+    WiFiRawLog::begin();
+    esp_log_level_set("wifi", ESP_LOG_VERBOSE);
+    esp_log_level_set("wpa", ESP_LOG_VERBOSE);
+    Serial.println("      WiFi diagnostic logging: VERBOSE (wifi + wpa)");
+    Serial.println("      Raw ESP-IDF log capture: ENABLED");
   }
 
   // Always pin the connection to the AP we actually selected. This removes
@@ -985,6 +1078,7 @@ ConnectResult connectWithCredentials(const String& ssid,
     if (WIFI_DIAGNOSTICS) {
       esp_log_level_set("wifi", ESP_LOG_INFO);
       esp_log_level_set("wpa", ESP_LOG_INFO);
+      WiFiRawLog::end();
     }
 
     Serial.println("[5/6] Associated and authenticated.");
@@ -1007,6 +1101,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (WIFI_DIAGNOSTICS) {
     esp_log_level_set("wifi", ESP_LOG_INFO);
     esp_log_level_set("wpa", ESP_LOG_INFO);
+    WiFiRawLog::end();
   }
 
   Serial.println("[5/6] Connection attempt did not complete.");
@@ -1076,6 +1171,9 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.println(connectResultName(result));
 
   printWiFiEventTrace();
+  if (WIFI_DIAGNOSTICS) {
+    WiFiRawLog::print();
+  }
 
   Serial.println("[6/6] Resetting WiFi after failed connection...");
   if (!WiFi.disconnect(true, false)) {
