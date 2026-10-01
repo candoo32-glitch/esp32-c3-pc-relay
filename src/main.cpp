@@ -720,6 +720,79 @@ void printStatus() {
   Serial.println();
 }
 
+struct TargetAP {
+  bool valid = false;
+  int32_t channel = 0;
+  int8_t rssi = -127;
+  uint8_t bssid[6] = {0, 0, 0, 0, 0, 0};
+  wifi_auth_mode_t auth = WIFI_AUTH_OPEN;
+};
+
+void printTargetAP(const TargetAP& target) {
+  if (!target.valid) {
+    Serial.println("      Target AP: none");
+    return;
+  }
+
+  Serial.printf("      Target AP: %02X:%02X:%02X:%02X:%02X:%02X  CH %ld  RSSI %d dBm  %s\n",
+                target.bssid[0], target.bssid[1], target.bssid[2],
+                target.bssid[3], target.bssid[4], target.bssid[5],
+                static_cast<long>(target.channel),
+                static_cast<int>(target.rssi),
+                authModeName(target.auth));
+}
+
+bool findStrongestAP(const String& ssid, TargetAP& target) {
+  target = TargetAP{};
+
+  Serial.println("      Scanning for matching access points...");
+  WiFi.scanDelete();
+  WiFi.mode(WIFI_STA);
+  delay(50);
+  WiFi.disconnect(false, false);
+  delay(100);
+
+  const int count = WiFi.scanNetworks();
+  if (count < 0) {
+    Serial.println("      ERROR: WiFi scan failed while resolving target AP.");
+    WiFi.scanDelete();
+    return false;
+  }
+
+  for (int i = 0; i < count; ++i) {
+    if (WiFi.SSID(i) != ssid) {
+      continue;
+    }
+
+    const int8_t rssi = WiFi.RSSI(i);
+    if (!target.valid || rssi > target.rssi) {
+      target.valid = true;
+      target.channel = WiFi.channel(i);
+      target.rssi = rssi;
+      target.auth = WiFi.encryptionType(i);
+
+      const uint8_t* bssid = WiFi.BSSID(i);
+      if (bssid != nullptr) {
+        memcpy(target.bssid, bssid, 6);
+      } else {
+        target.valid = false;
+      }
+    }
+  }
+
+  WiFi.scanDelete();
+
+  if (!target.valid) {
+    Serial.print("      No matching AP found for SSID: ");
+    Serial.println(ssid);
+    return false;
+  }
+
+  Serial.println("      Strongest matching AP selected:");
+  printTargetAP(target);
+  return true;
+}
+
 enum class ConnectResult : uint8_t {
   SUCCESS,
   SSID_NOT_FOUND,
@@ -769,10 +842,36 @@ const char* disconnectReasonName(uint8_t reason) {
   }
 }
 
-ConnectResult connectWithCredentials(const String& ssid, const String& password) {
+ConnectResult connectWithCredentials(const String& ssid,
+                                      const String& password,
+                                      const TargetAP* requestedTarget = nullptr) {
   if (ssid.isEmpty()) {
     Serial.println("WiFi: not configured.");
     return ConnectResult::SSID_NOT_FOUND;
+  }
+
+  // This connection routine is deliberately single-attempt. Arduino-ESP32
+  // normally performs an implicit retry after the first disconnect; the
+  // build-time STA patch makes that retry honor this setting.
+  const bool previousAutoReconnect = WiFi.getAutoReconnect();
+  WiFi.setAutoReconnect(false);
+
+  TargetAP target;
+  if (requestedTarget != nullptr && requestedTarget->valid) {
+    target = *requestedTarget;
+    Serial.println();
+    Serial.println("WiFi connection target");
+    Serial.println("----------------------");
+    Serial.println("Using AP selected by the scan; BSSID/channel are pinned for this attempt.");
+  } else {
+    Serial.println();
+    Serial.println("WiFi connection target");
+    Serial.println("----------------------");
+    Serial.println("No AP was supplied by the caller; resolving the strongest matching BSSID.");
+    if (!findStrongestAP(ssid, target)) {
+      WiFi.setAutoReconnect(previousAutoReconnect);
+      return ConnectResult::SSID_NOT_FOUND;
+    }
   }
 
   WiFi.setHostname(HOSTNAME);
@@ -780,6 +879,7 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
 
   if (!NetConfig::apply()) {
     Serial.println("WiFi: network configuration failed.");
+    WiFi.setAutoReconnect(previousAutoReconnect);
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
 
@@ -803,9 +903,6 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
   WiFi.disconnect(true, false);
   delay(150);
 
-  // Start a fresh event trace before bringing the STA back up. This ensures
-  // STA_START belongs to this connection attempt rather than the previous
-  // WiFi reset.
   lastDisconnectReason = 0;
   lastDisconnectRSSI = 0;
   disconnectEventCount = 0;
@@ -814,18 +911,18 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
 
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(HOSTNAME);
+  WiFi.setAutoReconnect(false);
   Serial.println("      Station reset and ready.");
+  Serial.println("      Automatic reconnect: DISABLED for this attempt.");
 
   Serial.println("[2/6] Applying network configuration...");
   if (!NetConfig::apply()) {
     Serial.println("      FAILED: network configuration could not be applied.");
+    WiFi.setAutoReconnect(previousAutoReconnect);
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
   Serial.println("      Network configuration applied.");
 
-  // Arduino-ESP32 defaults its STA minimum security policy to WPA2-PSK.
-  // Make the policy explicit for every attempt. An open-network test must
-  // explicitly allow OPEN, while password-authenticated tests retain WPA2-PSK.
   const wifi_auth_mode_t minimumSecurity =
       password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
   WiFi.setMinSecurity(minimumSecurity);
@@ -833,37 +930,32 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
   Serial.println("[3/6] Starting connection attempt...");
   Serial.print("      Configured minimum security: ");
   Serial.println(authModeName(minimumSecurity));
+  printTargetAP(target);
+  Serial.println("      BSSID/channel pinning: ENABLED");
   Serial.println("      Station security configuration before WiFi.begin():");
   printStationSecurityConfig();
+
   if (WIFI_DIAGNOSTICS) {
     esp_log_level_set("wifi", ESP_LOG_DEBUG);
     esp_log_level_set("wpa", ESP_LOG_DEBUG);
     Serial.println("      WiFi diagnostic logging: DEBUG (wifi + wpa)");
   }
-  if (NetConfig::DIAGNOSTIC_PIN_BSSID) {
-    Serial.println("      DIAGNOSTIC: BSSID/channel pinning enabled");
-    Serial.printf("      DIAGNOSTIC: BSSID %02X:%02X:%02X:%02X:%02X:%02X, channel %u (0=scan)\n",
-                  NetConfig::DIAGNOSTIC_BSSID[0], NetConfig::DIAGNOSTIC_BSSID[1],
-                  NetConfig::DIAGNOSTIC_BSSID[2], NetConfig::DIAGNOSTIC_BSSID[3],
-                  NetConfig::DIAGNOSTIC_BSSID[4], NetConfig::DIAGNOSTIC_BSSID[5],
-                  NetConfig::DIAGNOSTIC_CHANNEL);
-    WiFi.begin(ssid.c_str(), password.c_str(),
-               NetConfig::DIAGNOSTIC_CHANNEL, NetConfig::DIAGNOSTIC_BSSID, true);
-  } else {
-    Serial.println("      Normal AP selection: no BSSID/channel pinning");
-    WiFi.begin(ssid.c_str(), password.c_str());
-  }
+
+  // Always pin the connection to the AP we actually selected. This removes
+  // mesh/BSSID selection as a variable in authentication diagnostics.
+  WiFi.begin(ssid.c_str(), password.c_str(),
+             target.channel, target.bssid, true);
   Serial.println("      WiFi.begin() accepted.");
   Serial.println("      Station security configuration after WiFi.begin():");
   printStationSecurityConfig();
 
   Serial.println("[4/6] Waiting for association/authentication...");
-  const uint32_t start = millis();
+  const uint32_t startTime = millis();
   wl_status_t lastStatus = WiFi.status();
-  uint32_t lastReport = start;
+  uint32_t lastReport = startTime;
 
   while (WiFi.status() != WL_CONNECTED &&
-         millis() - start < CONNECT_TIMEOUT_MS) {
+         millis() - startTime < CONNECT_TIMEOUT_MS) {
     delay(250);
 
     if (Console::disconnected()) {
@@ -871,6 +963,7 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
       Serial.println("      Aborting connection attempt.");
       WiFi.disconnect(true, false);
       delay(100);
+      WiFi.setAutoReconnect(previousAutoReconnect);
       return ConnectResult::SERIAL_DISCONNECTED;
     }
 
@@ -879,7 +972,7 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
       Serial.print("      status=");
       Serial.print(static_cast<int>(currentStatus));
       Serial.print("  elapsed=");
-      Serial.print((millis() - start) / 1000);
+      Serial.print((millis() - startTime) / 1000);
       Serial.println("s");
       lastStatus = currentStatus;
       lastReport = millis();
@@ -893,7 +986,12 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
       esp_log_level_set("wifi", ESP_LOG_INFO);
       esp_log_level_set("wpa", ESP_LOG_INFO);
     }
+
     Serial.println("[5/6] Associated and authenticated.");
+    Serial.print("      Connected BSSID: ");
+    Serial.println(WiFi.BSSIDstr());
+    Serial.print("      Connected channel: ");
+    Serial.println(WiFi.channel());
     Serial.println("[6/6] Network address acquired.");
     printStatus();
 
@@ -901,6 +999,8 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
     preferences.putString(PASSWORD_KEY, password);
     Serial.println("WiFi credentials committed to NVS.");
     Serial.println("Connection result: SUCCESS");
+
+    WiFi.setAutoReconnect(previousAutoReconnect);
     return ConnectResult::SUCCESS;
   }
 
@@ -959,7 +1059,7 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
     } else if (finalStatus == WL_CONNECTION_LOST) {
       result = ConnectResult::CONNECTION_LOST;
       Serial.println("      Diagnosis: connection was established then lost.");
-    } else if (millis() - start >= CONNECT_TIMEOUT_MS) {
+    } else if (millis() - startTime >= CONNECT_TIMEOUT_MS) {
       result = ConnectResult::TIMEOUT;
       Serial.println("      Diagnosis: connection attempt timed out.");
     } else if (finalStatus == WL_CONNECT_FAILED) {
@@ -983,6 +1083,7 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
   }
   delay(150);
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(previousAutoReconnect);
   Serial.println("      WiFi station reset complete; ready for retry or rescan.");
 
   return result;
@@ -1173,6 +1274,18 @@ void scan() {
   String ssid = WiFi.SSID(index);
   wifi_auth_mode_t encryption = WiFi.encryptionType(index);
 
+  TargetAP selectedTarget;
+  selectedTarget.valid = true;
+  selectedTarget.channel = WiFi.channel(index);
+  selectedTarget.rssi = WiFi.RSSI(index);
+  selectedTarget.auth = encryption;
+  const uint8_t* selectedBSSID = WiFi.BSSID(index);
+  if (selectedBSSID == nullptr) {
+    selectedTarget.valid = false;
+  } else {
+    memcpy(selectedTarget.bssid, selectedBSSID, 6);
+  }
+
   Serial.println();
   Serial.print("Selected SSID: ");
   Serial.println(ssid);
@@ -1220,7 +1333,7 @@ void scan() {
     Serial.println("Testing credentials...");
     Serial.println("Credentials will be saved only if the connection succeeds.");
 
-    if (connectWithCredentials(ssid, password) == ConnectResult::SUCCESS) {
+    if (connectWithCredentials(ssid, password, &selectedTarget) == ConnectResult::SUCCESS) {
       Serial.println();
       Serial.println("================================");
       Serial.println("WiFi connection SUCCESSFUL");
@@ -1254,7 +1367,7 @@ void scan() {
   Serial.println("Testing open-network credentials...");
   Serial.println("Credentials will be saved only if the connection succeeds.");
 
-  if (connectWithCredentials(ssid, "") == ConnectResult::SUCCESS) {
+  if (connectWithCredentials(ssid, "", &selectedTarget) == ConnectResult::SUCCESS) {
     Serial.println();
     Serial.println("================================");
     Serial.println("WiFi connection SUCCESSFUL");
