@@ -1,0 +1,81 @@
+# ESP32-C3 PC Relay — Iteration Log
+
+This log records engineering iterations as evidence-bearing changes. A build number is not treated as proof of hardware behavior; hardware results are recorded separately from source/build results.
+
+## 122 — Wi-Fi/NVS isolation and reset audit
+
+**Base:** Build/commit immediately before this refactor: Wi-Fi reset/NVS audit commit `e96612a5a47af9578ef63ee4ef92cb339e6c6602`.
+
+**Source change already completed before this documentation/refactor:**
+- Set ESP-IDF Wi-Fi driver configuration storage to RAM.
+- Added explicit transient station-config cleanup after failed attempts.
+- Removed the destructive `WiFi.disconnect(true, false)` scan-failure path.
+- Disabled automatic connect/reconnect for connection transactions.
+- Corrected hostname initialization ordering.
+- Reduced redundant DHCP NVS writes.
+
+**Reason:** `esp_wifi_set_config()` normally uses persistent Wi-Fi storage. The application separately owns credentials in Preferences, so the driver needed to be isolated from NVS to preserve the application's last known-good credentials across failed tests.
+
+**Verification state:** GitHub Actions Build 122 was queued when this record was started. Do not mark hardware behavior as verified until the board is flashed and the serial log is captured.
+
+## 121 — Menu transaction boundary
+
+**Goal:** prevent stale CR/LF/control bytes from a Wi-Fi transaction from becoming a command in the next menu.
+
+**Change:** menu input was made line-transaction based and a console RX synchronization step was added after Wi-Fi attempts.
+
+**Evidence:** Build 121 GitHub Actions run `36867686473` succeeded.
+
+**Hardware result:** record the board result separately; source/build success does not prove the menu race is fixed under the user's terminal/USB conditions.
+
+## 120 — Clean unpinned Wi-Fi station attempt
+
+**Goal:** remove accidental BSSID pinning from the raw ESP-IDF station test.
+
+**Change:** normal operation uses channel 0, `bssid_set=0`, and normal AP selection; diagnostic BSSID pinning remains disabled.
+
+**Evidence:** Build 120 GitHub Actions run `36864093355` succeeded.
+
+**Observed diagnostic context:** the test AP was visible at approximately -36 to -38 dBm; repeated failures reported `WIFI_REASON_AUTH_EXPIRE` (reason 2). Those observations establish the reported failure mode, not its root cause.
+
+## 119 — Remove accidental BSSID pinning
+
+**Goal:** stop the diagnostic path from unintentionally forcing a BSSID when normal operation was intended to be unpinned.
+
+**Result:** source was corrected; later Build 120 was used as the clean unpinned baseline.
+
+## 118 — Character-driven fixed menus
+
+**Goal:** reduce menu ambiguity by restricting fixed menus to their known command set.
+
+**Result:** later testing showed the race could still occur, so this was not treated as a final fix.
+
+## 117 — Menu arming experiment
+
+**Goal:** prevent stale input from immediately triggering a menu after a Wi-Fi transaction.
+
+**Result:** the implementation discarded printable input in the arming window and was therefore not accepted as a final solution.
+
+## 115 — Ignore empty menu lines
+
+**Goal:** prevent CR/LF artifacts from generating an empty/unknown menu selection.
+
+**Result:** did not fully solve the observed race.
+
+## 114 — Raw ESP-IDF Wi-Fi path
+
+**Goal:** establish whether Arduino's `WiFi.begin()` wrapper was involved in the authentication failure.
+
+**Result:** the raw ESP-IDF path demonstrated that the Arduino `WiFi.begin()` wrapper was out of the connection path.
+
+## Record-keeping rule going forward
+
+Every iteration should add a dated record before or with the source change. Each record must distinguish:
+
+- **intent** — what we changed;
+- **source evidence** — what code/build inspection proves;
+- **hardware evidence** — what the board actually did;
+- **hypothesis** — what is suspected but not proven;
+- **next test** — the smallest test that distinguishes the remaining possibilities.
+
+Never rewrite an old iteration to make it look successful in hindsight. Correct the record with a new dated note if later evidence changes the interpretation.
