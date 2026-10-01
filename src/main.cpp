@@ -181,10 +181,10 @@ constexpr char DNS2_KEY[] = "dns2";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
-// Temporary WiFi diagnostic: force the connection attempt to the strongest
-// Orbi access point observed during the scan. This is intentionally not the
-// normal mesh behavior; disable it after the diagnostic test.
-constexpr bool DIAGNOSTIC_PIN_BSSID = true;
+// Normal WiFi operation: allow the ESP32 station to select the AP/BSSID.
+ // Keep the optional BSSID/channel diagnostic available, but disabled by
+ // default so credentials are tested independently of a specific access point.
+constexpr bool DIAGNOSTIC_PIN_BSSID = false;
 constexpr uint8_t DIAGNOSTIC_CHANNEL = 1;
 constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
   0x86, 0xCC, 0x9C, 0x94, 0x4E, 0x18
@@ -520,17 +520,21 @@ bool connect() {
   disconnectEventCount = 0;
   memset((void*)lastDisconnectBSSID, 0, sizeof(lastDisconnectBSSID));
 
-  // The scan already reports this AP as WPA2-PSK. Keep the station threshold
-  // explicit so the diagnostic is not affected by a weaker security mode.
-  WiFi.setMinSecurity(WIFI_AUTH_WPA2_PSK);
+  // Keep the station security floor explicit. This does not select an AP;
+  // normal WiFi.begin() below is allowed to choose the BSSID/channel.
 
   Serial.println("[3/6] Starting connection attempt...");
   if (NetConfig::DIAGNOSTIC_PIN_BSSID) {
-    Serial.println("      DIAGNOSTIC: pinning to BSSID 86:CC:9C:94:4E:18");
-    Serial.println("      DIAGNOSTIC: channel 1, bypassing mesh AP selection");
+    Serial.println("      DIAGNOSTIC: BSSID/channel pinning enabled");
+    Serial.printf("      DIAGNOSTIC: BSSID %02X:%02X:%02X:%02X:%02X:%02X, channel %u\n",
+                  NetConfig::DIAGNOSTIC_BSSID[0], NetConfig::DIAGNOSTIC_BSSID[1],
+                  NetConfig::DIAGNOSTIC_BSSID[2], NetConfig::DIAGNOSTIC_BSSID[3],
+                  NetConfig::DIAGNOSTIC_BSSID[4], NetConfig::DIAGNOSTIC_BSSID[5],
+                  NetConfig::DIAGNOSTIC_CHANNEL);
     WiFi.begin(ssid.c_str(), password.c_str(),
                NetConfig::DIAGNOSTIC_CHANNEL, NetConfig::DIAGNOSTIC_BSSID, true);
   } else {
+    Serial.println("      Normal AP selection: no BSSID/channel pinning");
     WiFi.begin(ssid.c_str(), password.c_str());
   }
   Serial.println("      WiFi.begin() accepted.");
@@ -858,9 +862,8 @@ void scan() {
   }
 
   // Keep the selected AP details visible through the credential prompt.
-  // The temporary diagnostic pin is applied inside connect(), not saved with
-  // the credentials. Normal mesh roaming can be restored by setting
-  // DIAGNOSTIC_PIN_BSSID to false after this test.
+  // The selected BSSID is diagnostic information only; credentials are not
+  // bound to that AP, so normal mesh/AP selection remains available.
   
   // Selecting a network from a scan always uses DHCP for the connection.
   WiFi.scanDelete();
