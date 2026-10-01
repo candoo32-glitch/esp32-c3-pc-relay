@@ -26,7 +26,6 @@ OLD_FIRST_RECONNECT_RE = re.compile(
 def replace_first_reconnect(match: re.Match) -> str:
     indent = match.group(1)
     return (
-    return (
         indent + "} else if (first_connect && _sta_network_if->getAutoReconnect()) {\n"
         + indent + "  first_connect = false;\n"
         + indent + "  DoReconnect = true;\n"
