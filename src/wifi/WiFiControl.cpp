@@ -2,7 +2,9 @@
 #include <Preferences.h>
 #include <WiFi.h>
 #include <cstring>
-#include "esp_wifi.h"
+#include "esp_log.h"
+#include "esp_arduino_version.h"
+#include "esp_idf_version.h"
 #include "WiFiControl.h"
 #include "../interface/Console.h"
 #include "../network/NetConfig.h"
@@ -14,6 +16,7 @@ volatile uint8_t lastDisconnectReason = 0;
 volatile int8_t lastDisconnectRSSI = 0;
 volatile uint8_t disconnectEventCount = 0;
 volatile uint8_t lastDisconnectBSSID[6] = {0, 0, 0, 0, 0, 0};
+portMUX_TYPE wifiEventTraceMux = portMUX_INITIALIZER_UNLOCKED;
 
 struct WiFiEventTraceEntry {
   uint32_t elapsedMs;
@@ -40,13 +43,17 @@ const char* wifiEventName(arduino_event_id_t eventId) {
 }
 
 void resetWiFiEventTrace() {
+  portENTER_CRITICAL(&wifiEventTraceMux);
   wifiEventTraceCount = 0;
   memset((void*)wifiEventTrace, 0, sizeof(wifiEventTrace));
+  portEXIT_CRITICAL(&wifiEventTraceMux);
 }
 
 void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
   const arduino_event_id_t eventId =
       static_cast<arduino_event_id_t>(event);
+
+  portENTER_CRITICAL(&wifiEventTraceMux);
 
   if (wifiEventTraceCount < WIFI_EVENT_TRACE_MAX) {
     const uint8_t index = wifiEventTraceCount++;
@@ -64,6 +71,8 @@ void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
     memcpy((void*)lastDisconnectBSSID, info.wifi_sta_disconnected.bssid, 6);
     ++disconnectEventCount;
   }
+
+  portEXIT_CRITICAL(&wifiEventTraceMux);
 }
 
 const char* authModeName(wifi_auth_mode_t authMode) {
@@ -352,263 +361,6 @@ void print() {
 }
 }
 
-const char* disconnectReasonName(uint8_t reason);
-
-const char* pmfModeName(const wifi_pmf_config_t& pmf) {
-  if (pmf.required) return "REQUIRED";
-  if (pmf.capable) return "OPTIONAL";
-  return "DISABLED";
-}
-
-void printStationSecurityConfig() {
-  wifi_config_t config = {};
-  const esp_err_t err = esp_wifi_get_config(WIFI_IF_STA, &config);
-
-  if (err != ESP_OK) {
-    Serial.print("Station security config: unavailable (");
-    Serial.print(esp_err_to_name(err));
-    Serial.println(")");
-    return;
-  }
-
-  Serial.print("Station auth threshold: ");
-  Serial.println(authModeName(config.sta.threshold.authmode));
-  Serial.print("Station PMF: ");
-  Serial.println(pmfModeName(config.sta.pmf_cfg));
-  Serial.print("Station BSSID pinning: ");
-  Serial.println(config.sta.bssid_set ? "ENABLED" : "disabled");
-  Serial.print("Station channel hint: ");
-  Serial.println(config.sta.channel);
-}
-
-void printWiFiEventTrace() {
-  Serial.println();
-  Serial.println("WiFi event sequence");
-  Serial.println("-------------------");
-
-  if (wifiEventTraceCount == 0) {
-    Serial.println("No Arduino WiFi events captured.");
-    return;
-  }
-
-  for (uint8_t i = 0; i < wifiEventTraceCount; ++i) {
-    Serial.print("  +");
-    Serial.print(wifiEventTrace[i].elapsedMs);
-    Serial.print(" ms  ");
-    Serial.print(wifiEventName(wifiEventTrace[i].eventId));
-
-    if (wifiEventTrace[i].eventId == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
-      Serial.print("  reason=");
-      Serial.print(wifiEventTrace[i].reason);
-      Serial.print(" (");
-      Serial.print(disconnectReasonName(wifiEventTrace[i].reason));
-      Serial.print(")");
-    }
-
-    Serial.println();
-  }
-
-  bool sawStart = false;
-  bool sawConnected = false;
-  bool sawAuthModeChange = false;
-  bool sawGotIP = false;
-
-  for (uint8_t i = 0; i < wifiEventTraceCount; ++i) {
-    switch (wifiEventTrace[i].eventId) {
-      case ARDUINO_EVENT_WIFI_STA_START:
-        sawStart = true;
-        break;
-      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-        sawConnected = true;
-        break;
-      case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
-        sawAuthModeChange = true;
-        break;
-      case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-        sawGotIP = true;
-        break;
-      default:
-        break;
-    }
-  }
-
-  Serial.println();
-  Serial.print("  STA_START seen:            ");
-  Serial.println(sawStart ? "YES" : "NO");
-  Serial.print("  STA_CONNECTED seen:        ");
-  Serial.println(sawConnected ? "YES" : "NO");
-  Serial.print("  STA_AUTHMODE_CHANGE seen:  ");
-  Serial.println(sawAuthModeChange ? "YES" : "NO");
-  Serial.print("  STA_GOT_IP seen:            ");
-  Serial.println(sawGotIP ? "YES" : "NO");
-
-  if (!sawConnected) {
-    Serial.println("  Diagnostic: STA never reached the connected/association event.");
-  } else if (!sawGotIP) {
-    Serial.println("  Diagnostic: association event occurred, but IPv4 was not acquired.");
-  }
-}
-
-void printStatus() {
-  Serial.println();
-  Serial.println("WiFi status");
-  Serial.println("-----------");
-
-  Serial.print("State: ");
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("CONNECTED");
-    Serial.print("SSID: ");
-    Serial.println(WiFi.SSID());
-    Serial.print("IP: ");
-    Serial.println(WiFi.localIP());
-    Serial.print("Gateway: ");
-    Serial.println(WiFi.gatewayIP());
-    Serial.print("Subnet: ");
-    Serial.println(WiFi.subnetMask());
-    Serial.print("DNS: ");
-    Serial.println(WiFi.dnsIP());
-    Serial.print("RSSI: ");
-    Serial.print(WiFi.RSSI());
-    Serial.println(" dBm");
-  } else {
-    Serial.print("NOT CONNECTED (status=");
-    Serial.print(static_cast<int>(WiFi.status()));
-    Serial.println(")");
-  }
-
-  Serial.println();
-}
-
-struct TargetAP {
-  bool valid = false;
-  int32_t channel = 0;
-  int8_t rssi = -127;
-  uint8_t bssid[6] = {0, 0, 0, 0, 0, 0};
-  wifi_auth_mode_t auth = WIFI_AUTH_OPEN;
-};
-
-void printTargetAP(const TargetAP& target) {
-  if (!target.valid) {
-    Serial.println("      Target AP: none");
-    return;
-  }
-
-  Serial.printf("      Target AP: %02X:%02X:%02X:%02X:%02X:%02X  CH %ld  RSSI %d dBm  %s\n",
-                target.bssid[0], target.bssid[1], target.bssid[2],
-                target.bssid[3], target.bssid[4], target.bssid[5],
-                static_cast<long>(target.channel),
-                static_cast<int>(target.rssi),
-                authModeName(target.auth));}
-
-bool findStrongestAP(const String& ssid, TargetAP& target) {
-  target = TargetAP{};
-
-  Serial.println("      Scanning for matching access points...");
-  WiFi.scanDelete();
-  WiFi.mode(WIFI_STA);
-  delay(50);
-  WiFi.disconnect(false, false);
-  delay(100);
-
-  const int count = WiFi.scanNetworks();
-  if (count < 0) {
-    Serial.println("      ERROR: WiFi scan failed while resolving target AP.");
-    WiFi.scanDelete();
-    return false;
-  }
-
-  for (int i = 0; i < count; ++i) {
-    if (WiFi.SSID(i) != ssid) {
-      continue;
-    }
-
-    const int8_t rssi = WiFi.RSSI(i);
-    if (!target.valid || rssi > target.rssi) {
-      target.valid = true;
-      target.channel = WiFi.channel(i);
-      target.rssi = rssi;
-      target.auth = WiFi.encryptionType(i);
-
-      const uint8_t* bssid = WiFi.BSSID(i);
-      if (bssid != nullptr) {
-        memcpy(target.bssid, bssid, 6);
-      } else {
-        target.valid = false;
-      }
-    }
-  }
-
-  WiFi.scanDelete();
-
-  if (!target.valid) {
-    Serial.print("      No matching AP found for SSID: ");
-    Serial.println(ssid);
-    return false;
-  }
-
-  Serial.println("      Strongest matching AP selected:");
-  printTargetAP(target);
-  return true;
-}
-
-// Clear the in-memory station configuration after an unsuccessful
-// connection. This does NOT erase application NVS and does NOT call
-// WiFi.disconnect(..., true), which Arduino documents as an NVS erase.
-//
-// Wi-Fi driver configuration is RAM-only in this application, so this clears
-// the failed attempt's SSID/password/BSSID from the driver state as well.
-bool clearTransientStationConfig() {
-  wifi_config_t emptyConfig = {};
-  emptyConfig.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
-  emptyConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
-  emptyConfig.sta.threshold.rssi = -127;
-  emptyConfig.sta.threshold.authmode = WIFI_AUTH_OPEN;
-  emptyConfig.sta.pmf_cfg.capable = false;
-  emptyConfig.sta.pmf_cfg.required = false;
-  emptyConfig.sta.bssid_set = 0;
-  memset(emptyConfig.sta.bssid, 0, sizeof(emptyConfig.sta.bssid));
-
-  const esp_err_t err =
-      esp_wifi_set_config(WIFI_IF_STA, &emptyConfig);
-
-  if (err != ESP_OK) {
-    Serial.print("      WARNING: failed to clear transient station config: ");
-    Serial.println(esp_err_to_name(err));
-    return false;
-  }
-
-  Serial.println("      Transient station credentials cleared from WiFi driver RAM.");
-  return true;
-}
-
-enum class ConnectResult : uint8_t {
-  SUCCESS,
-  SSID_NOT_FOUND,
-  AUTH_EXPIRED,
-  AUTH_FAILED,
-  HANDSHAKE_FAILED,
-  CONNECTION_LOST,
-  TIMEOUT,
-  NETWORK_CONFIG_FAILED,
-  SERIAL_DISCONNECTED,
-  UNKNOWN
-};
-
-const char* connectResultName(ConnectResult result) {
-  switch (result) {
-    case ConnectResult::SUCCESS: return "SUCCESS";
-    case ConnectResult::SSID_NOT_FOUND: return "SSID_NOT_FOUND";
-    case ConnectResult::AUTH_EXPIRED: return "AUTH_EXPIRED";
-    case ConnectResult::AUTH_FAILED: return "AUTH_FAILED";
-    case ConnectResult::HANDSHAKE_FAILED: return "HANDSHAKE_FAILED";
-    case ConnectResult::CONNECTION_LOST: return "CONNECTION_LOST";
-    case ConnectResult::TIMEOUT: return "TIMEOUT";
-    case ConnectResult::NETWORK_CONFIG_FAILED: return "NETWORK_CONFIG_FAILED";
-    case ConnectResult::SERIAL_DISCONNECTED: return "SERIAL_DISCONNECTED";
-    default: return "UNKNOWN";
-  }
-}
-
 const char* disconnectReasonName(uint8_t reason) {
   switch (reason) {
     case 1: return "UNSPECIFIED";
@@ -624,10 +376,131 @@ const char* disconnectReasonName(uint8_t reason) {
     case 24: return "CIPHER_SUITE_REJECTED";
     case 34: return "HANDSHAKE_TIMEOUT";
     case 53: return "INVALID_PMKID";
+    case 200: return "BAD_CIPHER_OR_AKM";
+    case 202: return "NOT_AUTHORIZED_THIS_LOCATION";
     case 204: return "SAE_HASH_TO_ELEMENT";
     case 205: return "SAE_PK";
     default: return "UNKNOWN";
   }
+}
+
+void resetConnectionDiagnostics() {
+  portENTER_CRITICAL(&wifiEventTraceMux);
+  wifiEventTraceCount = 0;
+  memset((void*)wifiEventTrace, 0, sizeof(wifiEventTrace));
+  lastDisconnectReason = 0;
+  lastDisconnectRSSI = 0;
+  disconnectEventCount = 0;
+  memset((void*)lastDisconnectBSSID, 0, sizeof(lastDisconnectBSSID));
+  portEXIT_CRITICAL(&wifiEventTraceMux);
+}
+
+void printDriverVersion() {
+  Serial.print("Arduino-ESP32: ");
+  Serial.println(ESP_ARDUINO_VERSION_STR);
+  Serial.print("ESP-IDF:       ");
+  Serial.println(esp_get_idf_version());
+}
+
+void configureVerboseWiFiLogging() {
+  // ESP-IDF 5.5.5 + Arduino-ESP32 3.3.12 expose the Wi-Fi driver's normal
+  // ESP_LOG stream. Runtime verbosity is preferable to calling undocumented
+  // internal Wi-Fi logging functions.
+  esp_log_level_set("wifi", ESP_LOG_VERBOSE);
+}
+
+void printConnectionDiagnostics() {
+  printWiFiEventTrace();
+
+  Serial.println();
+  Serial.println("Connection diagnostics");
+  Serial.println("----------------------");
+
+  Serial.print("Final WiFi status: ");
+  Serial.println(static_cast<int>(WiFi.status()));
+
+  if (disconnectEventCount != 0) {
+    uint8_t reason;
+    int8_t rssi;
+    uint8_t bssid[6];
+
+    portENTER_CRITICAL(&wifiEventTraceMux);
+    reason = lastDisconnectReason;
+    rssi = lastDisconnectRSSI;
+    memcpy(bssid, (const void*)lastDisconnectBSSID, sizeof(bssid));
+    portEXIT_CRITICAL(&wifiEventTraceMux);
+
+    Serial.print("Last disconnect reason: ");
+    Serial.print(static_cast<unsigned>(reason));
+    Serial.print(" (");
+    Serial.print(disconnectReasonName(reason));
+    Serial.print("), RSSI ");
+    Serial.print(static_cast<int>(rssi));
+    Serial.println(" dBm");
+
+    Serial.printf("Disconnect BSSID: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                  bssid[0], bssid[1], bssid[2],
+                  bssid[3], bssid[4], bssid[5]);
+
+    if (reason == 2) {
+      Serial.println("Meaning: authentication expired.");
+      Serial.println("ESP-IDF defines this as an authentication timeout OR");
+      Serial.println("a reason code received from the AP.");
+      Serial.println("Password validity: NOT DETERMINED.");
+    } else if (reason == 15 || reason == 23 ||
+               reason == 24 || reason == 34) {
+      Serial.println("Meaning: failure occurred after authentication during");
+      Serial.println("the WPA/802.1X handshake.");
+      Serial.println("Password validity: not treated as proven by this firmware.");
+    }
+  } else {
+    Serial.println("No STA_DISCONNECTED event was captured.");
+  }
+}
+
+ConnectResult classifyConnectionFailure(uint32_t elapsedMs) {
+  uint8_t reason = 0;
+
+  portENTER_CRITICAL(&wifiEventTraceMux);
+  if (disconnectEventCount != 0) {
+    reason = lastDisconnectReason;
+  }
+  portEXIT_CRITICAL(&wifiEventTraceMux);
+
+  switch (reason) {
+    case 2:
+      return ConnectResult::AUTH_EXPIRED;
+    case 15:
+    case 23:
+    case 24:
+    case 34:
+      return ConnectResult::HANDSHAKE_FAILED;
+    case 3:
+    case 8:
+      return ConnectResult::CONNECTION_LOST;
+    default:
+      break;
+  }
+
+  const wl_status_t status = WiFi.status();
+
+  if (status == WL_NO_SSID_AVAIL) {
+    return ConnectResult::SSID_NOT_FOUND;
+  }
+
+  if (status == WL_CONNECTION_LOST) {
+    return ConnectResult::CONNECTION_LOST;
+  }
+
+  if (elapsedMs >= CONNECT_TIMEOUT_MS) {
+    return ConnectResult::TIMEOUT;
+  }
+
+  if (status == WL_CONNECT_FAILED) {
+    return ConnectResult::AUTH_FAILED;
+  }
+
+  return ConnectResult::UNKNOWN;
 }
 
 ConnectResult connectWithCredentials(const String& ssid,
@@ -638,308 +511,191 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::SSID_NOT_FOUND;
   }
 
-  // This connection routine is deliberately single-attempt. Automatic
-  // connection/reconnection is disabled for the transaction. Wi-Fi driver
-  // configuration is RAM-only; application credentials are persisted only
-  // after a successful connection.
   const bool previousAutoReconnect = WiFi.getAutoReconnect();
   WiFi.setAutoReconnect(false);
 
-  TargetAP target;
-  if (requestedTarget != nullptr && requestedTarget->valid) {
-    target = *requestedTarget;
-    Serial.println();
-    Serial.println("WiFi connection target");
-    Serial.println("----------------------");
-    Serial.println("Using AP selected by the scan; BSSID/channel are pinned for this attempt.");
-  } else {
-    Serial.println();
-    Serial.println("WiFi connection target");
-    Serial.println("----------------------");
-    Serial.println("No AP was supplied by the caller; resolving the strongest matching BSSID.");
-    if (!findStrongestAP(ssid, target)) {
-      WiFi.setAutoReconnect(previousAutoReconnect);
-      return ConnectResult::SSID_NOT_FOUND;
-    }
-  }
-
-  // Configure the Arduino Wi-Fi core before the first WiFi.mode() call.
-  // Arduino-ESP32 uses persistent(false) during its low-level Wi-Fi init to
-  // select WIFI_STORAGE_RAM, preventing ESP-IDF station configuration from
-  // being persisted to the Wi-Fi driver NVS area.
-  //
-  // The hostname must also be set before Wi-Fi is started.
-  WiFi.persistent(false);
-  WiFi.setHostname(HOSTNAME);
-  WiFi.setAutoReconnect(false);
-  WiFi.mode(WIFI_STA);
-
-  if (!NetConfig::apply()) {
-    Serial.println("WiFi: network configuration failed.");
-    WiFi.setAutoReconnect(previousAutoReconnect);
-    return ConnectResult::NETWORK_CONFIG_FAILED;
-  }
-
+  /*
+   * This routine deliberately uses the public Arduino-ESP32 3.3.12 STA API.
+   *
+   * 3.3.12 is built on ESP-IDF 5.5.5 in this project. The documented
+   * WiFi.begin() overload maps directly to the driver's station configuration
+   * and esp_wifi_connect() path. We do not manufacture a second
+   * wifi_config_t here, and we do not call private/internal Wi-Fi functions.
+   *
+   * A scan-selected TargetAP may supply channel+BSSID. A normal saved
+   * connection supplies neither, allowing the driver to select the best BSS
+   * for the SSID.
+   */
   Serial.println();
   Serial.println("WiFi connection");
   Serial.println("----------------");
+  printDriverVersion();
+
   Serial.print("SSID:      ");
   Serial.println(ssid);
   Serial.print("Mode:      ");
   Serial.println(NetConfig::mode() == NetConfig::Mode::STATIC ? "STATIC" : "DHCP");
   Serial.print("Password:  ");
   Serial.println(password.isEmpty() ? "none (open network)" : "configured");
-  Serial.print("ESP32 STA MAC: ");
+  Serial.print("STA MAC:   ");
   Serial.println(WiFi.macAddress());
-  Serial.print("Minimum security policy: ");
-  Serial.println(password.isEmpty() ? "OPEN (open-network test)" : "WPA2-PSK (authenticated network)");
-  printWPA3Support();
-  Serial.println();
 
-  Serial.println("[1/6] Preparing WiFi station...");
-  // Keep the Wi-Fi driver/netif alive between scan and connect. The previous
-  // code used disconnect(true), which tears the station interface down and
-  // immediately recreates it. That adds state transitions without helping a
-  // clean station connection attempt.
-  WiFi.disconnect(false, false);
-  delay(100);
+  if (requestedTarget != nullptr && requestedTarget->valid) {
+    Serial.println("Target:    exact scanned BSSID + channel");
+    printTargetAP(*requestedTarget);
+  } else {
+    Serial.println("Target:    SSID only; driver selects the BSS");
+  }
 
-  lastDisconnectReason = 0;
-  lastDisconnectRSSI = 0;
-  disconnectEventCount = 0;
-  memset((void*)lastDisconnectBSSID, 0, sizeof(lastDisconnectBSSID));
-  resetWiFiEventTrace();
-
-  WiFi.mode(WIFI_STA);
+  // These are public Arduino-ESP32 STA controls. They must be configured
+  // before WiFi.begin(), exactly as documented by the 3.3.12 API.
   WiFi.setAutoReconnect(false);
-  Serial.println("      Station ready; WiFi driver remains initialized.");
-  Serial.println("      Automatic connect/reconnect: DISABLED for this attempt.");
+  WiFi.setScanMethod(WIFI_FAST_SCAN);
+  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
+  WiFi.setMinSecurity(password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK);
 
-  Serial.println("[2/6] Applying network configuration...");
   if (!NetConfig::apply()) {
-    Serial.println("      FAILED: network configuration could not be applied.");
+    Serial.println("ERROR: network/IP configuration failed.");
     WiFi.setAutoReconnect(previousAutoReconnect);
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
-  Serial.println("      Network configuration applied.");
 
-  const wifi_auth_mode_t minimumSecurity =
-      password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
+  Serial.println();
+  Serial.println("Starting station connection...");
+  Serial.println("  Driver storage: RAM");
+  Serial.println("  Auto-reconnect: disabled");
+  Serial.println("  Scan method:    FAST");
+  Serial.println("  AP selection:   strongest compatible BSS");
+  Serial.print("  Minimum security: ");
+  Serial.println(password.isEmpty() ? "OPEN" : "WPA2-PSK");
 
-  Serial.println("[3/6] Starting raw ESP-IDF station connection...");
-  Serial.print("      Configured auth threshold: ");
-  Serial.println(authModeName(minimumSecurity));
-  printTargetAP(target);
-  Serial.println("      BSSID/channel pinning: ENABLED for this attempt.");
+  resetConnectionDiagnostics();
+  configureVerboseWiFiLogging();
 
-  // For this diagnostic A/B test we intentionally let Arduino-ESP32
-  // construct the station configuration. Its documented begin() path accepts
-  // the same SSID, channel and exact BSSID parameters used by this project.
-  // This isolates our previous raw ESP-IDF config construction from the AP
-  // authentication failure.
-
-  wifi_ps_type_t previousPowerSave = WIFI_PS_MIN_MODEM;
-  bool restorePowerSave = false;
-  const esp_err_t getPsResult = esp_wifi_get_ps(&previousPowerSave);
-  if (getPsResult == ESP_OK) {
-    restorePowerSave = true;
-    Serial.print("      WiFi power save before attempt: ");
-    Serial.println(previousPowerSave == WIFI_PS_NONE ? "NONE" : "MODEM");
+  /*
+   * Do not power-cycle the Wi-Fi driver between attempts. The Arduino core's
+   * disconnect(false, false) means "disconnect the STA, leave Wi-Fi running,
+   * do not erase the AP configuration". That is exactly the clean pre-connect
+   * state we want.
+   */
+  if (!WiFi.disconnect(false, false, 1000)) {
+    Serial.println("WARNING: STA disconnect-before-connect did not complete.");
   }
-  const esp_err_t setPsResult = esp_wifi_set_ps(WIFI_PS_NONE);
-  if (setPsResult != ESP_OK) {
-    Serial.print("      WiFi power-save disable warning: ");
-    Serial.println(esp_err_to_name(setPsResult));
+
+  wl_status_t beginStatus;
+
+  if (requestedTarget != nullptr && requestedTarget->valid) {
+    beginStatus = WiFi.begin(
+        ssid.c_str(),
+        password.isEmpty() ? nullptr : password.c_str(),
+        requestedTarget->channel,
+        requestedTarget->bssid,
+        true);
   } else {
-    Serial.println("      WiFi power save: DISABLED for authentication test.");
+    beginStatus = WiFi.begin(
+        ssid.c_str(),
+        password.isEmpty() ? nullptr : password.c_str(),
+        0,
+        nullptr,
+        true);
   }
-
-  Serial.println("      Exact BSSID/channel selection: ENABLED.");
-  Serial.println("      Authentication A/B: Arduino-ESP32 WiFi.begin().");
-
-  if (WIFI_DIAGNOSTICS) {
-    if (!WiFiFrameCapture::begin(target.bssid)) {
-      Serial.println("      WARNING: 802.11 management capture could not be enabled.");
-    }
-  }
-
-  const char* passphrase = password.isEmpty() ? nullptr : password.c_str();
-  const wl_status_t beginStatus =
-      WiFi.begin(ssid.c_str(),
-                 passphrase,
-                 static_cast<int32_t>(target.channel),
-                 target.bssid,
-                 true);
 
   if (beginStatus == WL_CONNECT_FAILED) {
-    if (WIFI_DIAGNOSTICS) {
-      WiFiFrameCapture::end();
-    }
-    Serial.println("      WiFi.begin() reported WL_CONNECT_FAILED.");
-    WiFi.disconnect(false, false);
-    delay(100);
-    clearTransientStationConfig();
-    if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
-    WiFi.setAutoReconnect(false);
+    Serial.println("ERROR: WiFi.begin() rejected the station configuration.");
+    printConnectionDiagnostics();
+    WiFi.disconnect(false, false, 1000);
     WiFi.setAutoReconnect(previousAutoReconnect);
+    Console::prepareForMenuInput();
     return ConnectResult::UNKNOWN;
   }
 
-  Serial.println("      Arduino WiFi.begin() accepted the exact BSSID/channel target.");
-  Serial.println("      Waiting for the same authentication/association result.");
+  Serial.print("WiFi.begin() returned status ");
+  Serial.println(static_cast<int>(beginStatus));
+  Serial.println("Waiting for STA_CONNECTED and STA_GOT_IP...");
+  Serial.println();
 
-  Serial.println("[4/6] Waiting for association/authentication...");
   const uint32_t startTime = millis();
+  uint32_t lastStatusReport = startTime;
   wl_status_t lastStatus = WiFi.status();
-  uint32_t lastReport = startTime;
 
-  while (WiFi.status() != WL_CONNECTED &&
-         millis() - startTime < CONNECT_TIMEOUT_MS) {
-    delay(250);
-
+  while (millis() - startTime < CONNECT_TIMEOUT_MS) {
     if (Console::disconnected()) {
-      Serial.println("      Serial session disconnected during WiFi connection attempt.");
-      Serial.println("      Aborting connection attempt.");
-      WiFi.disconnect(false, false);
-      delay(100);
-      clearTransientStationConfig();
-      if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
-      WiFi.setAutoReconnect(false);
+      Serial.println("Serial session disconnected; cancelling WiFi attempt.");
+      WiFi.disconnect(false, false, 1000);
       WiFi.setAutoReconnect(previousAutoReconnect);
+      Console::prepareForMenuInput();
       return ConnectResult::SERIAL_DISCONNECTED;
     }
 
-    const wl_status_t currentStatus = WiFi.status();
-    if (currentStatus != lastStatus || millis() - lastReport >= 2000) {
-      Serial.print("      status=");
-      Serial.print(static_cast<int>(currentStatus));
+    const wl_status_t status = WiFi.status();
+
+    if (status == WL_CONNECTED) {
+      break;
+    }
+
+    if (status != lastStatus || millis() - lastStatusReport >= 2000) {
+      Serial.print("  status=");
+      Serial.print(static_cast<int>(status));
       Serial.print("  elapsed=");
       Serial.print((millis() - startTime) / 1000);
       Serial.println("s");
-      lastStatus = currentStatus;
-      lastReport = millis();
+      lastStatus = status;
+      lastStatusReport = millis();
     }
+
+    delay(100);
   }
 
-  const wl_status_t finalStatus = WiFi.status();
+  const uint32_t elapsedMs = millis() - startTime;
 
-  if (finalStatus == WL_CONNECTED) {
-    if (WIFI_DIAGNOSTICS) {
-      WiFiFrameCapture::end();
-    }
-
-    Serial.println("[5/6] Associated and authenticated.");
-    Serial.print("      Connected BSSID: ");
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println();
+    Serial.println("WiFi connection SUCCESSFUL");
+    Serial.print("  SSID:    ");
+    Serial.println(WiFi.SSID());
+    Serial.print("  BSSID:   ");
     Serial.println(WiFi.BSSIDstr());
-    Serial.print("      Connected channel: ");
+    Serial.print("  Channel: ");
     Serial.println(WiFi.channel());
-    Serial.println("[6/6] Network address acquired.");
+    Serial.print("  RSSI:    ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
+
     printStatus();
 
+    // Credentials are application-owned. Persist only after the driver and
+    // network interface have both reached a successful connected state.
     preferences.putString(SSID_KEY, ssid);
     preferences.putString(PASSWORD_KEY, password);
-    Serial.println("WiFi credentials committed to NVS.");
-    Serial.println("Connection result: SUCCESS");
+    Serial.println("WiFi credentials saved.");
 
-    if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
     WiFi.setAutoReconnect(previousAutoReconnect);
-
     Console::prepareForMenuInput();
-    Serial.println("      Console input synchronized for next menu transaction.");
-
     return ConnectResult::SUCCESS;
   }
 
-  if (WIFI_DIAGNOSTICS) {
-    WiFiFrameCapture::end();
-  }
+  Serial.println();
+  Serial.println("WiFi connection FAILED");
+  Serial.print("Elapsed: ");
+  Serial.print(elapsedMs);
+  Serial.println(" ms");
 
-  Serial.println("[5/6] Connection attempt did not complete.");
-  Serial.print("      Final WiFi status: ");
-  Serial.println(static_cast<int>(finalStatus));
+  printConnectionDiagnostics();
 
-  ConnectResult result = ConnectResult::UNKNOWN;
+  const ConnectResult result = classifyConnectionFailure(elapsedMs);
 
-  if (disconnectEventCount != 0) {
-    Serial.print("      802.11 disconnect events captured: ");
-    Serial.println(static_cast<unsigned>(disconnectEventCount));
-    Serial.print("      Last 802.11 disconnect reason: ");
-    Serial.print(static_cast<unsigned>(lastDisconnectReason));
-    Serial.print(" (");
-    Serial.print(disconnectReasonName(lastDisconnectReason));
-    Serial.print(")  RSSI: ");
-    Serial.print(static_cast<int>(lastDisconnectRSSI));
-    Serial.println(" dBm");
-
-    Serial.print("      BSSID at disconnect: ");
-    char disconnectBSSID[18];
-    snprintf(disconnectBSSID, sizeof(disconnectBSSID),
-             "%02X:%02X:%02X:%02X:%02X:%02X",
-             lastDisconnectBSSID[0], lastDisconnectBSSID[1],
-             lastDisconnectBSSID[2], lastDisconnectBSSID[3],
-             lastDisconnectBSSID[4], lastDisconnectBSSID[5]);
-    Serial.println(disconnectBSSID);
-
-    if (lastDisconnectReason == 2) {
-      result = ConnectResult::AUTH_EXPIRED;
-      Serial.println("      Authentication response timed out.");
-      Serial.println("      Password validity: NOT DETERMINED.");
-    } else if (lastDisconnectReason == 15 ||
-               lastDisconnectReason == 34 ||
-               lastDisconnectReason == 23 ||
-               lastDisconnectReason == 24) {
-      result = ConnectResult::HANDSHAKE_FAILED;
-      Serial.println("      WPA/802.1X handshake failed.");
-      Serial.println("      Password may be incorrect, but this is not treated as proof.");
-    } else if (lastDisconnectReason == 3 ||
-               lastDisconnectReason == 8) {
-      result = ConnectResult::CONNECTION_LOST;
-    }
-  }
-
-  if (result == ConnectResult::UNKNOWN) {
-    if (finalStatus == WL_NO_SSID_AVAIL) {
-      result = ConnectResult::SSID_NOT_FOUND;
-      Serial.println("      Diagnosis: SSID is not currently available.");
-    } else if (finalStatus == WL_CONNECTION_LOST) {
-      result = ConnectResult::CONNECTION_LOST;
-      Serial.println("      Diagnosis: connection was established then lost.");
-    } else if (millis() - startTime >= CONNECT_TIMEOUT_MS) {
-      result = ConnectResult::TIMEOUT;
-      Serial.println("      Diagnosis: connection attempt timed out.");
-    } else if (finalStatus == WL_CONNECT_FAILED) {
-      result = ConnectResult::AUTH_FAILED;
-      Serial.println("      Diagnosis: association/authentication failed.");
-      Serial.println("      Password validity: NOT DETERMINED unless a WPA handshake failure is reported.");
-    } else {
-      result = ConnectResult::UNKNOWN;
-      Serial.println("      Diagnosis: see final status and 802.11 reason above.");
-    }
-  }
-
-  Serial.print("      Connection result: ");
+  Serial.print("Connection result: ");
   Serial.println(connectResultName(result));
+  Serial.println("Credentials were NOT changed.");
 
-  printWiFiEventTrace();
-  if (WIFI_DIAGNOSTICS) {
-    WiFiFrameCapture::print();
-  }
-
-  Serial.println("[6/6] Cleaning up failed connection attempt...");
-  WiFi.disconnect(false, false);
-  delay(100);
-  clearTransientStationConfig();
-  WiFi.mode(WIFI_STA);
+  // Stop any internal retry activity before returning control to the menu.
+  // Do not erase the driver configuration: the next WiFi.begin() call owns
+  // and replaces it, while persistent(false) keeps it out of Wi-Fi NVS.
+  WiFi.disconnect(false, false, 1000);
   WiFi.setAutoReconnect(false);
   WiFi.setAutoReconnect(previousAutoReconnect);
-  Serial.println("      Failed-attempt station state cleared; WiFi remains initialized.");
-  Serial.println("      Application NVS credentials were not modified.");
 
-  // The final CR/LF from the menu command that launched this connection can
-  // arrive through USB CDC after the Wi-Fi attempt has failed. Do not expose
-  // that byte to the next menu reader.
   Console::prepareForMenuInput();
-  Serial.println("      Console input synchronized for next menu transaction.");
   return result;
 }
 bool connect() {
@@ -1329,7 +1085,16 @@ void begin() {
   Serial.println("WiFi subsystem starting...");
   WiFi.persistent(false);
   WiFi.setHostname(HOSTNAME);
+  // Register events before enabling STA so STA_START is not missed.
+  WiFi.onEvent(onWiFiEvent);
+
+  // Configure hostname and RAM-only Wi-Fi storage before WiFi.mode() starts
+  // the Arduino/ESP-IDF Wi-Fi stack.
+  WiFi.persistent(false);
+  WiFi.setHostname(HOSTNAME);
   WiFi.setAutoReconnect(false);
+  configureVerboseWiFiLogging();
+  printDriverVersion();
 
   // WiFi.mode() performs Arduino-ESP32's low-level Wi-Fi initialization.
   // With persistent(false), that initialization selects WIFI_STORAGE_RAM
@@ -1340,7 +1105,6 @@ void begin() {
   }
   Serial.println("WiFi driver configuration storage: RAM (NVS writes disabled).");
 
-  WiFi.onEvent(onWiFiEvent);
   connect();
 }
 }
