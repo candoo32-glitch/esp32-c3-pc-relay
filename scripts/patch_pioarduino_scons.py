@@ -26,10 +26,11 @@ OLD_FIRST_RECONNECT_RE = re.compile(
 def replace_first_reconnect(match: re.Match) -> str:
     indent = match.group(1)
     return (
-        f'{indent}}} else if (first_connect && _sta_network_if->getAutoReconnect()) {{"\n'
-        f'{indent}  first_connect = false;\n'
-        f'{indent}  DoReconnect = true;\n'
-        f'{indent}  log_d("WiFi Reconnect Running");\n'
+    return (
+        indent + "} else if (first_connect && _sta_network_if->getAutoReconnect()) {\n"
+        + indent + "  first_connect = false;\n"
+        + indent + "  DoReconnect = true;\n"
+        + indent + '  log_d("WiFi Reconnect Running");\n'
     )
 
 def patch_elf_helper(target: Path) -> bool:
