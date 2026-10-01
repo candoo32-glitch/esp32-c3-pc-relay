@@ -747,12 +747,14 @@ ConnectResult connectWithCredentials(const String& ssid,
                          sizeof(stationConfig.sta.password));
   }
 
-  // This is the deliberately minimal station path:
-  //   channel = 0       -> do not force a channel
-  //   bssid_set = 0     -> do not force a BSSID
-  //   OPEN threshold    -> accept an open AP
-  // The scan is used for diagnostics/visibility only; it is not required for
-  // the actual association decision.
+  // The caller has already resolved a concrete BSS. Keep the connection
+  // attempt on that BSSID instead of allowing the driver to select another
+  // AP advertising the same SSID. This is essential for scan-selected
+  // networks: the user selected a specific AP, not merely an SSID.
+  //
+  // For a normal "connect now" operation, findStrongestAP() supplies the
+  // strongest matching BSS, so the same rule prevents the driver from
+  // silently roaming to a weaker BSS during authentication.
   stationConfig.sta.channel = 0;
   stationConfig.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
   stationConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
@@ -763,12 +765,12 @@ ConnectResult connectWithCredentials(const String& ssid,
   stationConfig.sta.bssid_set = 0;
   memset(stationConfig.sta.bssid, 0, sizeof(stationConfig.sta.bssid));
 
-  // Retain exact-BSSID pinning only as a compile-time diagnostic option.
-  if (NetConfig::DIAGNOSTIC_PIN_BSSID && target.valid) {
+  if (target.valid) {
     stationConfig.sta.channel =
         static_cast<uint8_t>(target.channel > 0 ? target.channel : 0);
     stationConfig.sta.bssid_set = 1;
     memcpy(stationConfig.sta.bssid, target.bssid, 6);
+    Serial.println("      Exact target BSSID/channel locked for this attempt.");
   }
 
   const esp_err_t setConfigResult =
