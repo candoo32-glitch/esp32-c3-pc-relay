@@ -95,10 +95,11 @@ constexpr char PASSWORD_KEY[] = "password";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
-// A/B baseline: keep the station path identical to the diagnostic build, but
-// disable promiscuous capture so we can determine whether the sniffer itself
-// interferes with association. Re-enable only after this baseline is tested.
-constexpr bool WIFI_DIAGNOSTICS = true;
+// The promiscuous management-frame sniffer is disabled for the baseline
+// connection test. Its callback runs in the Wi-Fi driver context and the
+// captured probe-response stream can be extremely busy. We must first prove
+// association without that diagnostic load.
+constexpr bool WIFI_DIAGNOSTICS = false;
 
 // Capture the actual 802.11 management-frame exchange during a diagnostic
 // connection attempt. ESP-IDF exposes management frames through promiscuous
