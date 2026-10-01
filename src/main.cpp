@@ -1,8 +1,6 @@
 #include <Arduino.h>
-#include <stdarg.h>
 #include <Preferences.h>
 #include <WiFi.h>
-#include "esp_log.h"
 #include "esp_wifi.h"
 
 #ifndef FW_BUILD_VERSION
@@ -595,94 +593,253 @@ constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
 constexpr bool WIFI_DIAGNOSTICS = true;
 
-// Capture the ESP-IDF Wi-Fi/WPA log stream during a diagnostic attempt.
-// The normal ESP-IDF vprintf handler is still called, so these messages remain
-// visible on the serial console. The ring buffer gives us a second copy after
-// the attempt, even if the live output scrolls past too quickly.
-namespace WiFiRawLog {
-constexpr size_t MAX_ENTRIES = 96;
-constexpr size_t MAX_ENTRY_LENGTH = 256;
+// Capture the actual 802.11 management-frame exchange during a diagnostic
+// connection attempt. ESP-IDF exposes management frames through promiscuous
+// mode even while the station is in STA mode. The callback runs in the Wi-Fi
+// driver task, so it only copies small records into a ring buffer; all Serial
+// output happens later from the application task.
+namespace WiFiFrameCapture {
+constexpr size_t MAX_ENTRIES = 64;
 
 struct Entry {
-  uint32_t timestamp;
-  char text[MAX_ENTRY_LENGTH];
+  uint32_t timestampMs;
+  int8_t rssi;
+  uint8_t channel;
+  uint8_t subtype;
+  uint16_t length;
+  uint16_t sequence;
+  uint16_t code;
+  uint8_t source[6];
+  uint8_t destination[6];
+  uint8_t bssid[6];
 };
 
 Entry entries[MAX_ENTRIES];
 volatile size_t count = 0;
-vprintf_like_t previousHandler = nullptr;
 portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+uint8_t targetBSSID[6] = {0};
+uint8_t stationMAC[6] = {0};
+bool enabled = false;
 
-int captureVprintf(const char* format, va_list args) {
-  char line[MAX_ENTRY_LENGTH];
-  va_list copy;
-  va_copy(copy, args);
-  const int result = vsnprintf(line, sizeof(line), format, copy);
-  va_end(copy);
+uint16_t littleEndian16(const uint8_t* p) {
+  return static_cast<uint16_t>(p[0]) |
+         (static_cast<uint16_t>(p[1]) << 8);
+}
 
-  portENTER_CRITICAL(&mux);
+bool addressEquals(const uint8_t* a, const uint8_t* b) {
+  return memcmp(a, b, 6) == 0;
+}
+
+const char* subtypeName(uint8_t subtype) {
+  switch (subtype) {
+    case 0: return "ASSOC_REQ";
+    case 1: return "ASSOC_RESP";
+    case 2: return "REASSOC_REQ";
+    case 3: return "REASSOC_RESP";
+    case 4: return "PROBE_REQ";
+    case 5: return "PROBE_RESP";
+    case 8: return "BEACON";
+    case 10: return "DISASSOC";
+    case 11: return "AUTH";
+    case 12: return "DEAUTH";
+    case 13: return "ACTION";
+    default: return "MGMT";
+  }
+}
+
+void captureCallback(void* buffer, wifi_promiscuous_pkt_type_t type) {
+  if (!enabled || buffer == nullptr || type != WIFI_PKT_MGMT) {
+    return;
+  }
+
+  const wifi_promiscuous_pkt_t* packet =
+      static_cast<const wifi_promiscuous_pkt_t*>(buffer);
+
+  const uint16_t length = packet->rx_ctrl.sig_len;
+  if (length < 24) {
+    return;
+  }
+
+  const uint8_t* frame = packet->payload;
+  const uint16_t frameControl = littleEndian16(frame);
+  const uint8_t frameType = static_cast<uint8_t>((frameControl >> 2) & 0x03);
+  const uint8_t subtype = static_cast<uint8_t>((frameControl >> 4) & 0x0F);
+
+  if (frameType != 0) {
+    return;
+  }
+
+  // Only retain frames that can tell us something about the association
+  // exchange. We intentionally do not buffer the continuous beacon stream.
+  if (subtype != 0 && subtype != 1 &&
+      subtype != 2 && subtype != 3 &&
+      subtype != 5 && subtype != 10 &&
+      subtype != 11 && subtype != 12 &&
+      subtype != 13) {
+    return;
+  }
+
+  const uint8_t* destination = frame + 4;
+  const uint8_t* source = frame + 10;
+  const uint8_t* bssid = frame + 16;
+
+  // For infrastructure management frames the AP can appear in any of these
+  // address positions depending on the frame direction. Matching all three
+  // makes the diagnostic robust to the particular management subtype.
+  const bool relevant =
+      addressEquals(destination, targetBSSID) ||
+      addressEquals(source, targetBSSID) ||
+      addressEquals(bssid, targetBSSID) ||
+      addressEquals(destination, stationMAC) ||
+      addressEquals(source, stationMAC) ||
+      addressEquals(bssid, stationMAC);
+
+  if (!relevant) {
+    return;
+  }
+
+  Entry entry = {};
+  entry.timestampMs = millis();
+  entry.rssi = packet->rx_ctrl.rssi;
+  entry.channel = packet->rx_ctrl.channel;
+  entry.subtype = subtype;
+  entry.length = length;
+  entry.sequence =
+      static_cast<uint16_t>(littleEndian16(frame + 22) >> 4);
+  entry.code = 0xFFFF;
+  memcpy(entry.source, source, 6);
+  memcpy(entry.destination, destination, 6);
+  memcpy(entry.bssid, bssid, 6);
+
+  // Management header is 24 bytes. Decode the fixed fields that identify
+  // exactly why an AP accepted or rejected the request.
+  if (subtype == 11 && length >= 30) {
+    // Authentication: algorithm, transaction sequence, status code.
+    entry.sequence = littleEndian16(frame + 26);
+    entry.code = littleEndian16(frame + 28);
+  } else if ((subtype == 1 || subtype == 3) && length >= 30) {
+    // Association/Reassociation response: capability, status, AID.
+    entry.code = littleEndian16(frame + 26);
+  } else if ((subtype == 10 || subtype == 12) && length >= 26) {
+    // Disassociation/Deauthentication: reason code.
+    entry.code = littleEndian16(frame + 24);
+  }
+
+  portENTER_CRITICAL_ISR(&mux);
   if (count < MAX_ENTRIES) {
-    entries[count].timestamp = millis();
-    strncpy(entries[count].text, line, MAX_ENTRY_LENGTH - 1);
-    entries[count].text[MAX_ENTRY_LENGTH - 1] = '\0';
-    ++count;
+    entries[count++] = entry;
   } else {
-    // Keep the newest diagnostics when the buffer fills.
     for (size_t i = 1; i < MAX_ENTRIES; ++i) {
       entries[i - 1] = entries[i];
     }
-    entries[MAX_ENTRIES - 1].timestamp = millis();
-    strncpy(entries[MAX_ENTRIES - 1].text, line, MAX_ENTRY_LENGTH - 1);
-    entries[MAX_ENTRIES - 1].text[MAX_ENTRY_LENGTH - 1] = '\0';
+    entries[MAX_ENTRIES - 1] = entry;
   }
-  portEXIT_CRITICAL(&mux);
-
-  if (previousHandler != nullptr) {
-    va_list forward;
-    va_copy(forward, args);
-    const int forwarded = previousHandler(format, forward);
-    va_end(forward);
-    return forwarded;
-  }
-
-  return result;
+  portEXIT_CRITICAL_ISR(&mux);
 }
 
-void begin() {
+bool begin(const uint8_t target[6]) {
+  memcpy(targetBSSID, target, 6);
+
+  esp_err_t err = esp_wifi_get_mac(WIFI_IF_STA, stationMAC);
+  if (err != ESP_OK) {
+    Serial.print("      802.11 capture: failed to read STA MAC: ");
+    Serial.println(esp_err_to_name(err));
+    return false;
+  }
+
   count = 0;
-  previousHandler = esp_log_set_vprintf(captureVprintf);
+  enabled = true;
+
+  wifi_promiscuous_filter_t filter = {};
+  filter.filter_mask = WIFI_PROMIS_FILTER_MASK_MGMT;
+
+  err = esp_wifi_set_promiscuous_rx_cb(captureCallback);
+  if (err != ESP_OK) {
+    enabled = false;
+    Serial.print("      802.11 capture: callback setup failed: ");
+    Serial.println(esp_err_to_name(err));
+    return false;
+  }
+
+  err = esp_wifi_set_promiscuous_filter(&filter);
+  if (err != ESP_OK) {
+    enabled = false;
+    Serial.print("      802.11 capture: filter setup failed: ");
+    Serial.println(esp_err_to_name(err));
+    return false;
+  }
+
+  err = esp_wifi_set_promiscuous(true);
+  if (err != ESP_OK) {
+    enabled = false;
+    Serial.print("      802.11 capture: enable failed: ");
+    Serial.println(esp_err_to_name(err));
+    return false;
+  }
+
+  Serial.println("      802.11 management capture: ENABLED");
+  Serial.printf("      Capture target BSSID: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                targetBSSID[0], targetBSSID[1], targetBSSID[2],
+                targetBSSID[3], targetBSSID[4], targetBSSID[5]);
+  Serial.printf("      Capture STA MAC:      %02X:%02X:%02X:%02X:%02X:%02X\n",
+                stationMAC[0], stationMAC[1], stationMAC[2],
+                stationMAC[3], stationMAC[4], stationMAC[5]);
+  return true;
 }
 
 void end() {
-  if (previousHandler != nullptr) {
-    esp_log_set_vprintf(previousHandler);
-    previousHandler = nullptr;
+  if (!enabled) {
+    return;
+  }
+
+  enabled = false;
+  esp_err_t err = esp_wifi_set_promiscuous(false);
+  if (err != ESP_OK) {
+    Serial.print("      802.11 capture: disable warning: ");
+    Serial.println(esp_err_to_name(err));
   }
 }
 
 void print() {
   Serial.println();
-  Serial.println("      Raw ESP-IDF WiFi/WPA log capture:");
-  if (count == 0) {
-    Serial.println("      <no wifi/wpa log records were emitted>");
+  Serial.println("      802.11 management-frame capture:");
+  const size_t captured = count;
+
+  if (captured == 0) {
+    Serial.println("      <no matching management frames received>");
+    Serial.println("      This means the ESP32 did not observe an AP response on the selected channel.");
     return;
   }
 
-  const size_t captured = count;
   for (size_t i = 0; i < captured; ++i) {
-    Entry snapshot;
+    Entry entry;
     portENTER_CRITICAL(&mux);
-    snapshot = entries[i];
+    entry = entries[i];
     portEXIT_CRITICAL(&mux);
 
-    Serial.print("      [");
-    Serial.print(snapshot.timestamp);
-    Serial.print(" ms] ");
-    Serial.print(snapshot.text);
-    if (snapshot.text[0] != '\0' &&
-        snapshot.text[strlen(snapshot.text) - 1] != '\n') {
-      Serial.println();
+    Serial.printf(
+        "      [%lu ms] %s  RSSI %d dBm  CH %u  len %u  seq %u",
+        static_cast<unsigned long>(entry.timestampMs),
+        subtypeName(entry.subtype),
+        static_cast<int>(entry.rssi),
+        static_cast<unsigned>(entry.channel),
+        static_cast<unsigned>(entry.length),
+        static_cast<unsigned>(entry.sequence));
+
+    if (entry.code != 0xFFFF) {
+      Serial.printf("  code %u", static_cast<unsigned>(entry.code));
     }
+
+    Serial.printf(
+        "  SRC %02X:%02X:%02X:%02X:%02X:%02X"
+        "  DST %02X:%02X:%02X:%02X:%02X:%02X"
+        "  BSSID %02X:%02X:%02X:%02X:%02X:%02X\n",
+        entry.source[0], entry.source[1], entry.source[2],
+        entry.source[3], entry.source[4], entry.source[5],
+        entry.destination[0], entry.destination[1], entry.destination[2],
+        entry.destination[3], entry.destination[4], entry.destination[5],
+        entry.bssid[0], entry.bssid[1], entry.bssid[2],
+        entry.bssid[3], entry.bssid[4], entry.bssid[5]);
   }
 }
 }
@@ -1031,7 +1188,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   printStationSecurityConfig();
 
   if (WIFI_DIAGNOSTICS) {
-    WiFiRawLog::begin();
+    WiFiFrameCapture::begin(target.bssid);
     esp_log_level_set("wifi", ESP_LOG_VERBOSE);
     esp_log_level_set("wpa", ESP_LOG_VERBOSE);
     Serial.println("      WiFi diagnostic logging: VERBOSE (wifi + wpa)");
@@ -1084,9 +1241,7 @@ ConnectResult connectWithCredentials(const String& ssid,
 
   if (finalStatus == WL_CONNECTED) {
     if (WIFI_DIAGNOSTICS) {
-      esp_log_level_set("wifi", ESP_LOG_INFO);
-      esp_log_level_set("wpa", ESP_LOG_INFO);
-      WiFiRawLog::end();
+      WiFiFrameCapture::end();
     }
 
     Serial.println("[5/6] Associated and authenticated.");
@@ -1109,7 +1264,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (WIFI_DIAGNOSTICS) {
     esp_log_level_set("wifi", ESP_LOG_INFO);
     esp_log_level_set("wpa", ESP_LOG_INFO);
-    WiFiRawLog::end();
+    WiFiFrameCapture::end();
   }
 
   Serial.println("[5/6] Connection attempt did not complete.");
@@ -1180,7 +1335,7 @@ ConnectResult connectWithCredentials(const String& ssid,
 
   printWiFiEventTrace();
   if (WIFI_DIAGNOSTICS) {
-    WiFiRawLog::print();
+    WiFiFrameCapture::print();
   }
 
   Serial.println("[6/6] Resetting WiFi after failed connection...");
