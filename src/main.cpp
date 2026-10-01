@@ -1025,7 +1025,8 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.print("      Configured minimum security: ");
   Serial.println(authModeName(minimumSecurity));
   printTargetAP(target);
-  Serial.println("      BSSID/channel pinning: ENABLED");
+  Serial.print("      BSSID/channel pinning: ");
+  Serial.println(DIAGNOSTIC_PIN_BSSID ? "ENABLED" : "DISABLED");
   Serial.println("      Station security configuration before WiFi.begin():");
   printStationSecurityConfig();
 
@@ -1037,10 +1038,14 @@ ConnectResult connectWithCredentials(const String& ssid,
     Serial.println("      Raw ESP-IDF log capture: ENABLED");
   }
 
-  // Always pin the connection to the AP we actually selected. This removes
-  // mesh/BSSID selection as a variable in authentication diagnostics.
-  WiFi.begin(ssid.c_str(), password.c_str(),
-             target.channel, target.bssid, true);
+  // Normal operation lets the ESP32 select the AP/BSSID normally.
+  // BSSID/channel pinning is only used when explicitly enabled for diagnostics.
+  if (DIAGNOSTIC_PIN_BSSID) {
+    WiFi.begin(ssid.c_str(), password.c_str(),
+               target.channel, target.bssid, true);
+  } else {
+    WiFi.begin(ssid.c_str(), password.c_str());
+  }
   Serial.println("      WiFi.begin() accepted.");
   Serial.println("      Station security configuration after WiFi.begin():");
   printStationSecurityConfig();
