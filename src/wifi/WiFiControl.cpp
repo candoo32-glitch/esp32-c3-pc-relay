@@ -153,6 +153,76 @@ void configureVerboseWiFiLogging() {
   esp_log_level_set("wpa", ESP_LOG_DEBUG);
 }
 
+void printWiFiEventTrace() {
+  uint8_t traceCount;
+  WiFiEventTraceEntry trace[WIFI_EVENT_TRACE_MAX];
+
+  portENTER_CRITICAL(&wifiEventTraceMux);
+  traceCount = wifiEventTraceCount;
+  memcpy(trace, (const void*)wifiEventTrace, sizeof(trace));
+  portEXIT_CRITICAL(&wifiEventTraceMux);
+
+  Serial.println();
+  Serial.println("WiFi event sequence");
+  Serial.println("-------------------");
+
+  if (traceCount == 0) {
+    Serial.println("No Arduino WiFi events captured.");
+    return;
+  }
+
+  for (uint8_t i = 0; i < traceCount; ++i) {
+    Serial.print("  +");
+    Serial.print(trace[i].elapsedMs);
+    Serial.print(" ms  ");
+    Serial.print(wifiEventName(trace[i].eventId));
+
+    if (trace[i].eventId == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+      Serial.print("  reason=");
+      Serial.print(trace[i].reason);
+      Serial.print(" (");
+      Serial.print(disconnectReasonName(trace[i].reason));
+      Serial.print(")");
+    }
+
+    Serial.println();
+  }
+
+  bool sawStart = false;
+  bool sawConnected = false;
+  bool sawAuthModeChange = false;
+  bool sawGotIP = false;
+
+  for (uint8_t i = 0; i < traceCount; ++i) {
+    switch (trace[i].eventId) {
+      case ARDUINO_EVENT_WIFI_STA_START:
+        sawStart = true;
+        break;
+      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+        sawConnected = true;
+        break;
+      case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
+        sawAuthModeChange = true;
+        break;
+      case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+        sawGotIP = true;
+        break;
+      default:
+        break;
+    }
+  }
+
+  Serial.println();
+  Serial.print("  STA_START seen:            ");
+  Serial.println(sawStart ? "YES" : "NO");
+  Serial.print("  STA_CONNECTED seen:        ");
+  Serial.println(sawConnected ? "YES" : "NO");
+  Serial.print("  STA_AUTHMODE_CHANGE seen:  ");
+  Serial.println(sawAuthModeChange ? "YES" : "NO");
+  Serial.print("  STA_GOT_IP seen:            ");
+  Serial.println(sawGotIP ? "YES" : "NO");
+}
+
 void printConnectionDiagnostics() {
   printWiFiEventTrace();
 
