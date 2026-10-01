@@ -226,6 +226,56 @@ bool yesNo(const char* prompt) {
   value.toUpperCase();
   return value == "Y" || value == "YES";
 }
+
+String readPassword(const char* prompt) {
+  Serial.print(prompt);
+  String value;
+
+  while (true) {
+    if (disconnected()) {
+      return "";
+    }
+
+    while (Serial.available()) {
+      char c = static_cast<char>(Serial.read());
+
+      if (consumePendingLineFeed) {
+        consumePendingLineFeed = false;
+        if (c == '\n') continue;
+      }
+
+      if (c == '\r' || c == '\n') {
+        consumePendingLineFeed = (c == '\r');
+        Serial.println();
+        return value;
+      }
+
+      if (c == '\b' || c == 127) {
+        if (value.length() > 0) {
+          value.remove(value.length() - 1);
+          Serial.write('\b');
+          Serial.print(' ');
+          Serial.write('\b');
+        }
+        continue;
+      }
+
+      if (static_cast<uint8_t>(c) < 0x20 ||
+          static_cast<uint8_t>(c) == 0x7F) {
+        continue;
+      }
+
+      // Do not echo password characters.
+      Serial.write('*');
+
+      if (value.length() < 64) {
+        value += c;
+      }
+    }
+
+    delay(10);
+  }
+}
 }
 
 namespace NetConfig {
@@ -530,9 +580,7 @@ void printStatus() {
   Serial.println();
 }
 
-bool connect() {
-  String ssid = preferences.getString(SSID_KEY, "");
-
+bool connectWithCredentials(const String& ssid, const String& password) {
   if (ssid.isEmpty()) {
     Serial.println("WiFi: not configured.");
     return false;
@@ -545,8 +593,6 @@ bool connect() {
     Serial.println("WiFi: network configuration failed.");
     return false;
   }
-
-  String password = preferences.getString(PASSWORD_KEY, "");
 
   Serial.println();
   Serial.println("WiFi connection");
@@ -654,6 +700,12 @@ bool connect() {
     Serial.println("[5/6] Associated and authenticated.");
     Serial.println("[6/6] Network address acquired.");
     printStatus();
+
+    // Commit credentials only after the AP has successfully authenticated
+    // and the station has received a network address.
+    preferences.putString(SSID_KEY, ssid);
+    preferences.putString(PASSWORD_KEY, password);
+    Serial.println("WiFi credentials committed to NVS.");
     return true;
   }
 
@@ -712,6 +764,12 @@ bool connect() {
   Serial.println("      WiFi station reset complete; ready for retry or rescan.");
 
   return false;
+}
+
+bool connect() {
+  const String ssid = preferences.getString(SSID_KEY, "");
+  const String password = preferences.getString(PASSWORD_KEY, "");
+  return connectWithCredentials(ssid, password);
 }
 
 // Terminal table geometry.
@@ -926,7 +984,7 @@ void scan() {
     Serial.println("No password required.");
   } else {
     Serial.println("Security: password required.");
-    String password = Console::readPrompt("PASSWORD: ");
+    String password = Console::readPassword("PASSWORD: ");
     if (Console::disconnected()) {
       WiFi.scanDelete();
       return;
@@ -936,14 +994,12 @@ void scan() {
 
     // Selecting a network from a scan always uses DHCP for the connection.
     NetConfig::configureDHCP();
-    preferences.putString(SSID_KEY, ssid);
-    preferences.putString(PASSWORD_KEY, password);
 
     Serial.println();
-    Serial.println("WiFi credentials saved.");
-    Serial.println("Connecting...");
+    Serial.println("Testing credentials...");
+    Serial.println("Credentials will be saved only if the connection succeeds.");
 
-    if (connect()) {
+    if (connectWithCredentials(ssid, password)) {
       Serial.println();
       Serial.println("================================");
       Serial.println("WiFi connection SUCCESSFUL");
@@ -958,8 +1014,8 @@ void scan() {
       Serial.println("================================");
       Serial.println("WiFi connection FAILED");
       Serial.println("================================");
-      Serial.println("Credentials were saved.");
-      Serial.println("You can try again from WiFi setup.");
+      Serial.println("Credentials were NOT saved.");
+      Serial.println("Previously saved credentials were left unchanged.");
       Serial.println();
     }
     return;
@@ -972,14 +1028,12 @@ void scan() {
   // Selecting a network from a scan always uses DHCP for the connection.
   WiFi.scanDelete();
   NetConfig::configureDHCP();
-  preferences.putString(SSID_KEY, ssid);
-  preferences.putString(PASSWORD_KEY, "");
 
   Serial.println();
-  Serial.println("WiFi credentials saved.");
-  Serial.println("Connecting...");
+  Serial.println("Testing open-network credentials...");
+  Serial.println("Credentials will be saved only if the connection succeeds.");
 
-  if (connect()) {
+  if (connectWithCredentials(ssid, "")) {
     Serial.println();
     Serial.println("================================");
     Serial.println("WiFi connection SUCCESSFUL");
@@ -994,8 +1048,8 @@ void scan() {
     Serial.println("================================");
     Serial.println("WiFi connection FAILED");
     Serial.println("================================");
-    Serial.println("Credentials were saved.");
-    Serial.println("You can try again from WiFi setup.");
+    Serial.println("Credentials were NOT saved.");
+    Serial.println("Previously saved credentials were left unchanged.");
     Serial.println();
   }
 }
@@ -1010,7 +1064,7 @@ void setupCredentials() {
 
   String ssid = Console::readPrompt("SSID: ");
   if (Console::disconnected()) return;
-  String password = Console::readPrompt("PASSWORD: ");
+  String password = Console::readPassword("PASSWORD: ");
   if (Console::disconnected()) return;
 
   // Entering SSID/password always starts from DHCP.
@@ -1021,11 +1075,16 @@ void setupCredentials() {
     return;
   }
 
-  preferences.putString(SSID_KEY, ssid);
-  preferences.putString(PASSWORD_KEY, password);
-
   Serial.println();
-  Serial.println("WiFi credentials saved.");
+  Serial.println("Testing credentials...");
+  Serial.println("Credentials will be saved only if the connection succeeds.");
+
+  if (connectWithCredentials(ssid, password)) {
+    Serial.println("WiFi credentials saved after successful connection.");
+  } else {
+    Serial.println("WiFi credentials were NOT saved.");
+    Serial.println("Previously saved credentials were left unchanged.");
+  }
 }
 
 void menu() {
