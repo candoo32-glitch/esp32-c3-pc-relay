@@ -68,6 +68,22 @@ This log records engineering iterations as evidence-bearing changes. A build num
 
 **Result:** the raw ESP-IDF path demonstrated that the Arduino `WiFi.begin()` wrapper was out of the connection path.
 
+## 129 — Correct Arduino Wi-Fi RAM-storage initialization order
+
+**Intent:** make the ESP-IDF Wi-Fi driver's RAM-only configuration policy effective before Arduino-ESP32 starts the Wi-Fi driver.
+
+**Source evidence:** Arduino-ESP32's Wi-Fi initialization calls `esp_wifi_set_storage(WIFI_STORAGE_RAM)` when `WiFi.persistent(false)` is set before the first `WiFi.mode()` call. The previous implementation called `WiFi.mode(WIFI_STA)` first and only afterward called `esp_wifi_set_storage(WIFI_STORAGE_RAM)`, so the intended initialization ordering was not explicit or aligned with the Arduino core's documented path. citeturn2search0turn3search1
+
+**Change:** call `WiFi.persistent(false)` before `WiFi.mode(WIFI_STA)` in `WiFiControl::begin()`, remove the late direct storage-selection call, and remove redundant `setAutoReconnect(false)` calls. Hostname initialization remains before the first Wi-Fi start.
+
+**Hypothesis:** this removes a real initialization-order ambiguity around Wi-Fi driver NVS storage. It does not by itself establish the root cause of the historical `WIFI_REASON_AUTH_EXPIRE` failures.
+
+**Build evidence:** GitHub Actions Build 129 was triggered for commit `ef3e13221898425c7afcbecbb782dc6f7fea8a04`; at record creation it was queued.
+
+**Hardware evidence:** none yet.
+
+**Next test:** flash Build 129 and capture the startup line confirming RAM-only driver configuration, then run the same Wi-Fi connection test that previously produced `AUTH_EXPIRE`. If `AUTH_EXPIRE` remains, continue at the 802.11 authentication-frame level rather than changing unrelated network settings.
+
 ## Record-keeping rule going forward
 
 Every iteration should add a dated record before or with the source change. Each record must distinguish:
