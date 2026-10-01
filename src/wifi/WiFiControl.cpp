@@ -95,7 +95,6 @@ const char* authModeName(wifi_auth_mode_t authMode) {
     case WIFI_AUTH_WPA2_WPA3_ENTERPRISE: return "WPA2/WPA3-ENT";
     case WIFI_AUTH_WPA_ENTERPRISE: return "WPA-ENT";
     case WIFI_AUTH_DPP: return "DPP";
-    case WIFI_AUTH_UNKNOWN: return "UNKNOWN";
     default: return "UNKNOWN";
   }
 }
