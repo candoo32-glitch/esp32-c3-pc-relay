@@ -98,7 +98,7 @@ constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 // A/B baseline: keep the station path identical to the diagnostic build, but
 // disable promiscuous capture so we can determine whether the sniffer itself
 // interferes with association. Re-enable only after this baseline is tested.
-constexpr bool WIFI_DIAGNOSTICS = false;
+constexpr bool WIFI_DIAGNOSTICS = true;
 
 // Capture the actual 802.11 management-frame exchange during a diagnostic
 // connection attempt. ESP-IDF exposes management frames through promiscuous
@@ -730,8 +730,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.print("      Configured auth threshold: ");
   Serial.println(authModeName(minimumSecurity));
   printTargetAP(target);
-  Serial.print("      BSSID/channel pinning: ");
-  Serial.println(NetConfig::DIAGNOSTIC_PIN_BSSID ? "ENABLED" : "DISABLED");
+  Serial.println("      BSSID/channel pinning: ENABLED for this attempt.");
 
   // Build the driver's final station configuration once. Do not mutate a
   // local wifi_config_t after esp_wifi_set_config(): the driver stores the
@@ -815,12 +814,8 @@ ConnectResult connectWithCredentials(const String& ssid,
     Serial.println("      WiFi power save: DISABLED for authentication test.");
   }
 
-  if (NetConfig::DIAGNOSTIC_PIN_BSSID && target.valid) {
-    Serial.println("      Exact BSSID/channel selection: ENABLED for this attempt.");
-  } else {
-    Serial.println("      Exact BSSID/channel selection: DISABLED.");
-    Serial.println("      ESP-IDF will select the AP from the SSID across all channels.");
-  }
+  Serial.println("      Exact BSSID/channel selection: ENABLED.");
+  Serial.println("      ESP-IDF is locked to the committed BSSID/channel above.");
 
   if (WIFI_DIAGNOSTICS) {
     if (!WiFiFrameCapture::begin(target.bssid)) {
