@@ -509,8 +509,12 @@ bool loadStatic(IPAddress& ip, IPAddress& gateway, IPAddress& subnet,
 }
 
 void configureDHCP() {
-  preferences.putUChar(MODE_KEY, static_cast<uint8_t>(Mode::DHCP));
-  Serial.println("Network mode saved: DHCP.");
+  if (mode() != Mode::DHCP) {
+    preferences.putUChar(MODE_KEY, static_cast<uint8_t>(Mode::DHCP));
+    Serial.println("Network mode saved: DHCP.");
+  } else {
+    Serial.println("Network mode: DHCP (already saved).");
+  }
 }
 
 String currentIP() {
@@ -1196,6 +1200,36 @@ bool findStrongestAP(const String& ssid, TargetAP& target) {
   return true;
 }
 
+// Clear the in-memory station configuration after an unsuccessful
+// connection. This does NOT erase application NVS and does NOT call
+// WiFi.disconnect(..., true), which Arduino documents as an NVS erase.
+//
+// Wi-Fi driver configuration is RAM-only in this application, so this clears
+// the failed attempt's SSID/password/BSSID from the driver state as well.
+bool clearTransientStationConfig() {
+  wifi_config_t emptyConfig = {};
+  emptyConfig.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+  emptyConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+  emptyConfig.sta.threshold.rssi = -127;
+  emptyConfig.sta.threshold.authmode = WIFI_AUTH_OPEN;
+  emptyConfig.sta.pmf_cfg.capable = false;
+  emptyConfig.sta.pmf_cfg.required = false;
+  emptyConfig.sta.bssid_set = 0;
+  memset(emptyConfig.sta.bssid, 0, sizeof(emptyConfig.sta.bssid));
+
+  const esp_err_t err =
+      esp_wifi_set_config(WIFI_IF_STA, &emptyConfig);
+
+  if (err != ESP_OK) {
+    Serial.print("      WARNING: failed to clear transient station config: ");
+    Serial.println(esp_err_to_name(err));
+    return false;
+  }
+
+  Serial.println("      Transient station credentials cleared from WiFi driver RAM.");
+  return true;
+}
+
 enum class ConnectResult : uint8_t {
   SUCCESS,
   SSID_NOT_FOUND,
@@ -1253,9 +1287,10 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::SSID_NOT_FOUND;
   }
 
-  // This connection routine is deliberately single-attempt. Arduino-ESP32
-  // normally performs an implicit retry after the first disconnect; the
-  // build-time STA patch makes that retry honor this setting.
+  // This connection routine is deliberately single-attempt. Automatic
+  // connection/reconnection is disabled for the transaction. Wi-Fi driver
+  // configuration is RAM-only; application credentials are persisted only
+  // after a successful connection.
   const bool previousAutoReconnect = WiFi.getAutoReconnect();
   WiFi.setAutoReconnect(false);
 
@@ -1277,7 +1312,11 @@ ConnectResult connectWithCredentials(const String& ssid,
     }
   }
 
+  // Arduino-ESP32 requires the hostname to be set before Wi-Fi
+  // is started with WiFi.mode().
   WiFi.setHostname(HOSTNAME);
+  WiFi.setAutoConnect(false);
+  WiFi.setAutoReconnect(false);
   WiFi.mode(WIFI_STA);
 
   if (!NetConfig::apply()) {
@@ -1317,10 +1356,10 @@ ConnectResult connectWithCredentials(const String& ssid,
   resetWiFiEventTrace();
 
   WiFi.mode(WIFI_STA);
-  WiFi.setHostname(HOSTNAME);
+  WiFi.setAutoConnect(false);
   WiFi.setAutoReconnect(false);
   Serial.println("      Station ready; WiFi driver remains initialized.");
-  Serial.println("      Automatic reconnect: DISABLED for this attempt.");
+  Serial.println("      Automatic connect/reconnect: DISABLED for this attempt.");
 
   Serial.println("[2/6] Applying network configuration...");
   if (!NetConfig::apply()) {
@@ -1441,7 +1480,10 @@ ConnectResult connectWithCredentials(const String& ssid,
     Serial.print("      esp_wifi_connect() FAILED: ");
     Serial.println(esp_err_to_name(connectResult));
     WiFi.disconnect(false, false);
+    delay(100);
+    clearTransientStationConfig();
     if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
+    WiFi.setAutoConnect(false);
     WiFi.setAutoReconnect(previousAutoReconnect);
     return ConnectResult::UNKNOWN;
   }
@@ -1463,7 +1505,9 @@ ConnectResult connectWithCredentials(const String& ssid,
       Serial.println("      Aborting connection attempt.");
       WiFi.disconnect(false, false);
       delay(100);
+      clearTransientStationConfig();
       if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
+      WiFi.setAutoConnect(false);
       WiFi.setAutoReconnect(previousAutoReconnect);
       return ConnectResult::SERIAL_DISCONNECTED;
     }
@@ -1587,9 +1631,12 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.println("[6/6] Cleaning up failed connection attempt...");
   WiFi.disconnect(false, false);
   delay(100);
+  clearTransientStationConfig();
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoConnect(false);
   WiFi.setAutoReconnect(previousAutoReconnect);
-  Serial.println("      WiFi station remains initialized; ready for retry or rescan.");
+  Serial.println("      Failed-attempt station state cleared; WiFi remains initialized.");
+  Serial.println("      Application NVS credentials were not modified.");
 
   // The final CR/LF from the menu command that launched this connection can
   // arrive through USB CDC after the Wi-Fi attempt has failed. Do not expose
@@ -1727,11 +1774,15 @@ void scan() {
     Serial.println("WiFi scan failed.");
     WiFi.scanDelete();
 
-    // Leave the STA interface completely reset so a failed scan cannot
-    // contaminate the next connection attempt. STA mode is already active.
-    WiFi.disconnect(true, false);
-    delay(150);
+    // Keep the initialized STA driver alive. A scan failure is not an
+    // NVS reset condition, and turning WiFi off here only adds another
+    // asynchronous state transition.
+    WiFi.disconnect(false, false);
+    delay(100);
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoConnect(false);
+    WiFi.setAutoReconnect(false);
+    clearTransientStationConfig();
     return;
   }
 
@@ -1973,9 +2024,26 @@ void menu() {
 
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
-  WiFi.onEvent(onWiFiEvent);
+
+  // The application owns persistent Wi-Fi credentials in the "wifi"
+  // Preferences namespace. Keep the ESP-IDF Wi-Fi driver's configuration in
+  // RAM so a failed/test connection can never overwrite the application's
+  // saved credentials or other driver configuration in NVS.
+  WiFi.setHostname(HOSTNAME);
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(false);
+
+  const esp_err_t storageResult = esp_wifi_set_storage(WIFI_STORAGE_RAM);
   Serial.println();
   Serial.println("WiFi subsystem starting...");
+  if (storageResult == ESP_OK) {
+    Serial.println("WiFi driver configuration storage: RAM (NVS writes disabled).");
+  } else {
+    Serial.print("WARNING: failed to select RAM-only WiFi config storage: ");
+    Serial.println(esp_err_to_name(storageResult));
+  }
+
+  WiFi.onEvent(onWiFiEvent);
   connect();
 }
 }
