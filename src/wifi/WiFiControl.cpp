@@ -27,6 +27,7 @@ struct WiFiEventTraceEntry {
 
 constexpr uint8_t WIFI_EVENT_TRACE_MAX = 24;
 volatile uint8_t wifiEventTraceCount = 0;
+uint32_t wifiEventTraceStartMs = 0;
 WiFiEventTraceEntry wifiEventTrace[WIFI_EVENT_TRACE_MAX];
 
 const char* wifiEventName(arduino_event_id_t eventId) {
@@ -46,6 +47,7 @@ const char* wifiEventName(arduino_event_id_t eventId) {
 void resetWiFiEventTrace() {
   portENTER_CRITICAL(&wifiEventTraceMux);
   wifiEventTraceCount = 0;
+  wifiEventTraceStartMs = millis();
   memset((void*)wifiEventTrace, 0, sizeof(wifiEventTrace));
   portEXIT_CRITICAL(&wifiEventTraceMux);
 }
@@ -58,7 +60,7 @@ void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
 
   if (wifiEventTraceCount < WIFI_EVENT_TRACE_MAX) {
     const uint8_t index = wifiEventTraceCount++;
-    wifiEventTrace[index].elapsedMs = millis();
+    wifiEventTrace[index].elapsedMs = millis() - wifiEventTraceStartMs;
     wifiEventTrace[index].eventId = eventId;
     wifiEventTrace[index].reason =
         eventId == ARDUINO_EVENT_WIFI_STA_DISCONNECTED
@@ -106,26 +108,9 @@ constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
 const char* disconnectReasonName(uint8_t reason) {
-  switch (reason) {
-    case 1: return "UNSPECIFIED";
-    case 2: return "AUTH_EXPIRE";
-    case 3: return "AUTH_LEAVE";
-    case 4: return "ASSOC_EXPIRE";
-    case 5: return "ASSOC_TOOMANY";
-    case 6: return "NOT_AUTHED";
-    case 7: return "NOT_ASSOCED";
-    case 8: return "ASSOC_LEAVE";
-    case 15: return "4WAY_HANDSHAKE_TIMEOUT";
-    case 23: return "IEEE802_1X_AUTH_FAILED";
-    case 24: return "CIPHER_SUITE_REJECTED";
-    case 34: return "HANDSHAKE_TIMEOUT";
-    case 53: return "INVALID_PMKID";
-    case 200: return "BAD_CIPHER_OR_AKM";
-    case 202: return "NOT_AUTHORIZED_THIS_LOCATION";
-    case 204: return "SAE_HASH_TO_ELEMENT";
-    case 205: return "SAE_PK";
-    default: return "UNKNOWN";
-  }
+  const char* name =
+      WiFi.disconnectReasonName(static_cast<wifi_err_reason_t>(reason));
+  return (name != nullptr && *name != '\0') ? name : "UNKNOWN";
 }
 
 void resetConnectionDiagnostics() {
@@ -134,16 +119,15 @@ void resetConnectionDiagnostics() {
   memset((void*)wifiEventTrace, 0, sizeof(wifiEventTrace));
   lastDisconnectReason = 0;
   lastDisconnectRSSI = 0;
+  wifiEventTraceStartMs = millis();
   disconnectEventCount = 0;
   memset((void*)lastDisconnectBSSID, 0, sizeof(lastDisconnectBSSID));
   portEXIT_CRITICAL(&wifiEventTraceMux);
 }
 
 void printDriverVersion() {
-  Serial.print("Arduino-ESP32: ");
-  Serial.println(ESP_ARDUINO_VERSION_STR);
-  Serial.print("ESP-IDF:       ");
-  Serial.println(esp_get_idf_version());
+  Serial.printf("Arduino-ESP32: %s\n", ESP_ARDUINO_VERSION_STR);
+  Serial.printf("ESP-IDF:       %s\n", esp_get_idf_version());
 }
 
 void configureVerboseWiFiLogging() {
@@ -422,7 +406,18 @@ ConnectResult connectWithCredentials(const String& ssid,
   WiFi.setAutoReconnect(false);
   WiFi.setScanMethod(WIFI_FAST_SCAN);
   WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
-  WiFi.setMinSecurity(password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK);
+
+  // Do not infer the AP security level from "password present". When a scan
+  // selected the AP, use the security mode actually reported by that scan.
+  // For a manually entered/saved password, allow WPA and newer personal
+  // security modes while still excluding WEP.
+  wifi_auth_mode_t minSecurity = WIFI_AUTH_OPEN;
+  if (requestedTarget != nullptr && requestedTarget->valid) {
+    minSecurity = requestedTarget->auth;
+  } else if (!password.isEmpty()) {
+    minSecurity = WIFI_AUTH_WPA_PSK;
+  }
+  WiFi.setMinSecurity(minSecurity);
 
   if (!NetConfig::apply()) {
     Serial.println("ERROR: network/IP configuration failed.");
@@ -435,9 +430,13 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.println("  Driver storage: RAM");
   Serial.println("  Auto-reconnect: disabled");
   Serial.println("  Scan method:    FAST");
-  Serial.println("  AP selection:   strongest compatible BSS");
+  if (requestedTarget != nullptr && requestedTarget->valid) {
+    Serial.println("  AP selection:   pinned BSSID + channel");
+  } else {
+    Serial.println("  AP selection:   driver selects BSS");
+  }
   Serial.print("  Minimum security: ");
-  Serial.println(password.isEmpty() ? "OPEN" : "WPA2-PSK");
+  Serial.println(authModeName(minSecurity));
 
   configureVerboseWiFiLogging();
 
@@ -482,11 +481,14 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::UNKNOWN;
   }
 
-  Serial.print("WiFi.begin() returned status ");
-  Serial.println(static_cast<int>(beginStatus));
+  Serial.printf("WiFi.begin() returned status: %d (%s)\n",
+                static_cast<int>(beginStatus),
+                beginStatus == WL_CONNECTED ? "WL_CONNECTED" :
+                beginStatus == WL_CONNECT_FAILED ? "WL_CONNECT_FAILED" :
+                beginStatus == WL_NO_SSID_AVAIL ? "WL_NO_SSID_AVAIL" :
+                beginStatus == WL_DISCONNECTED ? "WL_DISCONNECTED" :
+                "OTHER");
   Serial.println("Waiting for STA_CONNECTED and STA_GOT_IP...");
-  Serial.println("Note: Arduino-ESP32 3.3.12 performs one internal retry after");
-  Serial.println("the first disconnect even when auto-reconnect is disabled.");
   Serial.println();
 
   const uint32_t startTime = millis();
