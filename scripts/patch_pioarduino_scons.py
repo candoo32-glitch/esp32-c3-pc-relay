@@ -1,66 +1,82 @@
 #!/usr/bin/env python3
-"""Patch Arduino-ESP32 3.3.x's PlatformIO build helper for SCons 4.11.x."""
+"""Patch Arduino-ESP32 3.3.x for the project's SCons and Wi-Fi diagnostics."""
 
 from pathlib import Path
 import os
+import re
 import sys
 
-OLD = '''action = deepcopy(env["BUILDERS"]["ElfToBin"].action)
+OLD_ELF = '''action = deepcopy(env["BUILDERS"]["ElfToBin"].action)
 action.cmd_list = env["BUILDERS"]["ElfToBin"].action.cmd_list.replace("-o", "--elf-sha256-offset 0xb0 -o")
 env["BUILDERS"]["ElfToBin"].action = action
 '''
 
-NEW = '''env["BUILDERS"]["ElfToBin"].action.cmd_list = env["BUILDERS"]["ElfToBin"].action.cmd_list.replace(
+NEW_ELF = '''env["BUILDERS"]["ElfToBin"].action.cmd_list = env["BUILDERS"]["ElfToBin"].action.cmd_list.replace(
     "-o", "--elf-sha256-offset 0xb0 -o"
 )
 '''
 
-# Arduino-ESP32 3.3.x unconditionally performs one reconnect after the first
-# STA_DISCONNECTED event, even when setAutoReconnect(false) was requested.
-# That hidden retry makes a "single authentication attempt" diagnostic
-# impossible. Patch it so the first retry also honors auto-reconnect.
-OLD_FIRST_RECONNECT = '''    } else if (first_connect) {               //Retry once for all failure reasons
-      first_connect = false;
-      DoReconnect = true;
-      log_d("WiFi Reconnect Running");
+OLD_FIRST_RECONNECT_RE = re.compile(
+    r'(?m)^(\s*)\} else if \(first_connect\) \{\s*//Retry once for all failure reasons\s*'
+    r'first_connect = false;\s*'
+    r'DoReconnect = true;\s*'
+    r'log_d\("WiFi Reconnect Running"\);\s*$'
+)
+
+NEW_FIRST_RECONNECT = '''\\1} else if (first_connect && _sta_network_if->getAutoReconnect()) {
+\\1  first_connect = false;
+\\1  DoReconnect = true;
+\\1  log_d("WiFi Reconnect Running");
 '''
-NEW_FIRST_RECONNECT = '''    } else if (first_connect && _sta_network_if->getAutoReconnect()) {
-      first_connect = false;
-      DoReconnect = true;
-      log_d("WiFi Reconnect Running");
-'''
+
+def patch_elf_helper(target: Path) -> bool:
+    text = target.read_text(encoding="utf-8")
+    if OLD_ELF in text:
+        text = text.replace(OLD_ELF, NEW_ELF, 1)
+        target.write_text(text, encoding="utf-8")
+        print(f"Patched ElfToBin action for SCons 4.11.x: {target}")
+        return True
+    if NEW_ELF in text:
+        print(f"ElfToBin action already patched: {target}")
+        return False
+    print(f"ERROR: Unexpected ElfToBin helper contents; refusing to patch: {target}")
+    return None
+
+def patch_sta_retry(target: Path) -> bool:
+    text = target.read_text(encoding="utf-8")
+    matches = list(OLD_FIRST_RECONNECT_RE.finditer(text))
+    if len(matches) == 1:
+        text = OLD_FIRST_RECONNECT_RE.sub(NEW_FIRST_RECONNECT, text, count=1)
+        target.write_text(text, encoding="utf-8")
+        print(f"Patched STA first-retry behavior for single-attempt diagnostics: {target}")
+        return True
+    if "else if (first_connect && _sta_network_if->getAutoReconnect())" in text:
+        print(f"STA first-retry behavior already patched: {target}")
+        return False
+    if len(matches) == 0:
+        print(f"ERROR: Expected STA first-retry logic was not found: {target}")
+    else:
+        print(f"ERROR: Found {len(matches)} STA first-retry logic blocks; refusing to patch: {target}")
+    return None
 
 def main():
     core_dir = Path(os.environ.get("PLATFORMIO_CORE_DIR", Path.home() / ".platformio"))
-    target = core_dir / "packages" / "framework-arduinoespressif32" / "tools" / "pioarduino-build.py"
+    framework_dir = core_dir / "packages" / "framework-arduinoespressif32"
 
-    if not target.is_file():
-        print(f"ERROR: Arduino-ESP32 PlatformIO build helper not found: {target}")
+    elf_target = framework_dir / "tools" / "pioarduino-build.py"
+    sta_target = framework_dir / "libraries" / "WiFi" / "src" / "STA.cpp"
+
+    if not elf_target.is_file():
+        print(f"ERROR: Arduino-ESP32 PlatformIO build helper not found: {elf_target}")
+        return 1
+    if not sta_target.is_file():
+        print(f"ERROR: Arduino-ESP32 STA source not found: {sta_target}")
         return 1
 
-    text = target.read_text(encoding="utf-8")
-    original = text
-
-    if OLD in text:
-        text = text.replace(OLD, NEW, 1)
-        print(f"Patched ElfToBin action for SCons 4.11.x: {target}")
-    elif NEW in text:
-        print(f"ElfToBin action already patched: {target}")
-    else:
-        print(f"ERROR: Unexpected ElfToBin helper contents; refusing to patch: {target}")
+    if patch_elf_helper(elf_target) is None:
         return 1
-
-    if OLD_FIRST_RECONNECT in text:
-        text = text.replace(OLD_FIRST_RECONNECT, NEW_FIRST_RECONNECT, 1)
-        print(f"Patched STA first-retry behavior for single-attempt diagnostics: {target}")
-    elif NEW_FIRST_RECONNECT in text:
-        print(f"STA first-retry behavior already patched: {target}")
-    else:
-        print(f"ERROR: Unexpected STA reconnect logic; refusing to patch: {target}")
+    if patch_sta_retry(sta_target) is None:
         return 1
-
-    if text != original:
-        target.write_text(text, encoding="utf-8")
 
     return 0
 
