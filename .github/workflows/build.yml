@@ -137,7 +137,7 @@ jobs:
           )
           echo Artifact ID: !ARTIFACT_ID!
           echo Downloading artifact ZIP...
-          gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/artifacts/!ARTIFACT_ID!/zip" --output "!ZIP_FILE!"
+          gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/artifacts/!ARTIFACT_ID!/zip" > "!ZIP_FILE!"
           if errorlevel 1 (
               echo ERROR: GitHub artifact ZIP download failed.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
