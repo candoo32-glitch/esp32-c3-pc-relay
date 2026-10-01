@@ -238,10 +238,13 @@ String readPrompt(const char* prompt) {
 }
 
 String readMenuChoice(const char* prompt, const char* allowed) {
-  // Fixed menus use single-character commands. Do not make CR/LF itself a
-  // command and do not let terminal/USB framing artifacts become a command.
-  // This removes the line-ending race from the menu state machine entirely.
+  // Fixed menus are line transactions. A command is not accepted until the
+  // complete CR/LF-terminated record has arrived. This keeps a terminator from
+  // becoming input to the next menu state and gives us deterministic framing.
   Serial.print(prompt);
+
+  String line;
+  bool inEscapeSequence = false;
 
   while (true) {
     if (disconnected()) {
@@ -250,62 +253,63 @@ String readMenuChoice(const char* prompt, const char* allowed) {
 
     while (Serial.available()) {
       const uint8_t byte = static_cast<uint8_t>(Serial.read());
-      const char c = static_cast<char>(byte);
 
       if (consumePendingLineFeed) {
         consumePendingLineFeed = false;
-        if (c == '\n') {
+        if (byte == '\n') {
           continue;
         }
       }
 
-      if (c == '\r' || c == '\n') {
-        consumePendingLineFeed = (c == '\r');
+      if (inEscapeSequence) {
+        if ((byte >= 0x40 && byte <= 0x7E) || byte == 0x1B) {
+          inEscapeSequence = (byte == 0x1B);
+        }
         continue;
       }
 
-      if (byte == 0x1B || byte < 0x20 || byte == 0x7F) {
+      if (byte == 0x1B) {
+        inEscapeSequence = true;
         continue;
       }
 
-      if (strchr(allowed, c) == nullptr) {
-        // Ignore printable input that cannot be a command for this menu.
-        // It is never returned as "Unknown selection."
+      if (byte == '\r' || byte == '\n') {
+        consumePendingLineFeed = (byte == '\r');
+
+        String command = line;
+        line = "";
+        command.trim();
+        command.toUpperCase();
+
+        if (command.length() == 1 &&
+            strchr(allowed, command[0]) != nullptr) {
+          Serial.println(command);
+          return command;
+        }
+
+        // Empty/invalid records are deliberately ignored. They cannot produce
+        // an "Unknown selection." state transition.
         continue;
       }
 
-      Serial.write(c);
-
-      // Consume the remainder of this command line so its CR/LF cannot become
-      // the next menu input. If the terminal sends only the command character,
-      // this loop simply waits for its line terminator.
-      while (true) {
-        if (disconnected()) {
-          return String(c);
+      if (byte == '\b' || byte == 127) {
+        if (line.length() > 0) {
+          line.remove(line.length() - 1);
+          Serial.write('\b');
+          Serial.print(' ');
+          Serial.write('\b');
         }
-
-        if (!Serial.available()) {
-          delay(1);
-          continue;
-        }
-
-        const uint8_t tail = static_cast<uint8_t>(Serial.read());
-
-        if (tail == '\r') {
-          consumePendingLineFeed = true;
-          break;
-        }
-
-        if (tail == '\n') {
-          consumePendingLineFeed = false;
-          break;
-        }
-
-        // Discard everything else on the same command line.
+        continue;
       }
 
-      Serial.println();
-      return String(c);
+      if (byte < 0x20 || byte == 0x7F) {
+        continue;
+      }
+
+      if (line.length() < 16) {
+        line += static_cast<char>(byte);
+        Serial.write(static_cast<char>(byte));
+      }
     }
 
     delay(5);
@@ -583,8 +587,6 @@ void menu() {
       printSettings();
     } else if (choice == "B") {
       return;
-    } else {
-      Serial.println("Unknown selection.");
     }
   }
 }
@@ -699,7 +701,7 @@ constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 // A/B baseline: keep the station path identical to the diagnostic build, but
 // disable promiscuous capture so we can determine whether the sniffer itself
 // interferes with association. Re-enable only after this baseline is tested.
-constexpr bool WIFI_DIAGNOSTICS = false;
+constexpr bool WIFI_DIAGNOSTICS = true;
 
 // Capture the actual 802.11 management-frame exchange during a diagnostic
 // connection attempt. ESP-IDF exposes management frames through promiscuous
@@ -1338,14 +1340,74 @@ ConnectResult connectWithCredentials(const String& ssid,
     }
   }
 
-  // For this A/B test, deliberately leave BSSID/channel selection to the
-  // ESP-IDF station state machine. The scan has already proven that ESP_TEST
-  // is visible; this isolates exact-BSSID/channel pinning from authentication.
-  Serial.println("      BSSID/channel override: DISABLED for this attempt.");
-  Serial.println("      ESP-IDF will select the matching BSS from the SSID.");
-  stationConfig.sta.channel = 0;
-  stationConfig.sta.bssid_set = 0;
-  memset(stationConfig.sta.bssid, 0, sizeof(stationConfig.sta.bssid));
+  // The selected BSS is authoritative for this connection attempt. The
+  // previous A/B test changed the local stationConfig AFTER esp_wifi_set_config()
+  // and therefore did not actually update the driver's stored configuration.
+  // Build the complete final configuration first, then commit it once.
+  stationConfig.sta.channel =
+      static_cast<uint8_t>(target.channel > 0 ? target.channel : 0);
+  stationConfig.sta.scan_method = WIFI_FAST_SCAN;
+  stationConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+
+  if (target.valid) {
+    stationConfig.sta.bssid_set = 1;
+    memcpy(stationConfig.sta.bssid, target.bssid, 6);
+  }
+
+  // An open network does not need Protected Management Frames. Leave PMF
+  // optional for authenticated networks, but do not advertise PMF capability
+  // during the open-network isolation test.
+  stationConfig.sta.pmf_cfg.capable = !password.isEmpty();
+  stationConfig.sta.pmf_cfg.required = false;
+
+  const esp_err_t finalSetConfigResult =
+      esp_wifi_set_config(WIFI_IF_STA, &stationConfig);
+  if (finalSetConfigResult != ESP_OK) {
+    if (WIFI_DIAGNOSTICS) {
+      WiFiFrameCapture::end();
+    }
+    Serial.print("      FINAL esp_wifi_set_config() FAILED: ");
+    Serial.println(esp_err_to_name(finalSetConfigResult));
+    WiFi.disconnect(false, false);
+    WiFi.setAutoReconnect(previousAutoReconnect);
+    return ConnectResult::NETWORK_CONFIG_FAILED;
+  }
+
+  Serial.println("      Final station configuration committed to ESP-IDF:");
+  printStationSecurityConfig();
+
+  wifi_config_t committedConfig = {};
+  const esp_err_t getConfigResult =
+      esp_wifi_get_config(WIFI_IF_STA, &committedConfig);
+  if (getConfigResult == ESP_OK) {
+    Serial.printf(
+        "      Committed BSSID: %02X:%02X:%02X:%02X:%02X:%02X  "
+        "channel=%u  bssid_set=%u\n",
+        committedConfig.sta.bssid[0], committedConfig.sta.bssid[1],
+        committedConfig.sta.bssid[2], committedConfig.sta.bssid[3],
+        committedConfig.sta.bssid[4], committedConfig.sta.bssid[5],
+        static_cast<unsigned>(committedConfig.sta.channel),
+        static_cast<unsigned>(committedConfig.sta.bssid_set));
+  }
+
+  wifi_ps_type_t previousPowerSave = WIFI_PS_MIN_MODEM;
+  bool restorePowerSave = false;
+  const esp_err_t getPsResult = esp_wifi_get_ps(&previousPowerSave);
+  if (getPsResult == ESP_OK) {
+    restorePowerSave = true;
+    Serial.print("      WiFi power save before attempt: ");
+    Serial.println(previousPowerSave == WIFI_PS_NONE ? "NONE" : "MODEM");
+  }
+  const esp_err_t setPsResult = esp_wifi_set_ps(WIFI_PS_NONE);
+  if (setPsResult != ESP_OK) {
+    Serial.print("      WiFi power-save disable warning: ");
+    Serial.println(esp_err_to_name(setPsResult));
+  } else {
+    Serial.println("      WiFi power save: DISABLED for authentication test.");
+  }
+
+  Serial.println("      Exact BSSID/channel selection: ENABLED for this attempt.");
+  Serial.println("      ESP-IDF will connect to the BSS recorded by the scan.");
 
   const esp_err_t connectResult = esp_wifi_connect();
   if (connectResult != ESP_OK) {
@@ -1355,6 +1417,7 @@ ConnectResult connectWithCredentials(const String& ssid,
     Serial.print("      esp_wifi_connect() FAILED: ");
     Serial.println(esp_err_to_name(connectResult));
     WiFi.disconnect(false, false);
+    if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
     WiFi.setAutoReconnect(previousAutoReconnect);
     return ConnectResult::UNKNOWN;
   }
@@ -1376,6 +1439,7 @@ ConnectResult connectWithCredentials(const String& ssid,
       Serial.println("      Aborting connection attempt.");
       WiFi.disconnect(false, false);
       delay(100);
+      if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
       WiFi.setAutoReconnect(previousAutoReconnect);
       return ConnectResult::SERIAL_DISCONNECTED;
     }
@@ -1412,6 +1476,7 @@ ConnectResult connectWithCredentials(const String& ssid,
     Serial.println("WiFi credentials committed to NVS.");
     Serial.println("Connection result: SUCCESS");
 
+    if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
     WiFi.setAutoReconnect(previousAutoReconnect);
     return ConnectResult::SUCCESS;
   }
@@ -1868,8 +1933,6 @@ void menu() {
       connect();
     } else if (choice == "B") {
       return;
-    } else {
-      Serial.println("Unknown selection.");
     }
   }
 }
