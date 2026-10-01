@@ -124,7 +124,7 @@ jobs:
           set "RUN_STATUS="
           set "RUN_CONCLUSION="
           for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json status --jq ".status"') do set "RUN_STATUS=%%I"
-          for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json conclusion --jq ".conclusion // \"\""') do set "RUN_CONCLUSION=%%I"
+          for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json conclusion --jq ".conclusion"') do set "RUN_CONCLUSION=%%I"
 
           if not defined RUN_STATUS (
               echo ERROR: Could not determine the status of GitHub Actions run !LATEST_RUN!.
@@ -329,9 +329,9 @@ jobs:
           4. It retrieves that exact run's firmware artifact by artifact ID, downloads the ZIP, and explicitly extracts it with PowerShell.
           5. It verifies the artifact run ID and firmware build version before synchronizing local files.
           6. If GH_TOKEN is already set in Windows, it is used automatically. Otherwise the script securely prompts for a fine-grained GitHub token for that run only.
-          5. The downloaded firmware replaces the local firmware\ directory.
-          6. The temporary download directory is deleted.
-          7. esptool flashes firmware\factory.bin.
+          6. The downloaded firmware replaces the local firmware\ directory.
+          7. The temporary download directory is deleted.
+          8. esptool flashes firmware\factory.bin.
           Required Windows software:
           - GitHub CLI (gh)
           - Python launcher (py)
