@@ -6,6 +6,7 @@
 #include "esp_arduino_version.h"
 #include "esp_idf_version.h"
 #include "esp_system.h"
+#include "esp_wifi.h"
 #include "WiFiControl.h"
 #include "../interface/Console.h"
 #include "../network/NetConfig.h"
@@ -362,6 +363,97 @@ ConnectResult classifyConnectionFailure(uint32_t elapsedMs) {
   return ConnectResult::UNKNOWN;
 }
 
+ConnectResult startExplicitStation(const String& ssid,
+                                  const String& password,
+                                  const TargetAP* requestedTarget,
+                                  wifi_auth_mode_t minSecurity) {
+  const int32_t channel =
+      requestedTarget != nullptr && requestedTarget->valid
+          ? requestedTarget->channel : 0;
+  const uint8_t* bssid =
+      requestedTarget != nullptr && requestedTarget->valid
+          ? requestedTarget->bssid : nullptr;
+
+  const wl_status_t status = WiFi.begin(
+      ssid.c_str(),
+      password.isEmpty() ? nullptr : password.c_str(),
+      channel, bssid, false);
+
+  if (status == WL_CONNECT_FAILED) {
+    Serial.println("ERROR: Arduino STA initialization/configuration failed.");
+    return ConnectResult::UNKNOWN;
+  }
+
+  wifi_config_t config;
+  memset(&config, 0, sizeof(config));
+  esp_err_t err = esp_wifi_get_config(WIFI_IF_STA, &config);
+  if (err != ESP_OK) {
+    Serial.printf("ERROR: esp_wifi_get_config failed: 0x%x (%s)\\n",
+                  err, esp_err_to_name(err));
+    return ConnectResult::UNKNOWN;
+  }
+
+  // Explicitly set the authentication threshold, including OPEN networks.
+  config.sta.threshold.authmode = minSecurity;
+  config.sta.threshold.rssi = -127;
+  config.sta.scan_method = WIFI_FAST_SCAN;
+  config.sta.pmf_cfg.capable = true;
+  config.sta.pmf_cfg.required = false;
+
+  if (requestedTarget != nullptr && requestedTarget->valid) {
+    config.sta.channel = requestedTarget->channel;
+    config.sta.bssid_set = 1;
+    memcpy(config.sta.bssid, requestedTarget->bssid, 6);
+  } else {
+    config.sta.channel = 0;
+    config.sta.bssid_set = 0;
+    memset(config.sta.bssid, 0, sizeof(config.sta.bssid));
+  }
+
+  if (minSecurity == WIFI_AUTH_WPA_PSK ||
+      minSecurity == WIFI_AUTH_WPA2_PSK ||
+      minSecurity == WIFI_AUTH_WPA_WPA2_PSK) {
+    config.sta.disable_wpa3_compatible_mode = 1;
+  }
+
+  err = esp_wifi_set_config(WIFI_IF_STA, &config);
+  if (err != ESP_OK) {
+    Serial.printf("ERROR: esp_wifi_set_config failed: 0x%x (%s)\\n",
+                  err, esp_err_to_name(err));
+    return ConnectResult::UNKNOWN;
+  }
+
+  wifi_config_t verify;
+  memset(&verify, 0, sizeof(verify));
+  err = esp_wifi_get_config(WIFI_IF_STA, &verify);
+  if (err != ESP_OK) {
+    Serial.printf("ERROR: station config verification failed: 0x%x (%s)\\n",
+                  err, esp_err_to_name(err));
+    return ConnectResult::UNKNOWN;
+  }
+
+  Serial.println("Explicit IDF 6.1 station configuration:");
+  Serial.print("  auth threshold: ");
+  Serial.println(authModeName(verify.sta.threshold.authmode));
+  Serial.print("  channel:        ");
+  Serial.println(verify.sta.channel);
+  Serial.print("  BSSID pinned:   ");
+  Serial.println(verify.sta.bssid_set ? "YES" : "NO");
+  Serial.print("  PMF required:   ");
+  Serial.println(verify.sta.pmf_cfg.required ? "YES" : "NO");
+  Serial.print("  WPA3 override:  ");
+  Serial.println(verify.sta.disable_wpa3_compatible_mode ? "DISABLED" : "ENABLED");
+
+  err = esp_wifi_connect();
+  if (err != ESP_OK) {
+    Serial.printf("ERROR: esp_wifi_connect failed: 0x%x (%s)\\n",
+                  err, esp_err_to_name(err));
+    return ConnectResult::UNKNOWN;
+  }
+
+  return ConnectResult::SUCCESS;
+}
+
 ConnectResult connectWithCredentials(const String& ssid,
                                       const String& password,
                                       const TargetAP* requestedTarget = nullptr) {
@@ -374,9 +466,9 @@ ConnectResult connectWithCredentials(const String& ssid,
   WiFi.setAutoReconnect(false);
 
   /*
-   * This routine deliberately uses the public Arduino-ESP32 3.3.12 STA API.
+   * This routine deliberately uses the public Arduino-ESP32 4.0.0-RC1 STA API.
    *
-   * 3.3.12 is built on ESP-IDF 5.5.5 in this project. The documented
+   * 3.3.12 is built on ESP-IDF 6.1 in this project. The documented
    * WiFi.begin() overload maps directly to the driver's station configuration
    * and esp_wifi_connect() path. We do not manufacture a second
    * wifi_config_t here, and we do not call private/internal Wi-Fi functions.
@@ -461,19 +553,11 @@ ConnectResult connectWithCredentials(const String& ssid,
   wl_status_t beginStatus;
 
   if (requestedTarget != nullptr && requestedTarget->valid) {
-    beginStatus = WiFi.begin(
-        ssid.c_str(),
-        password.isEmpty() ? nullptr : password.c_str(),
-        requestedTarget->channel,
-        requestedTarget->bssid,
-        true);
+    beginStatus = static_cast<wl_status_t>(
+        startExplicitStation(ssid, password, requestedTarget, minSecurity));
   } else {
-    beginStatus = WiFi.begin(
-        ssid.c_str(),
-        password.isEmpty() ? nullptr : password.c_str(),
-        0,
-        nullptr,
-        true);
+    beginStatus = static_cast<wl_status_t>(
+        startExplicitStation(ssid, password, nullptr, minSecurity));
   }
 
   if (beginStatus == WL_CONNECT_FAILED) {
