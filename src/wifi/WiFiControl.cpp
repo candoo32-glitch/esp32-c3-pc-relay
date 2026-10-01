@@ -666,7 +666,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   // Arduino-ESP32 requires the hostname to be set before Wi-Fi
   // is started with WiFi.mode().
   WiFi.setHostname(HOSTNAME);
-  WiFi.setAutoConnect(false);
+  WiFi.setAutoReconnect(false);
   WiFi.setAutoReconnect(false);
   WiFi.mode(WIFI_STA);
 
@@ -707,7 +707,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   resetWiFiEventTrace();
 
   WiFi.mode(WIFI_STA);
-  WiFi.setAutoConnect(false);
+  WiFi.setAutoReconnect(false);
   WiFi.setAutoReconnect(false);
   Serial.println("      Station ready; WiFi driver remains initialized.");
   Serial.println("      Automatic connect/reconnect: DISABLED for this attempt.");
@@ -834,7 +834,7 @@ ConnectResult connectWithCredentials(const String& ssid,
     delay(100);
     clearTransientStationConfig();
     if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
-    WiFi.setAutoConnect(false);
+    WiFi.setAutoReconnect(false);
     WiFi.setAutoReconnect(previousAutoReconnect);
     return ConnectResult::UNKNOWN;
   }
@@ -858,7 +858,7 @@ ConnectResult connectWithCredentials(const String& ssid,
       delay(100);
       clearTransientStationConfig();
       if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
-      WiFi.setAutoConnect(false);
+      WiFi.setAutoReconnect(false);
       WiFi.setAutoReconnect(previousAutoReconnect);
       return ConnectResult::SERIAL_DISCONNECTED;
     }
@@ -984,7 +984,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   delay(100);
   clearTransientStationConfig();
   WiFi.mode(WIFI_STA);
-  WiFi.setAutoConnect(false);
+  WiFi.setAutoReconnect(false);
   WiFi.setAutoReconnect(previousAutoReconnect);
   Serial.println("      Failed-attempt station state cleared; WiFi remains initialized.");
   Serial.println("      Application NVS credentials were not modified.");
@@ -1131,7 +1131,7 @@ void scan() {
     WiFi.disconnect(false, false);
     delay(100);
     WiFi.mode(WIFI_STA);
-    WiFi.setAutoConnect(false);
+    WiFi.setAutoReconnect(false);
     WiFi.setAutoReconnect(false);
     clearTransientStationConfig();
     return;
