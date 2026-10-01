@@ -701,7 +701,7 @@ constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 // A/B baseline: keep the station path identical to the diagnostic build, but
 // disable promiscuous capture so we can determine whether the sniffer itself
 // interferes with association. Re-enable only after this baseline is tested.
-constexpr bool WIFI_DIAGNOSTICS = true;
+constexpr bool WIFI_DIAGNOSTICS = false;
 
 // Capture the actual 802.11 management-frame exchange during a diagnostic
 // connection attempt. ESP-IDF exposes management frames through promiscuous
@@ -1298,25 +1298,40 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.print("      BSSID/channel pinning: ");
   Serial.println(NetConfig::DIAGNOSTIC_PIN_BSSID ? "ENABLED" : "DISABLED");
 
+  // Build the driver's final station configuration once. Do not mutate a
+  // local wifi_config_t after esp_wifi_set_config(): the driver stores the
+  // configuration internally and does not observe later local changes.
   wifi_config_t stationConfig = {};
   ssid.toCharArray(reinterpret_cast<char*>(stationConfig.sta.ssid),
                    sizeof(stationConfig.sta.ssid));
 
   // For an open network the password field remains all-zero. This is the
-  // canonical ESP-IDF representation; no empty String/c_str() is involved.
+  // canonical ESP-IDF representation.
   if (!password.isEmpty()) {
     password.toCharArray(reinterpret_cast<char*>(stationConfig.sta.password),
                          sizeof(stationConfig.sta.password));
   }
 
-  stationConfig.sta.channel =
-      static_cast<uint8_t>(target.channel > 0 ? target.channel : 0);
+  // This is the deliberately minimal station path:
+  //   channel = 0       -> do not force a channel
+  //   bssid_set = 0     -> do not force a BSSID
+  //   OPEN threshold    -> accept an open AP
+  // The scan is used for diagnostics/visibility only; it is not required for
+  // the actual association decision.
+  stationConfig.sta.channel = 0;
+  stationConfig.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+  stationConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
   stationConfig.sta.threshold.rssi = -127;
   stationConfig.sta.threshold.authmode = minimumSecurity;
-  stationConfig.sta.pmf_cfg.capable = true;
+  stationConfig.sta.pmf_cfg.capable = !password.isEmpty();
   stationConfig.sta.pmf_cfg.required = false;
+  stationConfig.sta.bssid_set = 0;
+  memset(stationConfig.sta.bssid, 0, sizeof(stationConfig.sta.bssid));
 
+  // Retain exact-BSSID pinning only as a compile-time diagnostic option.
   if (NetConfig::DIAGNOSTIC_PIN_BSSID && target.valid) {
+    stationConfig.sta.channel =
+        static_cast<uint8_t>(target.channel > 0 ? target.channel : 0);
     stationConfig.sta.bssid_set = 1;
     memcpy(stationConfig.sta.bssid, target.bssid, 6);
   }
@@ -1330,49 +1345,6 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
 
-  Serial.println("      Raw station configuration accepted by ESP-IDF.");
-  Serial.println("      Station configuration after esp_wifi_set_config():");
-  printStationSecurityConfig();
-
-  if (WIFI_DIAGNOSTICS) {
-    if (!WiFiFrameCapture::begin(target.bssid)) {
-      Serial.println("      WARNING: 802.11 management capture could not be enabled.");
-    }
-  }
-
-  // The selected BSS is authoritative for this connection attempt. The
-  // previous A/B test changed the local stationConfig AFTER esp_wifi_set_config()
-  // and therefore did not actually update the driver's stored configuration.
-  // Build the complete final configuration first, then commit it once.
-  stationConfig.sta.channel =
-      static_cast<uint8_t>(target.channel > 0 ? target.channel : 0);
-  stationConfig.sta.scan_method = WIFI_FAST_SCAN;
-  stationConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
-
-  if (target.valid) {
-    stationConfig.sta.bssid_set = 1;
-    memcpy(stationConfig.sta.bssid, target.bssid, 6);
-  }
-
-  // An open network does not need Protected Management Frames. Leave PMF
-  // optional for authenticated networks, but do not advertise PMF capability
-  // during the open-network isolation test.
-  stationConfig.sta.pmf_cfg.capable = !password.isEmpty();
-  stationConfig.sta.pmf_cfg.required = false;
-
-  const esp_err_t finalSetConfigResult =
-      esp_wifi_set_config(WIFI_IF_STA, &stationConfig);
-  if (finalSetConfigResult != ESP_OK) {
-    if (WIFI_DIAGNOSTICS) {
-      WiFiFrameCapture::end();
-    }
-    Serial.print("      FINAL esp_wifi_set_config() FAILED: ");
-    Serial.println(esp_err_to_name(finalSetConfigResult));
-    WiFi.disconnect(false, false);
-    WiFi.setAutoReconnect(previousAutoReconnect);
-    return ConnectResult::NETWORK_CONFIG_FAILED;
-  }
-
   Serial.println("      Final station configuration committed to ESP-IDF:");
   printStationSecurityConfig();
 
@@ -1382,7 +1354,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (getConfigResult == ESP_OK) {
     Serial.printf(
         "      Committed BSSID: %02X:%02X:%02X:%02X:%02X:%02X  "
-        "channel=%u  bssid_set=%u\n",
+        "channel=%u  bssid_set=%u\\n",
         committedConfig.sta.bssid[0], committedConfig.sta.bssid[1],
         committedConfig.sta.bssid[2], committedConfig.sta.bssid[3],
         committedConfig.sta.bssid[4], committedConfig.sta.bssid[5],
@@ -1406,8 +1378,18 @@ ConnectResult connectWithCredentials(const String& ssid,
     Serial.println("      WiFi power save: DISABLED for authentication test.");
   }
 
-  Serial.println("      Exact BSSID/channel selection: ENABLED for this attempt.");
-  Serial.println("      ESP-IDF will connect to the BSS recorded by the scan.");
+  if (NetConfig::DIAGNOSTIC_PIN_BSSID && target.valid) {
+    Serial.println("      Exact BSSID/channel selection: ENABLED for this attempt.");
+  } else {
+    Serial.println("      Exact BSSID/channel selection: DISABLED.");
+    Serial.println("      ESP-IDF will select the AP from the SSID across all channels.");
+  }
+
+  if (WIFI_DIAGNOSTICS) {
+    if (!WiFiFrameCapture::begin(target.bssid)) {
+      Serial.println("      WARNING: 802.11 management capture could not be enabled.");
+    }
+  }
 
   const esp_err_t connectResult = esp_wifi_connect();
   if (connectResult != ESP_OK) {
@@ -1976,8 +1958,6 @@ void menu() {
       NetConfig::menu();
     } else if (choice == "B") {
       return;
-    } else {
-      Serial.println("Unknown selection.");
     }
   }
 }
