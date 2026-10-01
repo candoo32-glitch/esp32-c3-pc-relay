@@ -3,8 +3,6 @@ name: Build ESP32-C3 firmware
 on:
   push:
     branches: [idf-6-migration]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
