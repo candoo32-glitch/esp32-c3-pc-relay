@@ -5,6 +5,13 @@
 
 namespace NetConfig {
 enum class Mode : uint8_t { DHCP = 0, STATIC = 1 };
+
+// Diagnostic target configuration. Disabled for normal unpinned operation.
+inline constexpr bool DIAGNOSTIC_PIN_BSSID = false;
+inline constexpr uint8_t DIAGNOSTIC_CHANNEL = 0;
+inline constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
+  0x86, 0xCC, 0x9C, 0x94, 0x4E, 0x18
+};
 void begin();
 Mode mode();
 void printSettings();
