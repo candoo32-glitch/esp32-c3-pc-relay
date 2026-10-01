@@ -295,7 +295,7 @@ constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
 // Normal WiFi operation: let the ESP32-C3 select the AP/BSSID normally.
-constexpr bool NetConfig::DIAGNOSTIC_PIN_BSSID = false;
+constexpr bool DIAGNOSTIC_PIN_BSSID = false;
 // Let the ESP32 scan for this BSSID instead of assuming its channel.
 constexpr uint8_t DIAGNOSTIC_CHANNEL = 0;
 constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
