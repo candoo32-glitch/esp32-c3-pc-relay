@@ -295,7 +295,7 @@ constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
 // Normal WiFi operation: let the ESP32-C3 select the AP/BSSID normally.
-constexpr bool DIAGNOSTIC_PIN_BSSID = false;
+constexpr bool DIAGNOSTIC_PIN_BSSID = true;
 // Let the ESP32 scan for this BSSID instead of assuming its channel.
 constexpr uint8_t DIAGNOSTIC_CHANNEL = 0;
 constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
@@ -1038,8 +1038,8 @@ ConnectResult connectWithCredentials(const String& ssid,
     Serial.println("      Raw ESP-IDF log capture: ENABLED");
   }
 
-  // Normal operation lets the ESP32 select the AP/BSSID normally.
-  // BSSID/channel pinning is only used when explicitly enabled for diagnostics.
+  // The scan selects the strongest matching AP. Pin that exact BSSID/channel so
+  // another AP advertising the same SSID cannot be selected during association.
   if (NetConfig::DIAGNOSTIC_PIN_BSSID) {
     WiFi.begin(ssid.c_str(), password.c_str(),
                target.channel, target.bssid, true);
