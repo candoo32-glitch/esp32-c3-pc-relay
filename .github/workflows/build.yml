@@ -29,6 +29,11 @@ jobs:
       - name: Set firmware build version
         run: echo "FW_BUILD_VERSION=${{ github.run_number }}" >> "$GITHUB_ENV"
 
+      - name: Install and patch Arduino-ESP32 build tools
+        run: |
+          pio pkg install
+          python scripts/patch_pioarduino_scons.py
+
       - name: Build ESP32-C3 firmware
         run: pio run -v
 
