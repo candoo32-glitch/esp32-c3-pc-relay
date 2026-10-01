@@ -3,6 +3,12 @@
 #include <WiFi.h>
 #include "esp_log.h"
 
+#ifndef FW_BUILD_VERSION
+#define FW_BUILD_VERSION 0
+#endif
+
+constexpr uint32_t FIRMWARE_BUILD_VERSION = FW_BUILD_VERSION;
+
 namespace Pins {
 constexpr uint8_t POWER_RELAY = 5; // S1
 constexpr uint8_t RESET_RELAY = 6; // S2
@@ -1112,6 +1118,9 @@ void menu() {
 namespace MainMenu {
 void print() {
   Serial.println();
+  Serial.print("Firmware build: ");
+  Serial.println(FIRMWARE_BUILD_VERSION);
+
   if (Console::ansiSupported) {
     Console::clearScreen();
     Console::color("1;36m");
@@ -1206,6 +1215,8 @@ void setup() {
   Serial.println("ESP32-C3 PC Relay Controller");
   Serial.println("Relay test firmware - no automatic pulses");
   Serial.println("POWER=GPIO5, RESET=GPIO6");
+  Serial.print("Firmware build: ");
+  Serial.println(FIRMWARE_BUILD_VERSION);
 
   Console::begin();
 
