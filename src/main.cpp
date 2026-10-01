@@ -296,7 +296,8 @@ constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 // Diagnostic test: force the ESP32-C3 onto the known strong Orbi AP so the
 // mesh/AP-selection variable is removed from this authentication test.
 constexpr bool DIAGNOSTIC_PIN_BSSID = true;
-constexpr uint8_t DIAGNOSTIC_CHANNEL = 1;
+// Let the ESP32 scan for this BSSID instead of assuming its channel.
+constexpr uint8_t DIAGNOSTIC_CHANNEL = 0;
 constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
   0x86, 0xCC, 0x9C, 0x94, 0x4E, 0x18
 };
@@ -828,7 +829,7 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
   }
   if (NetConfig::DIAGNOSTIC_PIN_BSSID) {
     Serial.println("      DIAGNOSTIC: BSSID/channel pinning enabled");
-    Serial.printf("      DIAGNOSTIC: BSSID %02X:%02X:%02X:%02X:%02X:%02X, channel %u\n",
+    Serial.printf("      DIAGNOSTIC: BSSID %02X:%02X:%02X:%02X:%02X:%02X, channel %u (0=scan)\n",
                   NetConfig::DIAGNOSTIC_BSSID[0], NetConfig::DIAGNOSTIC_BSSID[1],
                   NetConfig::DIAGNOSTIC_BSSID[2], NetConfig::DIAGNOSTIC_BSSID[3],
                   NetConfig::DIAGNOSTIC_BSSID[4], NetConfig::DIAGNOSTIC_BSSID[5],
