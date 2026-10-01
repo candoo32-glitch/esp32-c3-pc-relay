@@ -105,16 +105,59 @@ jobs:
               echo.
           )
 
-          echo Finding the latest successful main-branch build...
+          echo Finding the latest main-branch build...
           set "LATEST_RUN="
-          for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch main --status success --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
+          for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch main --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
           if not defined LATEST_RUN (
-              echo ERROR: No successful main-branch build was found.
+              echo ERROR: No main-branch GitHub Actions build was found.
               echo.
               pause
               exit /b 1
           )
+
           echo Selected GitHub Actions run: !LATEST_RUN!
+          echo This flasher invocation is locked to this run.
+          echo Newer builds will be ignored while this run finishes.
+          echo.
+
+          :WAIT_FOR_RUN
+          set "RUN_STATUS="
+          set "RUN_CONCLUSION="
+          for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json status --jq ".status"') do set "RUN_STATUS=%%I"
+          for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json conclusion --jq ".conclusion // \"\""') do set "RUN_CONCLUSION=%%I"
+
+          if not defined RUN_STATUS (
+              echo ERROR: Could not determine the status of GitHub Actions run !LATEST_RUN!.
+              echo.
+              pause
+              exit /b 1
+          )
+
+          if /i "!RUN_STATUS!"=="completed" goto RUN_COMPLETE
+
+          echo Build !LATEST_RUN! is !RUN_STATUS!.
+          echo Waiting 10 seconds for this exact build to finish...
+          timeout /t 10 /nobreak >nul
+          goto WAIT_FOR_RUN
+
+          :RUN_COMPLETE
+          if /i not "!RUN_CONCLUSION!"=="success" (
+              echo.
+              echo ========================================
+              echo   BUILD DID NOT SUCCEED
+              echo ========================================
+              echo.
+              echo GitHub Actions run : !LATEST_RUN!
+              echo Conclusion          : !RUN_CONCLUSION!
+              echo Nothing was downloaded or flashed.
+              echo.
+              pause
+              exit /b 1
+          )
+
+          echo.
+          echo Build !LATEST_RUN! completed successfully.
+          echo Downloading the artifact from this exact run...
           echo.
 
           set "DOWNLOAD_DIR=%TEMP%\esp32-c3-relay-%RANDOM%%RANDOM%"
