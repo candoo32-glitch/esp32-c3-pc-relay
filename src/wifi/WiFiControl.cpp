@@ -573,6 +573,36 @@ ConnectResult connectWithCredentials(const String& ssid,
   Console::prepareForMenuInput();
   return result;
 }
+void printStatus() {
+  Serial.println();
+  Serial.println("WiFi status");
+  Serial.println("-----------");
+
+  Serial.print("State: ");
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("CONNECTED");
+    Serial.print("SSID: ");
+    Serial.println(WiFi.SSID());
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+    Serial.print("Gateway: ");
+    Serial.println(WiFi.gatewayIP());
+    Serial.print("Subnet: ");
+    Serial.println(WiFi.subnetMask());
+    Serial.print("DNS: ");
+    Serial.println(WiFi.dnsIP());
+    Serial.print("RSSI: ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
+  } else {
+    Serial.print("NOT CONNECTED (status=");
+    Serial.print(static_cast<int>(WiFi.status()));
+    Serial.println(")");
+  }
+
+  Serial.println();
+}
+
 bool connect() {
   const String ssid = preferences.getString(SSID_KEY, "");
   const String password = preferences.getString(PASSWORD_KEY, "");
