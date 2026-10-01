@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include "esp_log.h"
 
 namespace Pins {
 constexpr uint8_t POWER_RELAY = 5; // S1
@@ -491,6 +492,7 @@ constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
+constexpr bool WIFI_DIAGNOSTICS = true;
 
 void printStatus() {
   Serial.println();
@@ -581,6 +583,14 @@ bool connect() {
   // normal WiFi.begin() below is allowed to choose the BSSID/channel.
 
   Serial.println("[3/6] Starting connection attempt...");
+  if (WIFI_DIAGNOSTICS) {
+    // Espressif documents the Wi-Fi authentication path as a timed phase.
+    // DEBUG logging lets us distinguish a locally generated AUTH_EXPIRE
+    // timeout from a reason=2 deauthentication actually received from the AP.
+    esp_log_level_set("wifi", ESP_LOG_DEBUG);
+    esp_log_level_set("wpa", ESP_LOG_DEBUG);
+    Serial.println("      WiFi diagnostic logging: DEBUG (wifi + wpa)");
+  }
   if (NetConfig::DIAGNOSTIC_PIN_BSSID) {
     Serial.println("      DIAGNOSTIC: BSSID/channel pinning enabled");
     Serial.printf("      DIAGNOSTIC: BSSID %02X:%02X:%02X:%02X:%02X:%02X, channel %u\n",
@@ -631,10 +641,19 @@ bool connect() {
   const wl_status_t finalStatus = WiFi.status();
 
   if (finalStatus == WL_CONNECTED) {
+    if (WIFI_DIAGNOSTICS) {
+      esp_log_level_set("wifi", ESP_LOG_INFO);
+      esp_log_level_set("wpa", ESP_LOG_INFO);
+    }
     Serial.println("[5/6] Associated and authenticated.");
     Serial.println("[6/6] Network address acquired.");
     printStatus();
     return true;
+  }
+
+  if (WIFI_DIAGNOSTICS) {
+    esp_log_level_set("wifi", ESP_LOG_INFO);
+    esp_log_level_set("wpa", ESP_LOG_INFO);
   }
 
   Serial.println("[5/6] Connection attempt did not complete.");
