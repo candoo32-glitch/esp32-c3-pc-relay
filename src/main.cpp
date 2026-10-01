@@ -64,6 +64,48 @@ bool disconnected() {
   return false;
 }
 
+// Establish a hard RX transaction boundary before a menu is shown.
+//
+// A terminal CR/LF can arrive in separate USB CDC packets. If the final byte
+// of the previous menu transaction arrives while Wi-Fi is connecting, the next
+// menu can otherwise see that byte as its first input. The timing then appears
+// random.
+//
+// Keep the menu closed until the USB RX queue has been quiet for a complete
+// settling interval, discard everything already queued, and only then allow
+// the next menu transaction to begin.
+constexpr uint32_t MENU_INPUT_QUIET_MS = 250;
+
+void prepareForMenuInput() {
+  uint32_t quietSince = millis();
+
+  while (true) {
+    if (disconnected()) {
+      return;
+    }
+
+    if (Serial.available()) {
+      while (Serial.available()) {
+        Serial.read();
+      }
+      quietSince = millis();
+    }
+
+    if (millis() - quietSince >= MENU_INPUT_QUIET_MS) {
+      break;
+    }
+
+    delay(5);
+  }
+
+  consumePendingLineFeed = false;
+
+  // One final drain handles a packet delivered exactly at the boundary.
+  while (Serial.available()) {
+    Serial.read();
+  }
+}
+
 void resetTransport() {
   // Reinitialize native USB-Serial/JTAG after a detected disconnect/reset.
   // This clears stale RX/TX state before a new PuTTY session starts.
@@ -1460,6 +1502,10 @@ ConnectResult connectWithCredentials(const String& ssid,
 
     if (restorePowerSave) esp_wifi_set_ps(previousPowerSave);
     WiFi.setAutoReconnect(previousAutoReconnect);
+
+    Console::prepareForMenuInput();
+    Serial.println("      Console input synchronized for next menu transaction.");
+
     return ConnectResult::SUCCESS;
   }
 
@@ -1544,6 +1590,12 @@ ConnectResult connectWithCredentials(const String& ssid,
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(previousAutoReconnect);
   Serial.println("      WiFi station remains initialized; ready for retry or rescan.");
+
+  // The final CR/LF from the menu command that launched this connection can
+  // arrive through USB CDC after the Wi-Fi attempt has failed. Do not expose
+  // that byte to the next menu reader.
+  Console::prepareForMenuInput();
+  Serial.println("      Console input synchronized for next menu transaction.");
 
   return result;
 }
