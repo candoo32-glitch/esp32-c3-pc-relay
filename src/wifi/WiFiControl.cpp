@@ -163,7 +163,12 @@ void printConnectionDiagnostics() {
   Serial.print("Final WiFi status: ");
   Serial.println(static_cast<int>(WiFi.status()));
 
-  if (disconnectEventCount != 0) {
+  bool hadDisconnect;
+  portENTER_CRITICAL(&wifiEventTraceMux);
+  hadDisconnect = disconnectEventCount != 0;
+  portEXIT_CRITICAL(&wifiEventTraceMux);
+
+  if (hadDisconnect) {
     uint8_t reason;
     int8_t rssi;
     uint8_t bssid[6];
@@ -313,7 +318,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.print("  Minimum security: ");
   Serial.println(password.isEmpty() ? "OPEN" : "WPA2-PSK");
 
-  resetConnectionDiagnostics();
   configureVerboseWiFiLogging();
 
   /*
@@ -325,6 +329,10 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (!WiFi.disconnect(false, false, 1000)) {
     Serial.println("WARNING: STA disconnect-before-connect did not complete.");
   }
+
+  // Start a clean diagnostic window only after the deliberate disconnect
+  // above, so that cleanup events cannot be mistaken for AP failures.
+  resetConnectionDiagnostics();
 
   wl_status_t beginStatus;
 
@@ -356,6 +364,8 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.print("WiFi.begin() returned status ");
   Serial.println(static_cast<int>(beginStatus));
   Serial.println("Waiting for STA_CONNECTED and STA_GOT_IP...");
+  Serial.println("Note: Arduino-ESP32 3.3.12 performs one internal retry after");
+  Serial.println("the first disconnect even when auto-reconnect is disabled.");
   Serial.println();
 
   const uint32_t startTime = millis();
