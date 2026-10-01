@@ -2,7 +2,7 @@ name: Build ESP32-C3 firmware
 
 on:
   push:
-    branches: [main]
+    branches: [idf-6-migration]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -64,6 +64,7 @@ jobs:
 
           printf "%s\\n" "$FW_BUILD_VERSION" > dist/BUILD_VERSION.txt
           printf "%s\\n" "${{ github.run_id }}" > dist/RUN_ID.txt
+          printf "%s\\n" "esp32-c3-pc-relay-${{ github.ref_name }}-build-${{ github.run_number }}" > dist/ARTIFACT_NAME.txt
 
           cat > dist/flash.bat <<'EOF'
           @echo off
@@ -110,20 +111,16 @@ jobs:
               echo.
           )
 
+          set "TARGET_BRANCH=${{ github.ref_name }}"
+          set "EXPECTED_ARTIFACT_NAME=esp32-c3-pc-relay-${{ github.ref_name }}-build-${{ github.run_number }}"
           set "LATEST_RUN="
           if exist "%~dp0RUN_ID.txt" (
               set /p "BUNDLED_RUN_ID="<"%~dp0RUN_ID.txt"
-              if defined BUNDLED_RUN_ID (
-                  echo Found bundled run ID: !BUNDLED_RUN_ID!
-                  set "LATEST_RUN=!BUNDLED_RUN_ID!"
-              )
+              if defined BUNDLED_RUN_ID set "LATEST_RUN=!BUNDLED_RUN_ID!"
           )
           if not defined LATEST_RUN (
-              echo Finding the latest main-branch build...
-              for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch main --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
-          )
-          if not defined LATEST_RUN (
-              echo ERROR: No usable GitHub Actions build was found.
+              echo ERROR: RUN_ID.txt is missing or empty.
+              echo This package is intentionally locked to its build run.
               echo.
               pause
               exit /b 1
@@ -184,7 +181,7 @@ jobs:
 
           echo Locating firmware artifact...
           set "ARTIFACT_ID="
-          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!LATEST_RUN!/artifacts" --jq ".artifacts[] ^| select(.name==\"esp32-c3-pc-relay-firmware\" and .expired==false) ^| .id"') do set "ARTIFACT_ID=%%I"
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!LATEST_RUN!/artifacts" --jq ".artifacts[] ^| select(.name==\"!EXPECTED_ARTIFACT_NAME!\" and .expired==false) ^| .id"') do set "ARTIFACT_ID=%%I"
           if not defined ARTIFACT_ID (
               echo ERROR: The selected run does not contain a usable firmware artifact.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
@@ -242,9 +239,26 @@ jobs:
               pause
               exit /b 1
           )
+          if not exist "!EXTRACT_DIR!\ARTIFACT_NAME.txt" (
+              echo ERROR: ARTIFACT_NAME.txt is missing from the artifact.
+              rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
+              echo.
+              pause
+              exit /b 1
+          )
 
           set /p "ARTIFACT_BUILD_VERSION="<"!EXTRACT_DIR!\BUILD_VERSION.txt"
           set /p "ARTIFACT_RUN_ID="<"!EXTRACT_DIR!\RUN_ID.txt"
+          set /p "ACTUAL_ARTIFACT_NAME="<"!EXTRACT_DIR!\ARTIFACT_NAME.txt"
+          if not "!ACTUAL_ARTIFACT_NAME!"=="!EXPECTED_ARTIFACT_NAME!" (
+              echo ERROR: Artifact name mismatch.
+              echo Expected: !EXPECTED_ARTIFACT_NAME!
+              echo Artifact : !ACTUAL_ARTIFACT_NAME!
+              rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
+              echo.
+              pause
+              exit /b 1
+          )
           if not "!ARTIFACT_RUN_ID!"=="!LATEST_RUN!" (
               echo ERROR: Artifact run ID mismatch.
               echo Expected: !LATEST_RUN!
@@ -288,6 +302,7 @@ jobs:
           copy /y "!EXTRACT_DIR!\SHA256SUMS.txt" "!LOCAL_DIR!SHA256SUMS.txt" >nul
           copy /y "!EXTRACT_DIR!\BUILD_VERSION.txt" "!LOCAL_DIR!BUILD_VERSION.txt" >nul
           copy /y "!EXTRACT_DIR!\RUN_ID.txt" "!LOCAL_DIR!RUN_ID.txt" >nul
+          copy /y "!EXTRACT_DIR!\ARTIFACT_NAME.txt" "!LOCAL_DIR!ARTIFACT_NAME.txt" >nul
           rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
 
           if not exist "!LOCAL_FIRMWARE!\factory.bin" (
@@ -361,12 +376,13 @@ jobs:
           test -s dist/SHA256SUMS.txt
           test -s dist/BUILD_VERSION.txt
           test -s dist/RUN_ID.txt
+          test -s dist/ARTIFACT_NAME.txt
           test -s dist/firmware/factory.bin
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: esp32-c3-pc-relay-firmware
+          name: esp32-c3-pc-relay-${{ github.ref_name }}-build-${{ github.run_number }}
           path: dist/
           if-no-files-found: error
           retention-days: 30
