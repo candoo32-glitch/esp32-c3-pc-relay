@@ -27,24 +27,54 @@ namespace Console {
 bool ansiSupported = false;
 volatile bool sessionLost = false;
 
-// USB CDC terminals commonly send Enter as CRLF. Because readLine() returns
-// as soon as it sees the CR, the following LF can otherwise become the next
-// menu command and make the menu appear to cycle as if Enter were held down.
+// A CRLF is one Enter key even when CR and LF arrive in different USB
+// packets. Keep this state until the next byte; do not use a short timeout.
 bool consumePendingLineFeed = false;
 
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1 && \
+    defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT
+void onHardwareCDCEvent(void* arg, esp_event_base_t eventBase,
+                        int32_t eventId, void* eventData) {
+  (void)arg;
+  (void)eventData;
+  if (eventBase == ARDUINO_HW_CDC_EVENTS &&
+      eventId == ARDUINO_HW_CDC_BUS_RESET_EVENT) {
+    // Let the main task reset the CDC transport safely.
+    sessionLost = true;
+  }
+}
+#endif
+
 bool connected() {
-  return Serial.isConnected();
+  return !sessionLost && Serial.isConnected();
 }
 
 bool disconnected() {
-  if (!connected()) {
+  if (sessionLost || !Serial.isConnected()) {
     sessionLost = true;
+    return true;
   }
-  return sessionLost;
+  return false;
+}
+
+void resetTransport() {
+  // Reinitialize native USB-Serial/JTAG after a detected disconnect/reset.
+  // This clears stale RX/TX state before a new PuTTY session starts.
+  Serial.end();
+  delay(50);
+  Serial.begin(115200);
+  Serial.setTxTimeoutMs(50);
+
+  while (Serial.available()) {
+    Serial.read();
+  }
+
+  consumePendingLineFeed = false;
+  sessionLost = false;
 }
 
 void waitForConnection() {
-  while (!connected()) {
+  while (!Serial.isConnected()) {
     delay(50);
   }
   sessionLost = false;
@@ -55,8 +85,6 @@ void resetSession() {
   ansiSupported = false;
   consumePendingLineFeed = false;
 
-  // Discard anything already buffered by the previous USB terminal session.
-  // A stale CR/LF must never become a command in the new menu session.
   while (Serial.available()) {
     Serial.read();
   }
@@ -124,50 +152,24 @@ void color(const char* code) {
 String readLine() {
   String value;
 
-  // If the previous Enter arrived as CRLF, the CR terminated the previous
-  // line and the LF belongs to that same Enter. Consume it before accepting
-  // any new command. This prevents a CRLF from generating two menu commands.
-  if (consumePendingLineFeed) {
-    const uint32_t deadline = millis() + 25;
-    while (millis() < deadline && !Serial.available()) {
-      if (disconnected()) {
-        sessionLost = true;
-        return "";
-      }
-      delay(1);
-    }
-
-    if (Serial.available()) {
-      const int next = Serial.peek();
-      if (next == '\n') {
-        Serial.read();
-      }
-    }
-    consumePendingLineFeed = false;
-  }
-
   while (true) {
     if (disconnected()) {
-      sessionLost = true;
       return "";
     }
 
     while (Serial.available()) {
       char c = static_cast<char>(Serial.read());
 
-      if (c == '\r' || c == '\n') {
-        // Treat either CR or LF as Enter. PuTTY commonly sends CR for
-        // Return, while other terminals may send LF or CRLF.
-        //
-        // When CR terminates a CRLF sequence, defer consumption of its LF
-        // until the next readLine() call. This closes the menu-cycling race
-        // without blindly draining legitimate future keystrokes.
-        if (c == '\r') {
-          consumePendingLineFeed = true;
-        } else {
-          consumePendingLineFeed = false;
+      // CRLF is one Enter. If LF arrives later, discard exactly that LF.
+      if (consumePendingLineFeed) {
+        consumePendingLineFeed = false;
+        if (c == '\n') {
+          continue;
         }
+      }
 
+      if (c == '\r' || c == '\n') {
+        consumePendingLineFeed = (c == '\r');
         Serial.println();
         return value;
       }
@@ -185,10 +187,21 @@ String readLine() {
         continue;
       }
 
+      // Never allow terminal/USB control traffic to become a command.
+      if (static_cast<uint8_t>(c) < 0x20 ||
+          static_cast<uint8_t>(c) == 0x7F) {
+        continue;
+      }
+
       // Echo typed characters so the ESP32 console works even when the
       // terminal application's local echo is disabled.
       Serial.write(c);
-      value += c;
+
+      // Bound malformed input so a corrupted USB stream cannot grow the
+      // command String indefinitely.
+      if (value.length() < 64) {
+        value += c;
+      }
     }
 
     delay(10);
@@ -1124,7 +1137,8 @@ void showStatus() {
 void loop() {
   while (true) {
     if (Console::disconnected()) {
-      // Reset only the console session; keep the ESP32 running.
+      // Treat a COM-port loss as a brand-new console session.
+      Console::resetTransport();
       Console::waitForConnection();
       Console::begin();
       continue;
@@ -1134,6 +1148,9 @@ void loop() {
 
     String choice = Console::readPrompt("Select: ");
     if (Console::disconnected()) {
+      Console::resetTransport();
+      Console::waitForConnection();
+      Console::begin();
       continue;
     }
     choice.trim();
@@ -1158,6 +1175,12 @@ void setup() {
   Relay::begin();
 
   Serial.begin(115200);
+  // Keep native USB-Serial/JTAG writes bounded when the host disappears.
+  Serial.setTxTimeoutMs(50);
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1 && \
+    defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT
+  Serial.onEvent(ARDUINO_HW_CDC_BUS_RESET_EVENT, Console::onHardwareCDCEvent);
+#endif
   delay(250);
 
   Serial.println();
