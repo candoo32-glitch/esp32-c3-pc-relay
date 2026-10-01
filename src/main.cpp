@@ -1139,7 +1139,7 @@ void setupCredentials() {
   Serial.println("Testing credentials...");
   Serial.println("Credentials will be saved only if the connection succeeds.");
 
-  if (connectWithCredentials(ssid, password)) {
+  if (connectWithCredentials(ssid, password) == ConnectResult::SUCCESS) {
     Serial.println("WiFi credentials saved after successful connection.");
   } else {
     Serial.println("WiFi credentials were NOT saved.");
