@@ -114,23 +114,36 @@ jobs:
           )
 
           set "TARGET_BRANCH=${{ github.head_ref || github.ref_name }}"
-          set "EXPECTED_ARTIFACT_NAME=esp32-c3-pc-relay-${{ github.head_ref || github.ref_name }}-build-${{ github.run_number }}"
           set "LATEST_RUN="
-          if exist "%~dp0RUN_ID.txt" (
-              set /p "BUNDLED_RUN_ID="<"%~dp0RUN_ID.txt"
-              if defined BUNDLED_RUN_ID set "LATEST_RUN=!BUNDLED_RUN_ID!"
-          )
+          set "LATEST_RUN_NUMBER="
+          set "EXPECTED_ARTIFACT_NAME="
+
+          echo Target branch: !TARGET_BRANCH!
+          echo Searching GitHub for the newest successful build on this branch...
+          echo.
+
+          :FIND_LATEST_RUN
+          for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch "!TARGET_BRANCH!" --limit 20 --json databaseId,status,conclusion --jq "map(select(.status==\"completed\" and .conclusion==\"success\"))[0].databaseId"') do set "LATEST_RUN=%%I"
+
           if not defined LATEST_RUN (
-              echo ERROR: RUN_ID.txt is missing or empty.
-              echo This package is intentionally locked to its build run.
+              echo ERROR: No successful build was found for branch !TARGET_BRANCH!.
               echo.
               pause
               exit /b 1
           )
 
+          for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json number --jq ".number"') do set "LATEST_RUN_NUMBER=%%I"
+          if not defined LATEST_RUN_NUMBER (
+              echo ERROR: Could not determine the run number for !LATEST_RUN!.
+              echo.
+              pause
+              exit /b 1
+          )
+
+          set "EXPECTED_ARTIFACT_NAME=esp32-c3-pc-relay-!TARGET_BRANCH!-build-!LATEST_RUN_NUMBER!"
           echo Selected GitHub Actions run: !LATEST_RUN!
-          echo This flasher invocation is locked to this run.
-          echo Newer builds will be ignored while this run finishes.
+          echo Selected build number: !LATEST_RUN_NUMBER!
+          echo The flasher will use the newest successful build for this branch.
           echo.
 
           :WAIT_FOR_RUN
@@ -356,7 +369,7 @@ jobs:
           Usage:
           1. Connect the ESP32-C3 to USB.
           2. Double-click flash.bat.
-          3. The script finds the latest successful main-branch GitHub Actions build.
+          3. The script finds the latest successful GitHub Actions build for the branch this flasher was built for.
           4. It retrieves that exact run's firmware artifact by artifact ID, downloads the ZIP, and explicitly extracts it with PowerShell.
           5. It verifies the artifact run ID and firmware build version before synchronizing local files.
           6. If GH_TOKEN is already set in Windows, it is used automatically. Otherwise the script securely prompts for a fine-grained GitHub token for that run only.
