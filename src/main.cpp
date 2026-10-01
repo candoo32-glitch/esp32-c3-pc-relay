@@ -328,7 +328,7 @@ constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
 // Normal WiFi operation: let the ESP32-C3 select the AP/BSSID normally.
-constexpr bool DIAGNOSTIC_PIN_BSSID = true;
+constexpr bool DIAGNOSTIC_PIN_BSSID = false;
 // Let the ESP32 scan for this BSSID instead of assuming its channel.
 constexpr uint8_t DIAGNOSTIC_CHANNEL = 0;
 constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
@@ -1267,6 +1267,15 @@ ConnectResult connectWithCredentials(const String& ssid,
       Serial.println("      WARNING: 802.11 management capture could not be enabled.");
     }
   }
+
+  // For this A/B test, deliberately leave BSSID/channel selection to the
+  // ESP-IDF station state machine. The scan has already proven that ESP_TEST
+  // is visible; this isolates exact-BSSID/channel pinning from authentication.
+  Serial.println("      BSSID/channel override: DISABLED for this attempt.");
+  Serial.println("      ESP-IDF will select the matching BSS from the SSID.");
+  stationConfig.sta.channel = 0;
+  stationConfig.sta.bssid_set = 0;
+  memset(stationConfig.sta.bssid, 0, sizeof(stationConfig.sta.bssid));
 
   const esp_err_t connectResult = esp_wifi_connect();
   if (connectResult != ESP_OK) {
