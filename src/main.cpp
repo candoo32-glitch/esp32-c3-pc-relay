@@ -27,6 +27,11 @@ namespace Console {
 bool ansiSupported = false;
 volatile bool sessionLost = false;
 
+// USB CDC terminals commonly send Enter as CRLF. Because readLine() returns
+// as soon as it sees the CR, the following LF can otherwise become the next
+// menu command and make the menu appear to cycle as if Enter were held down.
+bool consumePendingLineFeed = false;
+
 bool connected() {
   return Serial.isConnected();
 }
@@ -48,6 +53,10 @@ void waitForConnection() {
 void resetSession() {
   sessionLost = false;
   ansiSupported = false;
+  consumePendingLineFeed = false;
+
+  // Discard anything already buffered by the previous USB terminal session.
+  // A stale CR/LF must never become a command in the new menu session.
   while (Serial.available()) {
     Serial.read();
   }
@@ -115,6 +124,28 @@ void color(const char* code) {
 String readLine() {
   String value;
 
+  // If the previous Enter arrived as CRLF, the CR terminated the previous
+  // line and the LF belongs to that same Enter. Consume it before accepting
+  // any new command. This prevents a CRLF from generating two menu commands.
+  if (consumePendingLineFeed) {
+    const uint32_t deadline = millis() + 25;
+    while (millis() < deadline && !Serial.available()) {
+      if (disconnected()) {
+        sessionLost = true;
+        return "";
+      }
+      delay(1);
+    }
+
+    if (Serial.available()) {
+      const int next = Serial.peek();
+      if (next == '\n') {
+        Serial.read();
+      }
+    }
+    consumePendingLineFeed = false;
+  }
+
   while (true) {
     if (disconnected()) {
       sessionLost = true;
@@ -126,7 +157,17 @@ String readLine() {
 
       if (c == '\r' || c == '\n') {
         // Treat either CR or LF as Enter. PuTTY commonly sends CR for
-        // the Return key, while other terminals may send LF or CRLF.
+        // Return, while other terminals may send LF or CRLF.
+        //
+        // When CR terminates a CRLF sequence, defer consumption of its LF
+        // until the next readLine() call. This closes the menu-cycling race
+        // without blindly draining legitimate future keystrokes.
+        if (c == '\r') {
+          consumePendingLineFeed = true;
+        } else {
+          consumePendingLineFeed = false;
+        }
+
         Serial.println();
         return value;
       }
