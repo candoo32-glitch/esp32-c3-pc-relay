@@ -439,8 +439,6 @@ ConnectResult startExplicitStation(const String& ssid,
   Serial.println(verify.sta.bssid_set ? "YES" : "NO");
   Serial.print("  PMF required:   ");
   Serial.println(verify.sta.pmf_cfg.required ? "YES" : "NO");
-  Serial.print("  WPA3 override:  ");
-  Serial.println(verify.sta.disable_wpa3_compatible_mode ? "DISABLED" : "ENABLED");
 
   err = esp_wifi_connect();
   if (err != ESP_OK) {
