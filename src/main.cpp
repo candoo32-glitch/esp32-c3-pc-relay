@@ -2,6 +2,7 @@
 #include <Preferences.h>
 #include <WiFi.h>
 #include "esp_log.h"
+#include "esp_wifi.h"
 
 #ifndef FW_BUILD_VERSION
 #define FW_BUILD_VERSION 0
@@ -512,12 +513,55 @@ volatile int8_t lastDisconnectRSSI = 0;
 volatile uint8_t disconnectEventCount = 0;
 volatile uint8_t lastDisconnectBSSID[6] = {0, 0, 0, 0, 0, 0};
 
-void onWiFiDisconnected(WiFiEvent_t event, WiFiEventInfo_t info) {
-  (void)event;
-  lastDisconnectReason = info.wifi_sta_disconnected.reason;
-  lastDisconnectRSSI = info.wifi_sta_disconnected.rssi;
-  memcpy((void*)lastDisconnectBSSID, info.wifi_sta_disconnected.bssid, 6);
-  ++disconnectEventCount;
+struct WiFiEventTraceEntry {
+  uint32_t elapsedMs;
+  arduino_event_id_t eventId;
+  uint8_t reason;
+};
+
+constexpr uint8_t WIFI_EVENT_TRACE_MAX = 24;
+volatile uint8_t wifiEventTraceCount = 0;
+WiFiEventTraceEntry wifiEventTrace[WIFI_EVENT_TRACE_MAX];
+
+const char* wifiEventName(arduino_event_id_t eventId) {
+  switch (eventId) {
+    case ARDUINO_EVENT_WIFI_STA_START: return "STA_START";
+    case ARDUINO_EVENT_WIFI_STA_STOP: return "STA_STOP";
+    case ARDUINO_EVENT_WIFI_STA_CONNECTED: return "STA_CONNECTED";
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: return "STA_DISCONNECTED";
+    case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE: return "STA_AUTHMODE_CHANGE";
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP: return "STA_GOT_IP";
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP6: return "STA_GOT_IP6";
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP: return "STA_LOST_IP";
+    default: return "OTHER";
+  }
+}
+
+void resetWiFiEventTrace() {
+  wifiEventTraceCount = 0;
+  memset((void*)wifiEventTrace, 0, sizeof(wifiEventTrace));
+}
+
+void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
+  const arduino_event_id_t eventId =
+      static_cast<arduino_event_id_t>(event);
+
+  if (wifiEventTraceCount < WIFI_EVENT_TRACE_MAX) {
+    const uint8_t index = wifiEventTraceCount++;
+    wifiEventTrace[index].elapsedMs = millis();
+    wifiEventTrace[index].eventId = eventId;
+    wifiEventTrace[index].reason =
+        eventId == ARDUINO_EVENT_WIFI_STA_DISCONNECTED
+            ? info.wifi_sta_disconnected.reason
+            : 0;
+  }
+
+  if (eventId == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+    lastDisconnectReason = info.wifi_sta_disconnected.reason;
+    lastDisconnectRSSI = info.wifi_sta_disconnected.rssi;
+    memcpy((void*)lastDisconnectBSSID, info.wifi_sta_disconnected.bssid, 6);
+    ++disconnectEventCount;
+  }
 }
 
 const char* authModeName(wifi_auth_mode_t authMode) {
@@ -549,6 +593,101 @@ constexpr char PASSWORD_KEY[] = "password";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 constexpr bool WIFI_DIAGNOSTICS = true;
+
+const char* pmfModeName(const wifi_pmf_config_t& pmf) {
+  if (pmf.required) return "REQUIRED";
+  if (pmf.capable) return "OPTIONAL";
+  return "DISABLED";
+}
+
+void printStationSecurityConfig() {
+  wifi_config_t config = {};
+  const esp_err_t err = esp_wifi_get_config(WIFI_IF_STA, &config);
+
+  if (err != ESP_OK) {
+    Serial.print("Station security config: unavailable (");
+    Serial.print(esp_err_to_name(err));
+    Serial.println(")");
+    return;
+  }
+
+  Serial.print("Station auth threshold: ");
+  Serial.println(authModeName(config.sta.threshold.authmode));
+  Serial.print("Station PMF: ");
+  Serial.println(pmfModeName(config.sta.pmf_cfg));
+  Serial.print("Station BSSID pinning: ");
+  Serial.println(config.sta.bssid_set ? "ENABLED" : "disabled");
+  Serial.print("Station channel hint: ");
+  Serial.println(config.sta.channel);
+}
+
+void printWiFiEventTrace() {
+  Serial.println();
+  Serial.println("WiFi event sequence");
+  Serial.println("-------------------");
+
+  if (wifiEventTraceCount == 0) {
+    Serial.println("No Arduino WiFi events captured.");
+    return;
+  }
+
+  for (uint8_t i = 0; i < wifiEventTraceCount; ++i) {
+    Serial.print("  +");
+    Serial.print(wifiEventTrace[i].elapsedMs);
+    Serial.print(" ms  ");
+    Serial.print(wifiEventName(wifiEventTrace[i].eventId));
+
+    if (wifiEventTrace[i].eventId == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+      Serial.print("  reason=");
+      Serial.print(wifiEventTrace[i].reason);
+      Serial.print(" (");
+      Serial.print(disconnectReasonName(wifiEventTrace[i].reason));
+      Serial.print(")");
+    }
+
+    Serial.println();
+  }
+
+  bool sawStart = false;
+  bool sawConnected = false;
+  bool sawAuthModeChange = false;
+  bool sawGotIP = false;
+
+  for (uint8_t i = 0; i < wifiEventTraceCount; ++i) {
+    switch (wifiEventTrace[i].eventId) {
+      case ARDUINO_EVENT_WIFI_STA_START:
+        sawStart = true;
+        break;
+      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+        sawConnected = true;
+        break;
+      case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
+        sawAuthModeChange = true;
+        break;
+      case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+        sawGotIP = true;
+        break;
+      default:
+        break;
+    }
+  }
+
+  Serial.println();
+  Serial.print("  STA_START seen:            ");
+  Serial.println(sawStart ? "YES" : "NO");
+  Serial.print("  STA_CONNECTED seen:        ");
+  Serial.println(sawConnected ? "YES" : "NO");
+  Serial.print("  STA_AUTHMODE_CHANGE seen:  ");
+  Serial.println(sawAuthModeChange ? "YES" : "NO");
+  Serial.print("  STA_GOT_IP seen:            ");
+  Serial.println(sawGotIP ? "YES" : "NO");
+
+  if (!sawConnected) {
+    Serial.println("  Diagnostic: STA never reached the connected/association event.");
+  } else if (!sawGotIP) {
+    Serial.println("  Diagnostic: association event occurred, but IPv4 was not acquired.");
+  }
+}
 
 void printStatus() {
   Serial.println();
@@ -676,8 +815,11 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
   lastDisconnectRSSI = 0;
   disconnectEventCount = 0;
   memset((void*)lastDisconnectBSSID, 0, sizeof(lastDisconnectBSSID));
+  resetWiFiEventTrace();
 
   Serial.println("[3/6] Starting connection attempt...");
+  Serial.println("      Station security configuration:");
+  printStationSecurityConfig();
   if (WIFI_DIAGNOSTICS) {
     esp_log_level_set("wifi", ESP_LOG_DEBUG);
     esp_log_level_set("wpa", ESP_LOG_DEBUG);
@@ -815,6 +957,8 @@ ConnectResult connectWithCredentials(const String& ssid, const String& password)
 
   Serial.print("      Connection result: ");
   Serial.println(connectResultName(result));
+
+  printWiFiEventTrace();
 
   Serial.println("[6/6] Resetting WiFi after failed connection...");
   if (!WiFi.disconnect(true, false)) {
@@ -1190,7 +1334,7 @@ void menu() {
 
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
-  WiFi.onEvent(onWiFiDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  WiFi.onEvent(onWiFiEvent);
   Serial.println();
   Serial.println("WiFi subsystem starting...");
   connect();
