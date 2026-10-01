@@ -101,7 +101,7 @@ void detectANSI() {
   ansiSupported = false;
 }
 
-String readLine();
+String readLine(bool allowEmpty = true);
 
 void begin() {
   resetSession();
@@ -156,7 +156,7 @@ void color(const char* code) {
   Serial.write(0x1B); Serial.print("["); Serial.print(code);
 }
 
-String readLine() {
+String readLine(bool allowEmpty) {
   String value;
   bool inEscapeSequence = false;
 
@@ -193,8 +193,16 @@ String readLine() {
       }
 
       if (c == '\r' || c == '\n') {
+        // Some USB/terminal combinations can present a CRLF as two separate
+        // line-ending events. Menu prompts must never turn an empty terminator
+        // into an "Unknown selection." entry.
         consumePendingLineFeed = (c == '\r');
         Serial.println();
+
+        if (!allowEmpty && value.isEmpty()) {
+          continue;
+        }
+
         return value;
       }
 
@@ -227,6 +235,11 @@ String readLine() {
 String readPrompt(const char* prompt) {
   Serial.print(prompt);
   return readLine();
+}
+
+String readMenuChoice(const char* prompt) {
+  Serial.print(prompt);
+  return readLine(false);
 }
 
 bool yesNo(const char* prompt) {
@@ -487,7 +500,7 @@ void menu() {
     Serial.println("B. Back");
     Serial.println();
 
-    String choice = Console::readPrompt("Select: ");
+    String choice = Console::readMenuChoice("Select: ");
     if (Console::disconnected()) return;
     choice.trim();
     choice.toUpperCase();
@@ -1564,7 +1577,7 @@ void scan() {
   Serial.println(" unique SSIDs.");
   Serial.println("B. Back");
 
-  String choice = Console::readPrompt("Select (B=Back): ");
+  String choice = Console::readMenuChoice("Select (B=Back): ");
   if (Console::disconnected()) return;
   choice.trim();
   choice.toUpperCase();
@@ -1762,7 +1775,7 @@ void menu() {
     Serial.println("B. Back");
     Serial.println();
 
-    String choice = Console::readPrompt("Select: ");
+    String choice = Console::readMenuChoice("Select: ");
     choice.trim();
     choice.toUpperCase();
 
@@ -1811,7 +1824,7 @@ void menu() {
     Serial.println("B. Back");
     Serial.println();
 
-    String choice = Console::readPrompt("Select: ");
+    String choice = Console::readMenuChoice("Select: ");
     choice.trim();
     choice.toUpperCase();
 
@@ -1889,7 +1902,7 @@ void loop() {
 
     print();
 
-    String choice = Console::readPrompt("Select: ");
+    String choice = Console::readMenuChoice("Select: ");
     if (Console::disconnected()) {
       Console::resetTransport();
       Console::waitForConnection();
