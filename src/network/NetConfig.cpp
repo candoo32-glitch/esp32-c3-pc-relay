@@ -26,11 +26,6 @@ constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
   0x86, 0xCC, 0x9C, 0x94, 0x4E, 0x18
 };
 
-enum class Mode : uint8_t {
-  DHCP = 0,
-  STATIC = 1
-};
-
 Mode mode() {
   return preferences.getUChar(MODE_KEY, static_cast<uint8_t>(Mode::DHCP))
            == static_cast<uint8_t>(Mode::STATIC)
