@@ -1117,16 +1117,16 @@ void menu() {
 
 namespace MainMenu {
 void print() {
-  Serial.println();
-  Serial.print("Firmware build: ");
-  Serial.println(FIRMWARE_BUILD_VERSION);
-
   if (Console::ansiSupported) {
     Console::clearScreen();
     Console::color("1;36m");
     Serial.println("+================================+");
     Console::color("1;37m");
     Serial.println("|     ESP32-C3 PC RELAY CONTROL  |");
+    Console::color("1;36m");
+    Console::resetStyle();
+    Serial.print("Firmware build: ");
+    Serial.println(FIRMWARE_BUILD_VERSION);
     Console::color("1;36m");
     Serial.println("+================================+");
     Console::resetStyle();
@@ -1138,6 +1138,8 @@ void print() {
   } else {
     Serial.println("ESP32-C3 PC RELAY CONTROLLER");
     Serial.println("============================");
+    Serial.print("Firmware build: ");
+    Serial.println(FIRMWARE_BUILD_VERSION);
     Serial.println("1. Status");
     Serial.println("2. Setup");
     Serial.println("3. Reconnect WiFi");
