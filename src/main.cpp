@@ -781,13 +781,17 @@ void scan() {
   // WiFi setup through scanning always uses DHCP.
   NetConfig::configureDHCP();
 
-  // Always start a fresh scan from a clean STA state. This is especially
-  // important after a failed password/connection attempt, which can leave
-  // the WiFi state machine in a transient connecting/failed state.
+  // Always start a fresh scan from a clean STA state. Put the interface
+  // into STA mode BEFORE calling disconnect(): after a failed connection we
+  // may have deliberately powered the WiFi radio down with disconnect(true).
+  // Calling disconnect() while WiFi is already uninitialized produces
+  // ESP_ERR_WIFI_NOT_INIT (0x3001), even though a subsequent scan can still
+  // recover. Avoid that noisy/invalid call sequence.
   WiFi.scanDelete();
+  WiFi.mode(WIFI_STA);
+  delay(50);
   WiFi.disconnect(false, false);
   delay(100);
-  WiFi.mode(WIFI_STA);
   int count = WiFi.scanNetworks();
 
   if (count < 0) {
@@ -795,7 +799,7 @@ void scan() {
     WiFi.scanDelete();
 
     // Leave the STA interface completely reset so a failed scan cannot
-    // contaminate the next connection attempt.
+    // contaminate the next connection attempt. STA mode is already active.
     WiFi.disconnect(true, false);
     delay(150);
     WiFi.mode(WIFI_STA);
