@@ -497,8 +497,7 @@ void printTargetAP(const TargetAP& target) {
                 target.bssid[3], target.bssid[4], target.bssid[5],
                 static_cast<long>(target.channel),
                 static_cast<int>(target.rssi),
-                authModeName(target.auth));
-}
+                authModeName(target.auth));}
 
 bool findStrongestAP(const String& ssid, TargetAP& target) {
   target = TargetAP{};
@@ -732,75 +731,11 @@ ConnectResult connectWithCredentials(const String& ssid,
   printTargetAP(target);
   Serial.println("      BSSID/channel pinning: ENABLED for this attempt.");
 
-  // Build the driver's final station configuration once. Do not mutate a
-  // local wifi_config_t after esp_wifi_set_config(): the driver stores the
-  // configuration internally and does not observe later local changes.
-  wifi_config_t stationConfig = {};
-  ssid.toCharArray(reinterpret_cast<char*>(stationConfig.sta.ssid),
-                   sizeof(stationConfig.sta.ssid));
-
-  // For an open network the password field remains all-zero. This is the
-  // canonical ESP-IDF representation.
-  if (!password.isEmpty()) {
-    password.toCharArray(reinterpret_cast<char*>(stationConfig.sta.password),
-                         sizeof(stationConfig.sta.password));
-  }
-
-  // The caller has already resolved a concrete BSS. Keep the connection
-  // attempt on that BSSID instead of allowing the driver to select another
-  // AP advertising the same SSID. This is essential for scan-selected
-  // networks: the user selected a specific AP, not merely an SSID.
-  //
-  // For a normal "connect now" operation, findStrongestAP() supplies the
-  // strongest matching BSS, so the same rule prevents the driver from
-  // silently roaming to a weaker BSS during authentication.
-  stationConfig.sta.channel = 0;
-  stationConfig.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
-  stationConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
-  stationConfig.sta.threshold.rssi = -127;
-  stationConfig.sta.threshold.authmode = minimumSecurity;
-  // Match the Arduino-ESP32 STA baseline: advertise PMF capability even
-  // for open networks, but never require PMF for this connection attempt.
-  // Some AP implementations treat a non-PMF-capable station differently
-  // during authentication even when the SSID is otherwise OPEN.
-  stationConfig.sta.pmf_cfg.capable = true;
-  stationConfig.sta.pmf_cfg.required = false;
-  stationConfig.sta.bssid_set = 0;
-  memset(stationConfig.sta.bssid, 0, sizeof(stationConfig.sta.bssid));
-
-  if (target.valid) {
-    stationConfig.sta.channel =
-        static_cast<uint8_t>(target.channel > 0 ? target.channel : 0);
-    stationConfig.sta.bssid_set = 1;
-    memcpy(stationConfig.sta.bssid, target.bssid, 6);
-    Serial.println("      Exact target BSSID/channel locked for this attempt.");
-  }
-
-  const esp_err_t setConfigResult =
-      esp_wifi_set_config(WIFI_IF_STA, &stationConfig);
-  if (setConfigResult != ESP_OK) {
-    Serial.print("      esp_wifi_set_config() FAILED: ");
-    Serial.println(esp_err_to_name(setConfigResult));
-    WiFi.setAutoReconnect(previousAutoReconnect);
-    return ConnectResult::NETWORK_CONFIG_FAILED;
-  }
-
-  Serial.println("      Final station configuration committed to ESP-IDF:");
-  printStationSecurityConfig();
-
-  wifi_config_t committedConfig = {};
-  const esp_err_t getConfigResult =
-      esp_wifi_get_config(WIFI_IF_STA, &committedConfig);
-  if (getConfigResult == ESP_OK) {
-    Serial.printf(
-        "      Committed BSSID: %02X:%02X:%02X:%02X:%02X:%02X  "
-        "channel=%u  bssid_set=%u\\n",
-        committedConfig.sta.bssid[0], committedConfig.sta.bssid[1],
-        committedConfig.sta.bssid[2], committedConfig.sta.bssid[3],
-        committedConfig.sta.bssid[4], committedConfig.sta.bssid[5],
-        static_cast<unsigned>(committedConfig.sta.channel),
-        static_cast<unsigned>(committedConfig.sta.bssid_set));
-  }
+  // For this diagnostic A/B test we intentionally let Arduino-ESP32
+  // construct the station configuration. Its documented begin() path accepts
+  // the same SSID, channel and exact BSSID parameters used by this project.
+  // This isolates our previous raw ESP-IDF config construction from the AP
+  // authentication failure.
 
   wifi_ps_type_t previousPowerSave = WIFI_PS_MIN_MODEM;
   bool restorePowerSave = false;
@@ -819,7 +754,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   }
 
   Serial.println("      Exact BSSID/channel selection: ENABLED.");
-  Serial.println("      ESP-IDF is locked to the committed BSSID/channel above.");
+  Serial.println("      Authentication A/B: Arduino-ESP32 WiFi.begin().");
 
   if (WIFI_DIAGNOSTICS) {
     if (!WiFiFrameCapture::begin(target.bssid)) {
@@ -827,13 +762,19 @@ ConnectResult connectWithCredentials(const String& ssid,
     }
   }
 
-  const esp_err_t connectResult = esp_wifi_connect();
-  if (connectResult != ESP_OK) {
+  const char* passphrase = password.isEmpty() ? nullptr : password.c_str();
+  const wl_status_t beginStatus =
+      WiFi.begin(ssid.c_str(),
+                 passphrase,
+                 static_cast<int32_t>(target.channel),
+                 target.bssid,
+                 true);
+
+  if (beginStatus == WL_CONNECT_FAILED) {
     if (WIFI_DIAGNOSTICS) {
       WiFiFrameCapture::end();
     }
-    Serial.print("      esp_wifi_connect() FAILED: ");
-    Serial.println(esp_err_to_name(connectResult));
+    Serial.println("      WiFi.begin() reported WL_CONNECT_FAILED.");
     WiFi.disconnect(false, false);
     delay(100);
     clearTransientStationConfig();
@@ -843,8 +784,8 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::UNKNOWN;
   }
 
-  Serial.println("      esp_wifi_connect() accepted.");
-  Serial.println("      No Arduino WiFi.begin() wrapper is involved in this attempt.");
+  Serial.println("      Arduino WiFi.begin() accepted the exact BSSID/channel target.");
+  Serial.println("      Waiting for the same authentication/association result.");
 
   Serial.println("[4/6] Waiting for association/authentication...");
   const uint32_t startTime = millis();
@@ -998,7 +939,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   // that byte to the next menu reader.
   Console::prepareForMenuInput();
   Serial.println("      Console input synchronized for next menu transaction.");
-
   return result;
 }
 bool connect() {
