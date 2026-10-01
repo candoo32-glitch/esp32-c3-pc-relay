@@ -624,7 +624,7 @@ int captureVprintf(const char* format, va_list args) {
   if (count < MAX_ENTRIES) {
     entries[count].timestamp = millis();
     strncpy(entries[count].text, line, MAX_ENTRY_LENGTH - 1);
-    entries[count].text[MAX_ENTRY_LENGTH - 1] = '\\0';
+    entries[count].text[MAX_ENTRY_LENGTH - 1] = '\0';
     ++count;
   } else {
     // Keep the newest diagnostics when the buffer fills.
@@ -633,7 +633,7 @@ int captureVprintf(const char* format, va_list args) {
     }
     entries[MAX_ENTRIES - 1].timestamp = millis();
     strncpy(entries[MAX_ENTRIES - 1].text, line, MAX_ENTRY_LENGTH - 1);
-    entries[MAX_ENTRIES - 1].text[MAX_ENTRY_LENGTH - 1] = '\\0';
+    entries[MAX_ENTRIES - 1].text[MAX_ENTRY_LENGTH - 1] = '\0';
   }
   portEXIT_CRITICAL(&mux);
 
@@ -668,20 +668,22 @@ void print() {
     return;
   }
 
-  portENTER_CRITICAL(&mux);
   const size_t captured = count;
   for (size_t i = 0; i < captured; ++i) {
+    Entry snapshot;
+    portENTER_CRITICAL(&mux);
+    snapshot = entries[i];
+    portEXIT_CRITICAL(&mux);
+
     Serial.print("      [");
-    Serial.print(entries[i].timestamp);
+    Serial.print(snapshot.timestamp);
     Serial.print(" ms] ");
-    Serial.print(entries[i].text);
-    if (entries[i].text[0] != '\\0' &&
-        entries[i].text[strlen(entries[i].text) - 1] != '\\n') {
+    Serial.print(snapshot.text);
+    if (snapshot.text[0] != '\0' &&
+        snapshot.text[strlen(snapshot.text) - 1] != '\n') {
       Serial.println();
     }
   }
-  portEXIT_CRITICAL(&mux);
-}
 }
 
 const char* disconnectReasonName(uint8_t reason);
