@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build:
@@ -56,6 +57,9 @@ jobs:
           test -s dist/firmware/factory.bin
           test "$(stat -c%s dist/firmware/factory.bin)" -eq 4194304
 
+          printf "%s\\n" "$FW_BUILD_VERSION" > dist/BUILD_VERSION.txt
+          printf "%s\\n" "${{ github.run_id }}" > dist/RUN_ID.txt
+
           cat > dist/flash.bat <<'EOF'
           @echo off
           setlocal EnableExtensions EnableDelayedExpansion
@@ -65,6 +69,7 @@ jobs:
           echo   ESP32-C3 PC Relay Firmware Flasher
           echo ========================================
           echo.
+
           where gh >nul 2>&1
           if errorlevel 1 (
               echo ERROR: GitHub CLI ^(gh^) was not found.
@@ -73,6 +78,15 @@ jobs:
               pause
               exit /b 1
           )
+          where py >nul 2>&1
+          if errorlevel 1 (
+              echo ERROR: Python launcher ^(py^) was not found.
+              echo Install Python for Windows with the py launcher enabled.
+              echo.
+              pause
+              exit /b 1
+          )
+
           if not defined GH_TOKEN (
               echo GitHub token is not configured.
               echo.
@@ -90,13 +104,8 @@ jobs:
               echo GitHub token saved. Future runs will use it automatically.
               echo.
           )
-          if not defined GH_TOKEN (
-              echo ERROR: No GitHub token was supplied.
-              echo.
-              pause
-              exit /b 1
-          )
-          echo Checking GitHub Actions for the latest successful main build...
+
+          echo Finding the latest successful main-branch build...
           set "LATEST_RUN="
           for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch main --status success --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
           if not defined LATEST_RUN (
@@ -105,32 +114,112 @@ jobs:
               pause
               exit /b 1
           )
-          echo Latest successful build: !LATEST_RUN!
+          echo Selected GitHub Actions run: !LATEST_RUN!
+          echo.
+
           set "DOWNLOAD_DIR=%TEMP%\esp32-c3-relay-%RANDOM%%RANDOM%"
+          set "ZIP_FILE=!DOWNLOAD_DIR!\artifact.zip"
+          set "EXTRACT_DIR=!DOWNLOAD_DIR!\extracted"
           set "LOCAL_DIR=%~dp0"
           set "LOCAL_FIRMWARE=!LOCAL_DIR!firmware"
           mkdir "!DOWNLOAD_DIR!" >nul 2>&1
-          echo Downloading compiled firmware artifact...
-          gh run download !LATEST_RUN! --repo candoo32-glitch/esp32-c3-pc-relay --name esp32-c3-pc-relay-firmware --dir "!DOWNLOAD_DIR!"
+          mkdir "!EXTRACT_DIR!" >nul 2>&1
+
+          echo Locating firmware artifact...
+          set "ARTIFACT_ID="
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!LATEST_RUN!/artifacts" --jq ".artifacts[] ^| select(.name==\"esp32-c3-pc-relay-firmware\" and .expired==false) ^| .id"') do set "ARTIFACT_ID=%%I"
+          if not defined ARTIFACT_ID (
+              echo ERROR: The selected run does not contain a usable firmware artifact.
+              rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
+              echo.
+              pause
+              exit /b 1
+          )
+          echo Artifact ID: !ARTIFACT_ID!
+          echo Downloading artifact ZIP...
+          gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/artifacts/!ARTIFACT_ID!/zip" --output "!ZIP_FILE!"
           if errorlevel 1 (
-              echo ERROR: Could not download the GitHub Actions artifact.
+              echo ERROR: GitHub artifact ZIP download failed.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
               echo.
               pause
               exit /b 1
           )
-          if not exist "!DOWNLOAD_DIR!\firmware\factory.bin" (
-              echo ERROR: Download completed but firmware\factory.bin was not found.
+          if not exist "!ZIP_FILE!" (
+              echo ERROR: Artifact ZIP was not created.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
               echo.
               pause
               exit /b 1
           )
+
+          echo Extracting artifact ZIP...
+          powershell -NoProfile -Command "Expand-Archive -LiteralPath '%ZIP_FILE%' -DestinationPath '%EXTRACT_DIR%' -Force"
+          if errorlevel 1 (
+              echo ERROR: Artifact ZIP extraction failed.
+              rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
+              echo.
+              pause
+              exit /b 1
+          )
+
+          if not exist "!EXTRACT_DIR!\firmware\factory.bin" (
+              echo ERROR: Extracted artifact does not contain firmware\factory.bin.
+              echo.
+              dir /s /b "!EXTRACT_DIR!"
+              rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
+              pause
+              exit /b 1
+          )
+          if not exist "!EXTRACT_DIR!\BUILD_VERSION.txt" (
+              echo ERROR: BUILD_VERSION.txt is missing from the artifact.
+              rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
+              echo.
+              pause
+              exit /b 1
+          )
+          if not exist "!EXTRACT_DIR!\RUN_ID.txt" (
+              echo ERROR: RUN_ID.txt is missing from the artifact.
+              rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
+              echo.
+              pause
+              exit /b 1
+          )
+
+          set /p "ARTIFACT_BUILD_VERSION="<"!EXTRACT_DIR!\BUILD_VERSION.txt"
+          set /p "ARTIFACT_RUN_ID="<"!EXTRACT_DIR!\RUN_ID.txt"
+          if not "!ARTIFACT_RUN_ID!"=="!LATEST_RUN!" (
+              echo ERROR: Artifact run ID mismatch.
+              echo Expected: !LATEST_RUN!
+              echo Artifact : !ARTIFACT_RUN_ID!
+              rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
+              echo.
+              pause
+              exit /b 1
+          )
+          if not defined ARTIFACT_BUILD_VERSION (
+              echo ERROR: Artifact firmware build version is empty.
+              rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
+              echo.
+              pause
+              exit /b 1
+          )
+
           echo.
+          echo ========================================
+          echo   VERIFIED FIRMWARE
+          echo ========================================
+          echo GitHub Actions run : !ARTIFACT_RUN_ID!
+          echo Firmware build     : !ARTIFACT_BUILD_VERSION!
+          echo Artifact ID        : !ARTIFACT_ID!
+          echo Factory image      : 4194304 bytes
+          echo ========================================
+          echo.
+
           echo Updating local firmware files...
           if exist "!LOCAL_FIRMWARE!" rmdir /s /q "!LOCAL_FIRMWARE!"
           mkdir "!LOCAL_FIRMWARE!" >nul 2>&1
-          xcopy /e /i /y /q "!DOWNLOAD_DIR!\firmware" "!LOCAL_FIRMWARE!" >nul
+          xcopy /e /i /y /q "!EXTRACT_DIR!\firmware" "!LOCAL_FIRMWARE!" >nul
           if errorlevel 1 (
               echo ERROR: Could not update the local firmware directory.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
@@ -138,26 +227,21 @@ jobs:
               pause
               exit /b 1
           )
-          copy /y "!DOWNLOAD_DIR!\README.txt" "!LOCAL_DIR!README.txt" >nul
-          copy /y "!DOWNLOAD_DIR!\SHA256SUMS.txt" "!LOCAL_DIR!SHA256SUMS.txt" >nul
+          copy /y "!EXTRACT_DIR!\README.txt" "!LOCAL_DIR!README.txt" >nul
+          copy /y "!EXTRACT_DIR!\SHA256SUMS.txt" "!LOCAL_DIR!SHA256SUMS.txt" >nul
+          copy /y "!EXTRACT_DIR!\BUILD_VERSION.txt" "!LOCAL_DIR!BUILD_VERSION.txt" >nul
+          copy /y "!EXTRACT_DIR!\RUN_ID.txt" "!LOCAL_DIR!RUN_ID.txt" >nul
           rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
-          echo Local firmware is now synchronized with GitHub.
-          echo.
-          where py >nul 2>&1
-          if errorlevel 1 (
-              echo ERROR: Python launcher ^(py^) was not found.
-              echo Install Python for Windows with the py launcher enabled.
-              echo.
-              pause
-              exit /b 1
-          )
+
           if not exist "!LOCAL_FIRMWARE!\factory.bin" (
               echo ERROR: Local factory.bin is missing after synchronization.
               echo.
               pause
               exit /b 1
           )
-          echo Detecting ESP32-C3 USB Serial/JTAG device...
+          echo Local firmware is synchronized with verified GitHub build !ARTIFACT_BUILD_VERSION!.
+          echo.
+          echo The verified image is ready to flash.
           echo.
           py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 "!LOCAL_FIRMWARE!\factory.bin"
           set "FLASH_EXIT=!ERRORLEVEL!"
@@ -170,24 +254,17 @@ jobs:
               echo esptool exited with error code !FLASH_EXIT!.
               echo The complete esptool output is shown above.
               echo.
-              echo Make sure the ESP32-C3 is connected by USB
-              echo and is in download mode if required.
-              echo.
-              echo Press any key to close this window...
-              pause >nul
+              pause
               exit /b !FLASH_EXIT!
           )
           echo ========================================
           echo   FLASH SUCCESSFUL
           echo ========================================
+          echo Firmware build !ARTIFACT_BUILD_VERSION! was flashed.
           echo.
-          echo The ESP32-C3 has been flashed successfully.
-          echo.
-          echo Press any key to close this window...
-          pause >nul
+          pause
           endlocal
           EOF
-
           cat > dist/README.txt <<'EOF'
           ESP32-C3 PC Relay Firmware
           ==========================
@@ -205,8 +282,10 @@ jobs:
           Usage:
           1. Connect the ESP32-C3 to USB.
           2. Double-click flash.bat.
-          3. The script finds the latest successful main-branch GitHub Actions build and downloads the compiled firmware automatically.
-          4. If GH_TOKEN is already set in Windows, it is used automatically. Otherwise the script securely prompts for a fine-grained GitHub token for that run only.
+          3. The script finds the latest successful main-branch GitHub Actions build.
+          4. It retrieves that exact run's firmware artifact by artifact ID, downloads the ZIP, and explicitly extracts it with PowerShell.
+          5. It verifies the artifact run ID and firmware build version before synchronizing local files.
+          6. If GH_TOKEN is already set in Windows, it is used automatically. Otherwise the script securely prompts for a fine-grained GitHub token for that run only.
           5. The downloaded firmware replaces the local firmware\ directory.
           6. The temporary download directory is deleted.
           7. esptool flashes firmware\factory.bin.
@@ -223,6 +302,8 @@ jobs:
           test -s dist/flash.bat
           test -s dist/README.txt
           test -s dist/SHA256SUMS.txt
+          test -s dist/BUILD_VERSION.txt
+          test -s dist/RUN_ID.txt
           test -s dist/firmware/factory.bin
 
       - name: Upload firmware artifact
