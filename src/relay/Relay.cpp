@@ -11,9 +11,9 @@ void begin() {
   // GPIOs to OUTPUT so startup cannot intentionally drive a relay ON.
   digitalWrite(POWER_RELAY, OFF);
   digitalWrite(RESET_RELAY, OFF);
-  pinMode(Pins::POWER_RELAY, OUTPUT);
-  pinMode(Pins::RESET_RELAY, OUTPUT);
-  digitalWrite(Pins::POWER_RELAY, OFF);
-  digitalWrite(Pins::RESET_RELAY, OFF);
+  pinMode(POWER_RELAY, OUTPUT);
+  pinMode(RESET_RELAY, OUTPUT);
+  digitalWrite(POWER_RELAY, OFF);
+  digitalWrite(RESET_RELAY, OFF);
 }
 }
