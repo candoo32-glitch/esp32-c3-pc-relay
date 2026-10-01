@@ -277,6 +277,57 @@ void printConnectionDiagnostics() {
   }
 }
 
+struct TargetAP {
+  bool valid = false;
+  int32_t channel = 0;
+  int8_t rssi = -127;
+  uint8_t bssid[6] = {0, 0, 0, 0, 0, 0};
+  wifi_auth_mode_t auth = WIFI_AUTH_OPEN;
+};
+
+void printTargetAP(const TargetAP& target) {
+  if (!target.valid) {
+    Serial.println("      Target AP: none");
+    return;
+  }
+
+  Serial.printf(
+      "      Target AP: %02X:%02X:%02X:%02X:%02X:%02X  CH %ld  RSSI %d dBm  %s\n",
+      target.bssid[0], target.bssid[1], target.bssid[2],
+      target.bssid[3], target.bssid[4], target.bssid[5],
+      static_cast<long>(target.channel),
+      static_cast<int>(target.rssi),
+      authModeName(target.auth));
+}
+
+enum class ConnectResult : uint8_t {
+  SUCCESS,
+  SSID_NOT_FOUND,
+  AUTH_EXPIRED,
+  AUTH_FAILED,
+  HANDSHAKE_FAILED,
+  CONNECTION_LOST,
+  TIMEOUT,
+  NETWORK_CONFIG_FAILED,
+  SERIAL_DISCONNECTED,
+  UNKNOWN
+};
+
+const char* connectResultName(ConnectResult result) {
+  switch (result) {
+    case ConnectResult::SUCCESS: return "SUCCESS";
+    case ConnectResult::SSID_NOT_FOUND: return "SSID_NOT_FOUND";
+    case ConnectResult::AUTH_EXPIRED: return "AUTH_EXPIRED";
+    case ConnectResult::AUTH_FAILED: return "AUTH_FAILED";
+    case ConnectResult::HANDSHAKE_FAILED: return "HANDSHAKE_FAILED";
+    case ConnectResult::CONNECTION_LOST: return "CONNECTION_LOST";
+    case ConnectResult::TIMEOUT: return "TIMEOUT";
+    case ConnectResult::NETWORK_CONFIG_FAILED: return "NETWORK_CONFIG_FAILED";
+    case ConnectResult::SERIAL_DISCONNECTED: return "SERIAL_DISCONNECTED";
+    default: return "UNKNOWN";
+  }
+}
+
 ConnectResult classifyConnectionFailure(uint32_t elapsedMs) {
   uint8_t reason = 0;
 
