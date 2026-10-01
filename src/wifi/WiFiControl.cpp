@@ -410,11 +410,9 @@ ConnectResult startExplicitStation(const String& ssid,
     memset(config.sta.bssid, 0, sizeof(config.sta.bssid));
   }
 
-  if (minSecurity == WIFI_AUTH_WPA_PSK ||
-      minSecurity == WIFI_AUTH_WPA2_PSK ||
-      minSecurity == WIFI_AUTH_WPA_WPA2_PSK) {
-    config.sta.disable_wpa3_compatible_mode = 1;
-  }
+  // Arduino-ESP32 4.0.0-RC1's bundled ESP-IDF 6.1 headers do not expose
+  // disable_wpa3_compatible_mode in wifi_sta_config_t. Do not write fields
+  // that are only present in newer IDF headers.
 
   err = esp_wifi_set_config(WIFI_IF_STA, &config);
   if (err != ESP_OK) {
