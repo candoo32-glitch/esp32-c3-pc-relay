@@ -1176,8 +1176,12 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.println();
 
   Serial.println("[1/6] Preparing WiFi station...");
-  WiFi.disconnect(true, false);
-  delay(150);
+  // Keep the Wi-Fi driver/netif alive between scan and connect. The previous
+  // code used disconnect(true), which tears the station interface down and
+  // immediately recreates it. That adds state transitions without helping a
+  // clean station connection attempt.
+  WiFi.disconnect(false, false);
+  delay(100);
 
   lastDisconnectReason = 0;
   lastDisconnectRSSI = 0;
@@ -1188,7 +1192,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(HOSTNAME);
   WiFi.setAutoReconnect(false);
-  Serial.println("      Station reset and ready.");
+  Serial.println("      Station ready; WiFi driver remains initialized.");
   Serial.println("      Automatic reconnect: DISABLED for this attempt.");
 
   Serial.println("[2/6] Applying network configuration...");
@@ -1201,15 +1205,48 @@ ConnectResult connectWithCredentials(const String& ssid,
 
   const wifi_auth_mode_t minimumSecurity =
       password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
-  WiFi.setMinSecurity(minimumSecurity);
 
-  Serial.println("[3/6] Starting connection attempt...");
-  Serial.print("      Configured minimum security: ");
+  Serial.println("[3/6] Starting raw ESP-IDF station connection...");
+  Serial.print("      Configured auth threshold: ");
   Serial.println(authModeName(minimumSecurity));
   printTargetAP(target);
   Serial.print("      BSSID/channel pinning: ");
   Serial.println(NetConfig::DIAGNOSTIC_PIN_BSSID ? "ENABLED" : "DISABLED");
-  Serial.println("      Station security configuration before WiFi.begin():");
+
+  wifi_config_t stationConfig = {};
+  ssid.toCharArray(reinterpret_cast<char*>(stationConfig.sta.ssid),
+                   sizeof(stationConfig.sta.ssid));
+
+  // For an open network the password field remains all-zero. This is the
+  // canonical ESP-IDF representation; no empty String/c_str() is involved.
+  if (!password.isEmpty()) {
+    password.toCharArray(reinterpret_cast<char*>(stationConfig.sta.password),
+                         sizeof(stationConfig.sta.password));
+  }
+
+  stationConfig.sta.channel =
+      static_cast<uint8_t>(target.channel > 0 ? target.channel : 0);
+  stationConfig.sta.threshold.rssi = -127;
+  stationConfig.sta.threshold.authmode = minimumSecurity;
+  stationConfig.sta.pmf_cfg.capable = true;
+  stationConfig.sta.pmf_cfg.required = false;
+
+  if (NetConfig::DIAGNOSTIC_PIN_BSSID && target.valid) {
+    stationConfig.sta.bssid_set = 1;
+    memcpy(stationConfig.sta.bssid, target.bssid, 6);
+  }
+
+  const esp_err_t setConfigResult =
+      esp_wifi_set_config(WIFI_IF_STA, &stationConfig);
+  if (setConfigResult != ESP_OK) {
+    Serial.print("      esp_wifi_set_config() FAILED: ");
+    Serial.println(esp_err_to_name(setConfigResult));
+    WiFi.setAutoReconnect(previousAutoReconnect);
+    return ConnectResult::NETWORK_CONFIG_FAILED;
+  }
+
+  Serial.println("      Raw station configuration accepted by ESP-IDF.");
+  Serial.println("      Station configuration after esp_wifi_set_config():");
   printStationSecurityConfig();
 
   if (WIFI_DIAGNOSTICS) {
@@ -1218,17 +1255,20 @@ ConnectResult connectWithCredentials(const String& ssid,
     }
   }
 
-  // The scan selects the strongest matching AP. Pin that exact BSSID/channel so
-  // another AP advertising the same SSID cannot be selected during association.
-  if (NetConfig::DIAGNOSTIC_PIN_BSSID) {
-    WiFi.begin(ssid.c_str(), password.c_str(),
-               target.channel, target.bssid, true);
-  } else {
-    WiFi.begin(ssid.c_str(), password.c_str());
+  const esp_err_t connectResult = esp_wifi_connect();
+  if (connectResult != ESP_OK) {
+    if (WIFI_DIAGNOSTICS) {
+      WiFiFrameCapture::end();
+    }
+    Serial.print("      esp_wifi_connect() FAILED: ");
+    Serial.println(esp_err_to_name(connectResult));
+    WiFi.disconnect(false, false);
+    WiFi.setAutoReconnect(previousAutoReconnect);
+    return ConnectResult::UNKNOWN;
   }
-  Serial.println("      WiFi.begin() accepted.");
-  Serial.println("      Station security configuration after WiFi.begin():");
-  printStationSecurityConfig();
+
+  Serial.println("      esp_wifi_connect() accepted.");
+  Serial.println("      No Arduino WiFi.begin() wrapper is involved in this attempt.");
 
   Serial.println("[4/6] Waiting for association/authentication...");
   const uint32_t startTime = millis();
@@ -1242,7 +1282,7 @@ ConnectResult connectWithCredentials(const String& ssid,
     if (Console::disconnected()) {
       Serial.println("      Serial session disconnected during WiFi connection attempt.");
       Serial.println("      Aborting connection attempt.");
-      WiFi.disconnect(true, false);
+      WiFi.disconnect(false, false);
       delay(100);
       WiFi.setAutoReconnect(previousAutoReconnect);
       return ConnectResult::SERIAL_DISCONNECTED;
@@ -1359,14 +1399,12 @@ ConnectResult connectWithCredentials(const String& ssid,
     WiFiFrameCapture::print();
   }
 
-  Serial.println("[6/6] Resetting WiFi after failed connection...");
-  if (!WiFi.disconnect(true, false)) {
-    Serial.println("      WARNING: WiFi radio shutdown reported failure.");
-  }
-  delay(150);
+  Serial.println("[6/6] Cleaning up failed connection attempt...");
+  WiFi.disconnect(false, false);
+  delay(100);
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(previousAutoReconnect);
-  Serial.println("      WiFi station reset complete; ready for retry or rescan.");
+  Serial.println("      WiFi station remains initialized; ready for retry or rescan.");
 
   return result;
 }
