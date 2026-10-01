@@ -663,10 +663,14 @@ ConnectResult connectWithCredentials(const String& ssid,
     }
   }
 
-  // Arduino-ESP32 requires the hostname to be set before Wi-Fi
-  // is started with WiFi.mode().
+  // Configure the Arduino Wi-Fi core before the first WiFi.mode() call.
+  // Arduino-ESP32 uses persistent(false) during its low-level Wi-Fi init to
+  // select WIFI_STORAGE_RAM, preventing ESP-IDF station configuration from
+  // being persisted to the Wi-Fi driver NVS area.
+  //
+  // The hostname must also be set before Wi-Fi is started.
+  WiFi.persistent(false);
   WiFi.setHostname(HOSTNAME);
-  WiFi.setAutoReconnect(false);
   WiFi.setAutoReconnect(false);
   WiFi.mode(WIFI_STA);
 
@@ -707,7 +711,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   resetWiFiEventTrace();
 
   WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(false);
   WiFi.setAutoReconnect(false);
   Serial.println("      Station ready; WiFi driver remains initialized.");
   Serial.println("      Automatic connect/reconnect: DISABLED for this attempt.");
@@ -1377,22 +1380,23 @@ void begin() {
   preferences.begin(PREF_NAMESPACE, false);
 
   // The application owns persistent Wi-Fi credentials in the "wifi"
-  // Preferences namespace. Keep the ESP-IDF Wi-Fi driver's configuration in
-  // RAM so a failed/test connection can never overwrite the application's
-  // saved credentials or other driver configuration in NVS.
-  WiFi.setHostname(HOSTNAME);
-  WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(false);
-
-  const esp_err_t storageResult = esp_wifi_set_storage(WIFI_STORAGE_RAM);
+  // Preferences namespace. Arduino-ESP32 is configured below with
+  // persistent(false), so the ESP-IDF Wi-Fi driver configuration is RAM-only
+  // as well. This keeps failed/test station configuration out of Wi-Fi NVS.
   Serial.println();
   Serial.println("WiFi subsystem starting...");
-  if (storageResult == ESP_OK) {
-    Serial.println("WiFi driver configuration storage: RAM (NVS writes disabled).");
-  } else {
-    Serial.print("WARNING: failed to select RAM-only WiFi config storage: ");
-    Serial.println(esp_err_to_name(storageResult));
+  WiFi.persistent(false);
+  WiFi.setHostname(HOSTNAME);
+  WiFi.setAutoReconnect(false);
+
+  // WiFi.mode() performs Arduino-ESP32's low-level Wi-Fi initialization.
+  // With persistent(false), that initialization selects WIFI_STORAGE_RAM
+  // before the driver is started.
+  if (!WiFi.mode(WIFI_STA)) {
+    Serial.println("WARNING: WiFi station mode failed to start.");
+    return;
   }
+  Serial.println("WiFi driver configuration storage: RAM (NVS writes disabled).");
 
   WiFi.onEvent(onWiFiEvent);
   connect();
