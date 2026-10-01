@@ -295,7 +295,7 @@ constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
 // Normal WiFi operation: let the ESP32-C3 select the AP/BSSID normally.
-constexpr bool DIAGNOSTIC_PIN_BSSID = false;
+constexpr bool NetConfig::DIAGNOSTIC_PIN_BSSID = false;
 // Let the ESP32 scan for this BSSID instead of assuming its channel.
 constexpr uint8_t DIAGNOSTIC_CHANNEL = 0;
 constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
@@ -1026,7 +1026,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.println(authModeName(minimumSecurity));
   printTargetAP(target);
   Serial.print("      BSSID/channel pinning: ");
-  Serial.println(DIAGNOSTIC_PIN_BSSID ? "ENABLED" : "DISABLED");
+  Serial.println(NetConfig::DIAGNOSTIC_PIN_BSSID ? "ENABLED" : "DISABLED");
   Serial.println("      Station security configuration before WiFi.begin():");
   printStationSecurityConfig();
 
@@ -1040,7 +1040,7 @@ ConnectResult connectWithCredentials(const String& ssid,
 
   // Normal operation lets the ESP32 select the AP/BSSID normally.
   // BSSID/channel pinning is only used when explicitly enabled for diagnostics.
-  if (DIAGNOSTIC_PIN_BSSID) {
+  if (NetConfig::DIAGNOSTIC_PIN_BSSID) {
     WiFi.begin(ssid.c_str(), password.c_str(),
                target.channel, target.bssid, true);
   } else {
