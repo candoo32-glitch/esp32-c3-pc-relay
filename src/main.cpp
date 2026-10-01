@@ -293,9 +293,8 @@ constexpr char DNS2_KEY[] = "dns2";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
-// Diagnostic test: force the ESP32-C3 onto the known strong Orbi AP so the
-// mesh/AP-selection variable is removed from this authentication test.
-constexpr bool DIAGNOSTIC_PIN_BSSID = true;
+// Normal WiFi operation: let the ESP32-C3 select the AP/BSSID normally.
+constexpr bool DIAGNOSTIC_PIN_BSSID = false;
 // Let the ESP32 scan for this BSSID instead of assuming its channel.
 constexpr uint8_t DIAGNOSTIC_CHANNEL = 0;
 constexpr uint8_t DIAGNOSTIC_BSSID[6] = {
