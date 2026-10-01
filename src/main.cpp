@@ -1188,11 +1188,9 @@ ConnectResult connectWithCredentials(const String& ssid,
   printStationSecurityConfig();
 
   if (WIFI_DIAGNOSTICS) {
-    WiFiFrameCapture::begin(target.bssid);
-    esp_log_level_set("wifi", ESP_LOG_VERBOSE);
-    esp_log_level_set("wpa", ESP_LOG_VERBOSE);
-    Serial.println("      WiFi diagnostic logging: VERBOSE (wifi + wpa)");
-    Serial.println("      Raw ESP-IDF log capture: ENABLED");
+    if (!WiFiFrameCapture::begin(target.bssid)) {
+      Serial.println("      WARNING: 802.11 management capture could not be enabled.");
+    }
   }
 
   // The scan selects the strongest matching AP. Pin that exact BSSID/channel so
@@ -1262,8 +1260,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   }
 
   if (WIFI_DIAGNOSTICS) {
-    esp_log_level_set("wifi", ESP_LOG_INFO);
-    esp_log_level_set("wpa", ESP_LOG_INFO);
     WiFiFrameCapture::end();
   }
 
