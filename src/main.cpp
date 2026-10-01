@@ -239,6 +239,7 @@ bool yesNo(const char* prompt) {
 String readPassword(const char* prompt) {
   Serial.print(prompt);
   String value;
+  bool inEscapeSequence = false;
 
   while (true) {
     if (disconnected()) {
@@ -246,11 +247,26 @@ String readPassword(const char* prompt) {
     }
 
     while (Serial.available()) {
-      char c = static_cast<char>(Serial.read());
+      const uint8_t byte = static_cast<uint8_t>(Serial.read());
+      const char c = static_cast<char>(byte);
 
       if (consumePendingLineFeed) {
         consumePendingLineFeed = false;
         if (c == '\n') continue;
+      }
+
+      // Password entry gets the same terminal escape filtering as menu input.
+      // Cursor/function-key sequences must never become password characters.
+      if (inEscapeSequence) {
+        if ((byte >= 0x40 && byte <= 0x7E) || byte == 0x1B) {
+          inEscapeSequence = (byte == 0x1B);
+        }
+        continue;
+      }
+
+      if (byte == 0x1B) {
+        inEscapeSequence = true;
+        continue;
       }
 
       if (c == '\r' || c == '\n') {
@@ -259,7 +275,7 @@ String readPassword(const char* prompt) {
         return value;
       }
 
-      if (c == '\b' || c == 127) {
+      if (c == '\b' || byte == 127) {
         if (value.length() > 0) {
           value.remove(value.length() - 1);
           Serial.write('\b');
@@ -269,14 +285,11 @@ String readPassword(const char* prompt) {
         continue;
       }
 
-      if (static_cast<uint8_t>(c) < 0x20 ||
-          static_cast<uint8_t>(c) == 0x7F) {
+      if (byte < 0x20 || byte == 0x7F) {
         continue;
       }
 
-      // Do not echo password characters.
       Serial.write('*');
-
       if (value.length() < 64) {
         value += c;
       }
@@ -600,7 +613,10 @@ constexpr char PASSWORD_KEY[] = "password";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
-// A/B baseline: keep the station path identical to the diagnostic build, but\n// disable promiscuous capture so we can determine whether the sniffer itself\n// interferes with association. Re-enable only after this baseline is tested.\nconstexpr bool WIFI_DIAGNOSTICS = false;
+// A/B baseline: keep the station path identical to the diagnostic build, but
+// disable promiscuous capture so we can determine whether the sniffer itself
+// interferes with association. Re-enable only after this baseline is tested.
+constexpr bool WIFI_DIAGNOSTICS = false;
 
 // Capture the actual 802.11 management-frame exchange during a diagnostic
 // connection attempt. ESP-IDF exposes management frames through promiscuous
