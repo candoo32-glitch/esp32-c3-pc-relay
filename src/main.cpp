@@ -594,6 +594,8 @@ constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 constexpr bool WIFI_DIAGNOSTICS = true;
 
+const char* disconnectReasonName(uint8_t reason);
+
 const char* pmfModeName(const wifi_pmf_config_t& pmf) {
   if (pmf.required) return "REQUIRED";
   if (pmf.capable) return "OPTIONAL";
