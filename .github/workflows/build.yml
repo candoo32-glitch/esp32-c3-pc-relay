@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install PlatformIO
-        run: python -m pip install --upgrade platformio==6.1.18
+        run: python -m pip install --upgrade platformio==6.2.0
 
       - name: Install esptool
         run: python -m pip install --upgrade esptool
