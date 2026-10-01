@@ -72,7 +72,7 @@ This log records engineering iterations as evidence-bearing changes. A build num
 
 **Intent:** make the ESP-IDF Wi-Fi driver's RAM-only configuration policy effective before Arduino-ESP32 starts the Wi-Fi driver.
 
-**Source evidence:** Arduino-ESP32's Wi-Fi initialization calls `esp_wifi_set_storage(WIFI_STORAGE_RAM)` when `WiFi.persistent(false)` is set before the first `WiFi.mode()` call. The previous implementation called `WiFi.mode(WIFI_STA)` first and only afterward called `esp_wifi_set_storage(WIFI_STORAGE_RAM)`, so the intended initialization ordering was not explicit or aligned with the Arduino core's documented path. citeturn2search0turn3search1
+**Source evidence:** Arduino-ESP32's Wi-Fi initialization calls `esp_wifi_set_storage(WIFI_STORAGE_RAM)` when `WiFi.persistent(false)` is set before the first `WiFi.mode()` call. The previous implementation called `WiFi.mode(WIFI_STA)` first and only afterward called `esp_wifi_set_storage(WIFI_STORAGE_RAM)`, so the intended initialization ordering was not explicit or aligned with the Arduino core's documented path.
 
 **Change:** call `WiFi.persistent(false)` before `WiFi.mode(WIFI_STA)` in `WiFiControl::begin()`, remove the late direct storage-selection call, and remove redundant `setAutoReconnect(false)` calls. Hostname initialization remains before the first Wi-Fi start.
 
