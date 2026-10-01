@@ -89,6 +89,13 @@ const char* authModeName(wifi_auth_mode_t authMode) {
     case WIFI_AUTH_WPA3_PSK: return "WPA3-PSK";
     case WIFI_AUTH_WPA2_WPA3_PSK: return "WPA2/WPA3";
     case WIFI_AUTH_WAPI_PSK: return "WAPI-PSK";
+    case WIFI_AUTH_OWE: return "OWE";
+    case WIFI_AUTH_WPA3_ENT_192: return "WPA3-ENT-192";
+    case WIFI_AUTH_WPA3_ENTERPRISE: return "WPA3-ENT";
+    case WIFI_AUTH_WPA2_WPA3_ENTERPRISE: return "WPA2/WPA3-ENT";
+    case WIFI_AUTH_WPA_ENTERPRISE: return "WPA-ENT";
+    case WIFI_AUTH_DPP: return "DPP";
+    case WIFI_AUTH_UNKNOWN: return "UNKNOWN";
     default: return "UNKNOWN";
   }
 }
@@ -119,7 +126,6 @@ void resetConnectionDiagnostics() {
   memset((void*)wifiEventTrace, 0, sizeof(wifiEventTrace));
   lastDisconnectReason = 0;
   lastDisconnectRSSI = 0;
-  wifiEventTraceStartMs = millis();
   disconnectEventCount = 0;
   memset((void*)lastDisconnectBSSID, 0, sizeof(lastDisconnectBSSID));
   portEXIT_CRITICAL(&wifiEventTraceMux);
@@ -376,9 +382,9 @@ ConnectResult connectWithCredentials(const String& ssid,
    * and esp_wifi_connect() path. We do not manufacture a second
    * wifi_config_t here, and we do not call private/internal Wi-Fi functions.
    *
-   * A scan-selected TargetAP may supply channel+BSSID. A normal saved
-   * connection supplies neither, allowing the driver to select the best BSS
-   * for the SSID.
+   * A scan-selected TargetAP supplies an exact channel+BSSID. A normal saved
+   * connection supplies neither; with FAST_SCAN the driver uses the first
+   * matching BSS it finds for the SSID.
    */
   Serial.println();
   Serial.println("WiFi connection");
@@ -405,7 +411,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   // before WiFi.begin(), exactly as documented by the 3.3.12 API.
   WiFi.setAutoReconnect(false);
   WiFi.setScanMethod(WIFI_FAST_SCAN);
-  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
 
   // Do not infer the AP security level from "password present". When a scan
   // selected the AP, use the security mode actually reported by that scan.
@@ -433,7 +438,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (requestedTarget != nullptr && requestedTarget->valid) {
     Serial.println("  AP selection:   pinned BSSID + channel");
   } else {
-    Serial.println("  AP selection:   driver selects BSS");
+    Serial.println("  AP selection:   FAST scan, first SSID match");
   }
   Serial.print("  Minimum security: ");
   Serial.println(authModeName(minSecurity));
@@ -874,8 +879,8 @@ void scan() {
   }
 
   // Keep the selected AP details visible through the credential prompt.
-  // The selected BSSID is diagnostic information only; credentials are not
-  // bound to that AP, so normal mesh/AP selection remains available.
+  // The selected BSSID is used for this connection attempt only. Saved
+  // credentials do not permanently bind the profile to that AP.
   
   // Selecting a network from a scan always uses DHCP for the connection.
   WiFi.scanDelete();
