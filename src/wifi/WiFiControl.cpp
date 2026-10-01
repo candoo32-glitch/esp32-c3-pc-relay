@@ -759,7 +759,11 @@ ConnectResult connectWithCredentials(const String& ssid,
   stationConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
   stationConfig.sta.threshold.rssi = -127;
   stationConfig.sta.threshold.authmode = minimumSecurity;
-  stationConfig.sta.pmf_cfg.capable = !password.isEmpty();
+  // Match the Arduino-ESP32 STA baseline: advertise PMF capability even
+  // for open networks, but never require PMF for this connection attempt.
+  // Some AP implementations treat a non-PMF-capable station differently
+  // during authentication even when the SSID is otherwise OPEN.
+  stationConfig.sta.pmf_cfg.capable = true;
   stationConfig.sta.pmf_cfg.required = false;
   stationConfig.sta.bssid_set = 0;
   memset(stationConfig.sta.bssid, 0, sizeof(stationConfig.sta.bssid));
