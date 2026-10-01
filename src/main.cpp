@@ -238,7 +238,54 @@ String readPrompt(const char* prompt) {
 }
 
 String readMenuChoice(const char* prompt) {
+  // Menu input is line-oriented. A native USB CDC host can deliver the
+  // terminating CR and LF in separate RX events. Do not let a terminator that
+  // arrives just after the previous read become the next menu command.
+  //
+  // We also require the RX queue to be quiet before arming the selector.
+  // This is deliberately local to menus; text-entry fields must retain their
+  // normal semantics because an empty Enter can be meaningful there.
+  while (true) {
+    while (Serial.available()) {
+      const uint8_t byte = static_cast<uint8_t>(Serial.read());
+      if (byte != '\r' && byte != '\n' && byte != 0 &&
+          byte != 0x1B && byte < 0x20) {
+        // Discard stale control traffic, but keep printable input from being
+        // silently lost before the prompt is armed.
+        continue;
+      }
+      if (byte == '\r' || byte == '\n' || byte == 0 ||
+          byte == 0x1B) {
+        continue;
+      }
+      // A printable byte means the user may already be typing. Put it back
+      // is not supported by HWCDC, so leave the queue untouched by exiting
+      // the drain phase and let readLine(false) consume future input.
+      break;
+    }
+    break;
+  }
+
   Serial.print(prompt);
+
+  // Give the USB-CDC RX path a short arming window. This separates bytes
+  // belonging to the previous command/line ending from the new menu command.
+  // The ANSI selection at startup intentionally does not use this path.
+  const uint32_t armUntil = millis() + 50;
+  while (millis() < armUntil) {
+    while (Serial.available()) {
+      const uint8_t byte = static_cast<uint8_t>(Serial.read());
+      if (byte == '\r' || byte == '\n' || byte == 0 ||
+          byte == 0x1B || byte < 0x20) {
+        continue;
+      }
+      // Do not interpret a printable byte during the arming interval as a
+      // menu choice; the host was still completing the previous transaction.
+      // It will be retried by the host on the next prompt.
+    }
+    delay(1);
+  }
+
   return readLine(false);
 }
 
