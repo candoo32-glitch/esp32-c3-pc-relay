@@ -287,7 +287,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   // from an actual association/authentication failure.
   if (requestedTarget != nullptr && requestedTarget->valid) {
     Serial.printf(
-        "Diagnostic connection target: BSSID %02X:%02X:%02X:%02X:%02X:%02X CH %ld\n",
+        "Diagnostic connection target: BSSID %02X:%02X:%02X:%02X:%02X:%02X CH %ld\r\n",
         requestedTarget->bssid[0], requestedTarget->bssid[1],
         requestedTarget->bssid[2], requestedTarget->bssid[3],
         requestedTarget->bssid[4], requestedTarget->bssid[5],
