@@ -54,67 +54,66 @@ void printEntry(const nvs_entry_info_t& entry, size_t number) {
   const esp_err_t openResult =
       nvs_open_from_partition(NVS_PARTITION, entry.namespace_name,
                               NVS_READONLY, &handle);
-  if (openResult != ESP_OK) {
-    color("1;31m");
-    Serial.printf("| %-3u | %-15.15s | %-20.20s | %-6s | ERROR: %-12.12s |\n",
-                  static_cast<unsigned>(number), entry.namespace_name,
-                  entry.key, "OPEN", esp_err_to_name(openResult));
-    reset();
-    return;
-  }
 
-  String value;
-  if (isSensitiveKey(entry.key)) {
-    value = "<hidden>";
-  } else {
-    switch (entry.type) {
-      case NVS_TYPE_U8: { uint8_t v; value = nvs_get_u8(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
-      case NVS_TYPE_I8: { int8_t v; value = nvs_get_i8(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
-      case NVS_TYPE_U16: { uint16_t v; value = nvs_get_u16(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
-      case NVS_TYPE_I16: { int16_t v; value = nvs_get_i16(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
-      case NVS_TYPE_U32: { uint32_t v; value = nvs_get_u32(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
-      case NVS_TYPE_I32: { int32_t v; value = nvs_get_i32(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
-      case NVS_TYPE_U64: { uint64_t v; value = nvs_get_u64(handle, entry.key, &v) == ESP_OK ? String((unsigned long long)v) : "<read error>"; break; }
-      case NVS_TYPE_I64: { int64_t v; value = nvs_get_i64(handle, entry.key, &v) == ESP_OK ? String((long long)v) : "<read error>"; break; }
-      case NVS_TYPE_STR: {
-        size_t len = 0;
-        if (nvs_get_str(handle, entry.key, nullptr, &len) == ESP_OK && len > 0) {
-          char* buffer = new char[len];
-          if (nvs_get_str(handle, entry.key, buffer, &len) == ESP_OK) value = buffer;
-          else value = "<read error>";
-          delete[] buffer;
-        } else value = "<empty>";
-        break;
+  String value = "<read error>";
+  if (openResult == ESP_OK) {
+    if (isSensitiveKey(entry.key)) {
+      value = "<hidden>";
+    } else {
+      switch (entry.type) {
+        case NVS_TYPE_U8: { uint8_t v; if (nvs_get_u8(handle, entry.key, &v) == ESP_OK) value = String(v); break; }
+        case NVS_TYPE_I8: { int8_t v; if (nvs_get_i8(handle, entry.key, &v) == ESP_OK) value = String(v); break; }
+        case NVS_TYPE_U16: { uint16_t v; if (nvs_get_u16(handle, entry.key, &v) == ESP_OK) value = String(v); break; }
+        case NVS_TYPE_I16: { int16_t v; if (nvs_get_i16(handle, entry.key, &v) == ESP_OK) value = String(v); break; }
+        case NVS_TYPE_U32: { uint32_t v; if (nvs_get_u32(handle, entry.key, &v) == ESP_OK) value = String(v); break; }
+        case NVS_TYPE_I32: { int32_t v; if (nvs_get_i32(handle, entry.key, &v) == ESP_OK) value = String(v); break; }
+        case NVS_TYPE_U64: { uint64_t v; if (nvs_get_u64(handle, entry.key, &v) == ESP_OK) value = String((unsigned long long)v); break; }
+        case NVS_TYPE_I64: { int64_t v; if (nvs_get_i64(handle, entry.key, &v) == ESP_OK) value = String((long long)v); break; }
+        case NVS_TYPE_STR: {
+          size_t len = 0;
+          if (nvs_get_str(handle, entry.key, nullptr, &len) == ESP_OK && len > 0) {
+            char* buffer = new char[len];
+            if (nvs_get_str(handle, entry.key, buffer, &len) == ESP_OK) value = buffer;
+            delete[] buffer;
+          } else value = "<empty>";
+          break;
+        }
+        case NVS_TYPE_BLOB: {
+          size_t len = 0;
+          if (nvs_get_blob(handle, entry.key, nullptr, &len) == ESP_OK)
+            value = String("<") + String((unsigned)len) + " bytes>";
+          break;
+        }
+        default: value = "<unsupported>"; break;
       }
-      case NVS_TYPE_BLOB: {
-        size_t len = 0;
-        value = String("<") + String((unsigned)len) + " bytes>";
-        nvs_get_blob(handle, entry.key, nullptr, &len);
-        value = String("<") + String((unsigned)len) + " bytes>";
-        break;
-      }
-      default: value = "<unsupported>"; break;
     }
+    nvs_close(handle);
+  } else {
+    value = String("ERROR: ") + esp_err_to_name(openResult);
   }
 
-  nvs_close(handle);
+  constexpr size_t VALUE_WIDTH = 21;
+  if (value.length() > VALUE_WIDTH) value = value.substring(0, VALUE_WIDTH);
 
-  if (value.length() > 21) value = value.substring(0, 21);
   color("1;36m");
   Serial.printf("| %-3u | ", static_cast<unsigned>(number));
   color("1;37m");
   Serial.printf("%-15.15s", entry.namespace_name);
-  reset();
+  color("1;36m");
   Serial.print(" | ");
   color("1;35m");
   Serial.printf("%-20.20s", entry.key);
-  reset();
+  color("1;36m");
   Serial.print(" | ");
   color("1;33m");
   printType(entry.type);
-  reset();
-  Serial.print("   ");
-  Serial.printf("| %-21s |\n", value.c_str());
+  // TYPE is eight characters wide, including the separating space.
+  Serial.print(" | ");
+  if (isSensitiveKey(entry.key)) color("1;31m");
+  else color("1;37m");
+  Serial.printf("%-21s", value.c_str());
+  color("1;36m");
+  Serial.println(" |");
   reset();
 }
 
@@ -124,9 +123,9 @@ void viewContents() {
   Serial.println("Partition: nvs");
   Serial.println();
   color("1;36m");
-  Serial.println("+-----+-----------------+----------------------+--------+-----------------------+");
-  Serial.println("| #   | NAMESPACE       | KEY                  | TYPE   | VALUE                 |");
-  Serial.println("+-----+-----------------+----------------------+--------+-----------------------+");
+  Serial.println("+-----+-----------------+----------------------+---------+-----------------------+");
+  Serial.println("| #   | NAMESPACE       | KEY                  | TYPE    | VALUE                 |");
+  Serial.println("+-----+-----------------+----------------------+---------+-----------------------+");
   reset();
 
   nvs_iterator_t iterator = nullptr;
@@ -146,7 +145,7 @@ void viewContents() {
   }
 
   color("1;36m");
-  Serial.println("+-----+-----------------+----------------------+--------+-----------------------+");
+  Serial.println("+-----+-----------------+----------------------+---------+-----------------------+");
   reset();
 
   if (count == 0) {
