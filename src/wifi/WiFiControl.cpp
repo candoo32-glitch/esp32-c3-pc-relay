@@ -993,10 +993,6 @@ void menu() {
     Serial.println("2. Configure SSID/password");
     Serial.println("3. Show WiFi status");
     Serial.println("4. Connect now");
-    if (Console::ansiSupported) Console::color(wifiEnabled ? "1;32m" : "1;33m");
-    Serial.print("5. WiFi: ");
-    Serial.println(wifiEnabled ? "ON" : "OFF");
-    if (Console::ansiSupported) Console::resetStyle();
     int8_t menuTxPower = DEFAULT_TX_POWER_QUARTER_DBM;
     if (esp_wifi_get_max_tx_power(&menuTxPower) != ESP_OK) {
       menuTxPower = DEFAULT_TX_POWER_QUARTER_DBM;
@@ -1004,6 +1000,10 @@ void menu() {
     Serial.print("5. TX power: ");
     Serial.print(static_cast<float>(menuTxPower) * 0.25f, 2);
     Serial.println(" dBm");
+    if (Console::ansiSupported) Console::color(wifiEnabled ? "1;32m" : "1;33m");
+    Serial.print("6. WiFi: ");
+    Serial.println(wifiEnabled ? "ON" : "OFF");
+    if (Console::ansiSupported) Console::resetStyle();
     WiFiDiagnostics::printMenuSetting();
     Serial.println("B. Back");
     Serial.println();
@@ -1021,9 +1021,9 @@ void menu() {
     } else if (choice == "4") {
       connect();
     } else if (choice == "5") {
-      configureWiFiEnabledMenu();
-    } else if (choice == "6") {
       configureTxPowerMenu();
+    } else if (choice == "6") {
+      configureWiFiEnabledMenu();
     } else if (choice == "7") {
       WiFiDiagnostics::toggle();
     } else if (choice == "B") {
