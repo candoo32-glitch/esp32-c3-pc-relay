@@ -44,7 +44,7 @@ String statusText() {
 String tabName() {
   String tab = server.hasArg("tab") ? server.arg("tab") : "dashboard";
   if (tab != "dashboard" && tab != "wifi" && tab != "network" &&
-      tab != "diagnostics" && tab != "storage" && tab != "system") {
+      tab != "diagnostics" && tab != "relays" && tab != "storage" && tab != "system") {
     tab = "dashboard";
   }
   return tab;
@@ -219,9 +219,9 @@ String page() {
   html += F("<h1>ESP32-C3 PC Relay</h1><div class='muted'>Headless control and configuration</div>");
 
   html += F("<nav class='tabs'>");
-  const char* names[] = {"dashboard","wifi","network","diagnostics","storage","system"};
-  const char* labels[] = {"Dashboard","Wi-Fi","Network","Diagnostics","Storage","System"};
-  for (size_t i = 0; i < 6; ++i) {
+  const char* names[] = {"dashboard","wifi","network","diagnostics","relays","storage","system"};
+  const char* labels[] = {"Dashboard","Wi-Fi","Network","Diagnostics","Relays","Storage","System"};
+  for (size_t i = 0; i < 7; ++i) {
     html += F("<a href='/?tab=");
     html += names[i];
     html += F("' class='");
@@ -354,6 +354,47 @@ String page() {
     html += F("</td></tr><tr><td>RSSI</td><td>");
     if (connected) { html += String(WiFi.RSSI()); html += F(" dBm"); } else html += F("-");
     html += F("</td></tr></table><div class='help'>Detailed connection event records remain available on the serial diagnostics console.</div></div>");
+  }
+
+  if (tab == "relays") {
+    html += F("<div class='card'><h2>Relay control</h2><div class='muted'>Each relay is independently configurable. Default behavior is normally OPEN and closes when activated.</div></div>");
+    for (uint8_t i = 0; i < 2; ++i) {
+      const Relay::Id id = static_cast<Relay::Id>(i);
+      html += F("<div class='card'><h2>");
+      html += htmlEscape(Relay::name(id));
+      html += F("</h2><table class='kv'><tr><td>GPIO</td><td>");
+      html += String(i == 0 ? 5 : 6);
+      html += F("</td></tr><tr><td>Contact</td><td>");
+      html += Relay::state(id) ? F("<span class='ok'>ACTIVE</span>") : F("NORMAL");
+      html += F("</td></tr><tr><td>Normal state</td><td>");
+      html += Relay::normalState(id) == Relay::NormalState::OPEN ? F("OPEN") : F("CLOSED");
+      html += F("</td></tr><tr><td>Activation</td><td>");
+      html += Relay::activationMode(id) == Relay::ActivationMode::PULSE ? F("PULSE") : F("LATCHED");
+      html += F("</td></tr>");
+      if (Relay::activationMode(id) == Relay::ActivationMode::PULSE) {
+        html += F("<tr><td>Pulse duration</td><td>");
+        html += String(Relay::pulseMs(id));
+        html += F(" ms</td></tr>");
+      }
+      html += F("</table><form method='POST' action='/relay/action'><input type='hidden' name='id' value='");
+      html += String(i);
+      html += F("'><button class='good' name='action' value='activate'>Activate</button><button class='secondary' name='action' value='deactivate'>Deactivate</button></form>");
+      html += F("<h3>Configuration</h3><form method='POST' action='/relay/config'><input type='hidden' name='id' value='");
+      html += String(i);
+      html += F("'><div class='row'><div><label>Name</label><input name='name' maxlength='32' required value='");
+      html += htmlEscape(Relay::name(id));
+      html += F("'></div><div><label>Normal contact state</label><select name='normal'><option value='open'");
+      if (Relay::normalState(id) == Relay::NormalState::OPEN) html += F(" selected");
+      html += F(">OPEN</option><option value='closed'");
+      if (Relay::normalState(id) == Relay::NormalState::CLOSED) html += F(" selected");
+      html += F(">CLOSED</option></select></div><div><label>Activation mode</label><select name='mode'><option value='latched'");
+      if (Relay::activationMode(id) == Relay::ActivationMode::LATCHED) html += F(" selected");
+      html += F(">LATCHED</option><option value='pulse'");
+      if (Relay::activationMode(id) == Relay::ActivationMode::PULSE) html += F(" selected");
+      html += F(">PULSE</option></select></div><div><label>Pulse duration (ms)</label><input name='pulse' type='number' min='10' max='60000' step='1' value='");
+      html += String(Relay::pulseMs(id));
+      html += F("'><div class='help'>10–60000 ms.</div></div></div><button class='good'>Save relay settings</button></form></div>");
+    }
   }
 
   if (tab == "storage") {
@@ -500,6 +541,49 @@ void handleNetworkSave() {
   redirect("network");
 }
 
+void handleRelayAction() {
+  if (!server.hasArg("id") || !server.hasArg("action")) {
+    redirect("relays");
+    return;
+  }
+  const int id = server.arg("id").toInt();
+  if (id < 0 || id > 1) {
+    redirect("relays");
+    return;
+  }
+  const Relay::Id relay = static_cast<Relay::Id>(id);
+  if (server.arg("action") == "activate") Relay::activate(relay);
+  else if (server.arg("action") == "deactivate") Relay::deactivate(relay);
+  redirect("relays");
+}
+
+void handleRelayConfig() {
+  if (!server.hasArg("id") || !server.hasArg("name") ||
+      !server.hasArg("normal") || !server.hasArg("mode") || !server.hasArg("pulse")) {
+    redirect("relays");
+    return;
+  }
+  const int id = server.arg("id").toInt();
+  if (id < 0 || id > 1) {
+    redirect("relays");
+    return;
+  }
+  const Relay::Id relay = static_cast<Relay::Id>(id);
+  const String name = server.arg("name");
+  const String normal = server.arg("normal");
+  const String mode = server.arg("mode");
+  const uint32_t pulse = static_cast<uint32_t>(server.arg("pulse").toInt());
+  if (!Relay::setName(relay, name)) { redirect("relays"); return; }
+  if (normal == "open") Relay::setNormalState(relay, Relay::NormalState::OPEN);
+  else if (normal == "closed") Relay::setNormalState(relay, Relay::NormalState::CLOSED);
+  else { redirect("relays"); return; }
+  if (mode == "latched") Relay::setActivationMode(relay, Relay::ActivationMode::LATCHED);
+  else if (mode == "pulse") Relay::setActivationMode(relay, Relay::ActivationMode::PULSE);
+  else { redirect("relays"); return; }
+  if (!Relay::setPulseMs(relay, pulse)) { redirect("relays"); return; }
+  redirect("relays");
+}
+
 void handleNvsFormat() {
   server.send(200, "text/html; charset=utf-8",
               "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>NVS format requested</h2><p>The ESP32-C3 is erasing NVS and will reboot.</p></body>");
@@ -530,6 +614,8 @@ void begin() {
   server.on("/wifi/save", HTTP_POST, handleWifiSave);
   server.on("/wifi/scan", HTTP_POST, handleWifiScan);
   server.on("/wifi/txpower", HTTP_POST, handleTxPower);
+  server.on("/relay/action", HTTP_POST, handleRelayAction);
+  server.on("/relay/config", HTTP_POST, handleRelayConfig);
   server.on("/diagnostics/toggle", HTTP_POST, handleDiagnosticsToggle);
   server.on("/network/save", HTTP_POST, handleNetworkSave);
   server.on("/nvs/format", HTTP_POST, handleNvsFormat);
