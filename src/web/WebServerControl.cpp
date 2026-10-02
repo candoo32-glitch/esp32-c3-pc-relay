@@ -347,7 +347,8 @@ void handleFirmwareUpdateLatest() {
   const int apiStatus = http.GET();
   if (apiStatus != HTTP_CODE_OK) {
     http.end();
-    server.send(502, "text/html; charset=utf-8",                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not retrieve the latest GitHub release.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    server.send(502, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not retrieve the latest GitHub release.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
     return;
   }
 
@@ -396,8 +397,7 @@ void handleFirmwareUpdateLatest() {
     download.end();
     server.send(502, "text/html; charset=utf-8",
                 "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The firmware download did not provide a valid image size.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
+    return;  }
 
   if (!Update.begin(static_cast<size_t>(contentLength))) {
     download.end();
@@ -696,6 +696,7 @@ String page() {
     html += F("</td></tr><tr><td>Channel</td><td>");
     html += connected ? String(WiFi.channel()) : F("-");
     html += F("</td></tr></table></div>");
+
     html += F("<div class='card'><h2>System</h2><table class='kv'><tr><td>Uptime</td><td>");
     html += String(uptime);
     html += F(" seconds</td></tr><tr><td>Firmware build</td><td>");
@@ -795,8 +796,7 @@ String page() {
     html += isStatic ? F("MANUAL / STATIC") : F("DHCP");
     html += F("</td></tr><tr><td>Hostname</td><td class='mono'>");
     html += htmlEscape(NetConfig::hostname());
-    html += F(".local</td></tr><tr><td>IP</td><td class='mono'>");
-    html += NetConfig::currentIP();
+    html += F(".local</td></tr><tr><td>IP</td><td class='mono'>");    html += NetConfig::currentIP();
     html += F("</td></tr><tr><td>Gateway</td><td class='mono'>");
     html += NetConfig::currentGateway();
     html += F("</td></tr><tr><td>DNS 1</td><td class='mono'>");
@@ -1096,3 +1096,90 @@ void handleRelayConfig() {
     if (normal.isEmpty()) normal = "open";
     if (normal == "open") Relay::setNormalState(relay, Relay::NormalState::OPEN);
     else if (normal == "closed") Relay::setNormalState(relay, Relay::NormalState::CLOSED);
+    else {
+      redirect("relays");
+      return;
+    }
+
+    String mode = server.hasArg(prefix + "mode") ? server.arg(prefix + "mode") : "";
+    mode.trim();
+    if (mode.isEmpty()) mode = "latched";
+    if (mode == "latched") Relay::setActivationMode(relay, Relay::ActivationMode::LATCHED);
+    else if (mode == "pulse") Relay::setActivationMode(relay, Relay::ActivationMode::PULSE);
+    else {
+      redirect("relays");
+      return;
+    }
+
+    String pulseText = server.hasArg(prefix + "pulse") ? server.arg(prefix + "pulse") : "";
+    pulseText.trim();
+    uint32_t pulse = defaults[i].pulse;
+    if (!pulseText.isEmpty()) {
+      const long parsed = pulseText.toInt();
+      if (parsed >= 10 && parsed <= 60000) pulse = static_cast<uint32_t>(parsed);
+      else {
+        redirect("relays");
+        return;
+      }
+    }
+    if (!Relay::setPulseMs(relay, pulse)) {
+      redirect("relays");
+      return;
+    }
+  }
+
+  redirect("relays");
+}
+
+void handleNvsFormat() {
+  server.send(200, "text/html; charset=utf-8",
+              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>NVS format requested</h2><p>The ESP32-C3 is erasing NVS and will reboot.</p></body>");
+  delay(300);
+  const esp_err_t eraseResult = nvs_flash_erase_partition("nvs");
+  if (eraseResult == ESP_OK) {
+    nvs_flash_init_partition("nvs");
+  }
+  delay(300);
+  ESP.restart();
+}
+
+void handleReboot() {
+  server.send(200, "text/html; charset=utf-8",
+              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Rebooting</h2><p>The ESP32-C3 is restarting.</p></body>");
+  delay(300);
+  ESP.restart();
+}
+
+} // namespace
+
+void begin() {
+  if (serverStarted) return;
+
+  server.on("/", HTTP_GET, handleRoot);
+  server.on("/wifi/toggle", HTTP_POST, handleToggle);
+  server.on("/wifi/reconnect", HTTP_POST, handleReconnect);
+  server.on("/wifi/save", HTTP_POST, handleWifiSave);
+  server.on("/wifi/scan", HTTP_POST, handleWifiScan);
+  server.on("/wifi/txpower", HTTP_POST, handleTxPower);
+  server.on("/relay/action", HTTP_POST, handleRelayAction);
+  server.on("/relay/config", HTTP_POST, handleRelayConfig);
+  server.on("/diagnostics/toggle", HTTP_POST, handleDiagnosticsToggle);
+  server.on("/network/save", HTTP_POST, handleNetworkSave);
+  server.on("/config/backup", HTTP_GET, []() { sendNvsBackup(); });
+  server.on("/config/restore", HTTP_POST, handleConfigRestoreComplete, handleConfigRestoreUpload);
+  server.on("/nvs/format", HTTP_POST, handleNvsFormat);
+  server.on("/system/update", HTTP_POST, handleFirmwareUpdateComplete, handleFirmwareUpdateUpload);
+  server.on("/system/check-update", HTTP_GET, handleFirmwareUpdateCheck);
+  server.on("/system/update-latest", HTTP_POST, handleFirmwareUpdateLatest);
+  server.on("/system/reboot", HTTP_POST, handleReboot);
+  server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
+  server.begin();
+  serverStarted = true;
+  Serial.println("Web server started on port 80.");
+}
+
+void service() {
+  if (!serverStarted) return;
+  server.handleClient();
+}
+}
