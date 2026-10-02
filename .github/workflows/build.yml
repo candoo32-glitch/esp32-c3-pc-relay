@@ -68,10 +68,6 @@ jobs:
 
           cat > dist/flash.bat <<'EOF'
           @echo off
-          if /I not "%~1"=="__ESP32_INTERNAL" (
-          "%ComSpec%" /d /c call "%~f0" __ESP32_INTERNAL
-          exit /b 0
-          )
           setlocal EnableExtensions EnableDelayedExpansion
 
           set "TARGET_BRANCH=${{ github.head_ref || github.ref_name }}"
