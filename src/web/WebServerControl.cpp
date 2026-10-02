@@ -911,7 +911,7 @@ String page() {
     html += F("<div class='card'><h2>Firmware updates</h2>");
     html += F("<div class='muted'>Check GitHub for the latest published firmware release. If a newer compatible build is available, it can be downloaded and installed directly.</div>");
     html += F("<form method='GET' action='/system/check-update'><button class='secondary' type='submit'>Check for firmware updates</button></form>");
-    html += F("<form method='POST' action='/system/update-latest' onsubmit="return confirm('Download and install the latest firmware from GitHub, then reboot the ESP32-C3?');"><button class='good' type='submit'>Download and install latest firmware</button></form></div>");
+    html += F("<form method='POST' action='/system/update-latest' onsubmit=&quot;return confirm('Download and install the latest firmware from GitHub, then reboot the ESP32-C3?');&quot;><button class='good' type='submit'>Download and install latest firmware</button></form></div>");
     html += F("<div class='card'><h2>Firmware upgrade</h2>");
     html += F("<div class='warn'>Upload a compatible ESP32-C3 firmware .bin file. The current firmware will be replaced and the device will reboot automatically. NVS configuration is preserved.</div>");
     html += F("<form method='POST' action='/system/update' enctype='multipart/form-data' onsubmit='return confirm(&quot;Upgrade firmware and reboot the ESP32-C3?&quot;);'><div class='row'><div><label for='firmware'>Firmware image</label><input id='firmware' name='firmware' type='file' accept='.bin,application/octet-stream' required></div></div><button class='good' type='submit'>Upgrade firmware</button></form></div>");
