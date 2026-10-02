@@ -138,11 +138,11 @@ void configureDHCP() {
   }
 }
 
-String savedIP() { return preferences.getString(IP_KEY, "192.168.1.50"); }
-String savedGateway() { return preferences.getString(GATEWAY_KEY, "192.168.1.1"); }
-String savedSubnet() { return preferences.getString(SUBNET_KEY, "255.255.255.0"); }
-String savedDNS1() { return preferences.getString(DNS1_KEY, "192.168.1.1"); }
-String savedDNS2() { return preferences.getString(DNS2_KEY, "8.8.8.8"); }
+String savedIP() { return preferences.getString(IP_KEY, ""); }
+String savedGateway() { return preferences.getString(GATEWAY_KEY, ""); }
+String savedSubnet() { return preferences.getString(SUBNET_KEY, ""); }
+String savedDNS1() { return preferences.getString(DNS1_KEY, ""); }
+String savedDNS2() { return preferences.getString(DNS2_KEY, ""); }
 
 String currentIP() {
   if (WiFi.status() == WL_CONNECTED) {
