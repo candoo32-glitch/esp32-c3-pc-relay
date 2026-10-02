@@ -62,7 +62,7 @@ void wifiEventHandler(void*, esp_event_base_t eventBase, int32_t eventId, void* 
     const auto* event = static_cast<const wifi_event_sta_disconnected_t*>(eventData);
     const uint8_t reason = event->reason;
     Serial.printf(
-        "WiFi event: STA_DISCONNECTED  reason=%u (%s)  RSSI=%d  BSSID %02X:%02X:%02X:%02X:%02X:%02X\\n",
+        "WiFi event: STA_DISCONNECTED  reason=%u (%s)  RSSI=%d  BSSID %02X:%02X:%02X:%02X:%02X:%02X\n",
         reason,
         wifiDisconnectReasonName(reason),
         event->rssi,
