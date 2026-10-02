@@ -319,7 +319,8 @@ String readMenuChoice(const char* prompt, const char* allowed) {
 
         if (command.length() == 1 &&
             strchr(allowed, command[0]) != nullptr) {
-          Serial.println(command);
+          // The command character was already echoed as it was received.
+          // Do not print it a second time here.
 
           // A USB CDC packet can contain more than one terminal transaction.
           // Do not let bytes queued behind this command become the next menu
