@@ -297,6 +297,7 @@ void service() {
         printSection("1;31m", "LOST_IP");
         Serial.print("\r\n");
         break;
+      }
 
       default:
         break;
