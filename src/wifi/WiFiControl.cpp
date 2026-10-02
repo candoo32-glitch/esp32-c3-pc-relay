@@ -569,6 +569,24 @@ void printStatus() {
   Serial.println();
 }
 
+bool configureCredentials(const String& ssid, const String& password) {
+  if (!wifiEnabled) return false;
+  if (ssid.isEmpty() || ssid.length() > 32 || password.length() > 63) return false;
+
+  reconnectSuppressed = true;
+  const bool ok = connectWithCredentials(ssid, password) == ConnectResult::SUCCESS;
+  reconnectSuppressed = false;
+  return ok;
+}
+
+bool setTxPowerDbm(float dbm) {
+  if (dbm < 2.0f || dbm > 18.0f) return false;
+  const float quarter = dbm * 4.0f;
+  const float rounded = roundf(quarter);
+  if (fabsf(quarter - rounded) > 0.001f) return false;
+  return applyTxPower(static_cast<int8_t>(rounded), true);
+}
+
 bool connect() {
   if (!wifiEnabled) {
     Serial.println("WiFi is OFF. Enable WiFi before connecting.");
