@@ -129,6 +129,8 @@ void loop() {
 
     if (choice == "1") {
       showStatus();
+      Serial.println();
+      Console::readMenuChoice("Press B to return: ", "B");
     } else if (choice == "2") {
       Setup::menu();
     } else if (choice == "3") {
