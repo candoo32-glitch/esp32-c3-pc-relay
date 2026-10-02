@@ -6,6 +6,7 @@
 #include <nvs_flash.h>
 #include <esp_idf_version.h>
 #include <esp_system.h>
+#include <esp_partition.h>
 #include <esp_wifi.h>
 #include <cstring>
 #include "WebServerControl.h"
@@ -155,6 +156,122 @@ String nvsValue(const nvs_entry_info_t& entry) {
   }
   nvs_close(handle);
   return value;
+}
+
+const esp_partition_t* nvsPartition() {
+  return esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
+                                  ESP_PARTITION_SUBTYPE_DATA_NVS,
+                                  "nvs");
+}
+
+bool sendNvsBackup() {
+  const esp_partition_t* partition = nvsPartition();
+  if (partition == nullptr || partition->size == 0) {
+    server.send(500, "text/plain", "NVS partition not found");
+    return false;
+  }
+
+  server.setContentLength(partition->size);
+  server.send(200, "application/octet-stream", "");
+  WiFiClient& client = server.client();
+
+  uint8_t buffer[4096];
+  for (size_t offset = 0; offset < partition->size; offset += sizeof(buffer)) {
+    const size_t length = min(sizeof(buffer), partition->size - offset);
+    if (esp_partition_read(partition, offset, buffer, length) != ESP_OK) return false;
+    if (client.write(buffer, length) != length) return false;
+    client.flush();
+  }
+  return true;
+}
+
+uint8_t* restoreBuffer = nullptr;
+size_t restoreCapacity = 0;
+size_t restoreBytes = 0;
+bool restoreFailed = false;
+
+void handleConfigRestoreUpload() {
+  HTTPUpload& upload = server.upload();
+  const esp_partition_t* partition = nvsPartition();
+
+  switch (upload.status) {
+    case UPLOAD_FILE_START:
+      restoreBytes = 0;
+      restoreFailed = false;
+      if (restoreBuffer != nullptr) {
+        free(restoreBuffer);
+        restoreBuffer = nullptr;
+      }
+      restoreCapacity = partition != nullptr ? partition->size : 0;
+      if (restoreCapacity == 0) {
+        restoreFailed = true;
+        break;
+      }
+      restoreBuffer = static_cast<uint8_t*>(malloc(restoreCapacity));
+      if (restoreBuffer == nullptr) {
+        restoreFailed = true;
+        restoreCapacity = 0;
+      }
+      break;
+
+    case UPLOAD_FILE_WRITE:
+      if (restoreFailed || restoreBuffer == nullptr ||
+          upload.currentSize > restoreCapacity - restoreBytes) {
+        restoreFailed = true;
+        break;
+      }
+      memcpy(restoreBuffer + restoreBytes, upload.buf, upload.currentSize);
+      restoreBytes += upload.currentSize;
+      break;
+
+    case UPLOAD_FILE_END:
+      if (restoreBuffer == nullptr || restoreBytes != restoreCapacity) restoreFailed = true;
+      break;
+
+    case UPLOAD_FILE_ABORTED:
+      restoreFailed = true;
+      break;
+
+    default:
+      break;
+  }
+}
+
+void handleConfigRestoreComplete() {
+  const esp_partition_t* partition = nvsPartition();
+  const bool valid = !restoreFailed && partition != nullptr &&
+                     restoreBuffer != nullptr && restoreBytes == restoreCapacity;
+
+  if (!valid) {
+    if (restoreBuffer != nullptr) free(restoreBuffer);
+    restoreBuffer = nullptr;
+    restoreCapacity = 0;
+    restoreBytes = 0;
+    server.send(400, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Restore failed</h2><p>The uploaded NVS backup was incomplete or invalid. No configuration was changed.</p><p><a href='/?tab=storage' style='color:#7eb6ff'>Back to Storage</a></p></body>");
+    return;
+  }
+
+  server.send(200, "text/html; charset=utf-8",
+              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Configuration restored</h2><p>The NVS configuration backup was written successfully. The ESP32-C3 will reboot now.</p></body>");
+  delay(300);
+
+  esp_err_t result = esp_partition_erase_range(partition, 0, partition->size);
+  if (result == ESP_OK) result = esp_partition_write(partition, 0, restoreBuffer, partition->size);
+
+  free(restoreBuffer);
+  restoreBuffer = nullptr;
+  restoreCapacity = 0;
+  restoreBytes = 0;
+
+  if (result != ESP_OK) {
+    Serial.print("NVS restore failed: ");
+    Serial.println(esp_err_to_name(result));
+  } else {
+    Serial.println("NVS configuration restored from web backup.");
+  }
+  delay(300);
+  ESP.restart();
 }
 
 String nvsTable() {
@@ -432,12 +549,23 @@ String page() {
   }
 
   if (tab == "storage") {
+    const esp_partition_t* nvs = nvsPartition();
+    html += F("<div class='card'><h2>Configuration backup</h2>");
+    html += F("<div class='muted'>Download a complete NVS configuration backup. This includes saved Wi-Fi credentials and other configuration values, so treat the backup file as sensitive.</div>");
+    if (nvs != nullptr) {
+      html += F("<p class='mono'>NVS partition: ");
+      html += String(nvs->size);
+      html += F(" bytes</p>");
+    }
+    html += F("<a href='/config/backup'><button class='good' type='button'>Download configuration backup</button></a></div>");
+    html += F("<div class='card'><h2>Restore configuration</h2>");
+    html += F("<div class='bad'>Restore replaces the entire NVS configuration and then reboots the ESP32-C3. Use a backup created by this firmware on a compatible ESP32-C3 relay device.</div>");
+    html += F("<form method='POST' action='/config/restore' enctype='multipart/form-data' onsubmit="return confirm('Restore this configuration and reboot the ESP32-C3?');"><div class='row'><div><label for='configfile'>Configuration backup</label><input id='configfile' name='configfile' type='file' accept='.bin,application/octet-stream' required></div></div><button class='good'>Restore configuration and reboot</button></form></div>");
     html += F("<div class='card'><h2>NVS contents</h2>");
     html += nvsTable();
     html += F("</div><div class='card'><h2>Format NVS</h2><div class='bad'>This erases the entire NVS partition, including Wi-Fi credentials, TX power, diagnostics, and network settings.</div>");
-    html += F("<form method='POST' action='/nvs/format' onsubmit=\"return confirm('Erase the entire NVS partition and reboot the ESP32?');\"><button class='danger'>Format NVS and reboot</button></form></div>");
+    html += F("<form method='POST' action='/nvs/format' onsubmit="return confirm('Erase the entire NVS partition and reboot the ESP32?');"><button class='danger'>Format NVS and reboot</button></form></div>");
   }
-
   if (tab == "system") {
     html += F("<div class='card'><h2>Firmware</h2><table class='kv'><tr><td>Build</td><td>");
     html += firmwareBuild();
@@ -697,6 +825,8 @@ void begin() {
   server.on("/relay/config", HTTP_POST, handleRelayConfig);
   server.on("/diagnostics/toggle", HTTP_POST, handleDiagnosticsToggle);
   server.on("/network/save", HTTP_POST, handleNetworkSave);
+  server.on("/config/backup", HTTP_GET, []() { sendNvsBackup(); });
+  server.on("/config/restore", HTTP_POST, handleConfigRestoreComplete, handleConfigRestoreUpload);
   server.on("/nvs/format", HTTP_POST, handleNvsFormat);
   server.on("/system/reboot", HTTP_POST, handleReboot);
   server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
