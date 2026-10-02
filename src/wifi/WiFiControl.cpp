@@ -116,7 +116,7 @@ void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
 }
 
 void serviceDiagnostics() {
-  if (wifiDiagnosticQueue == nullptr) {
+  if (!diagnosticsEnabled || wifiDiagnosticQueue == nullptr) {
     return;
   }
 
@@ -256,6 +256,8 @@ constexpr char PREF_NAMESPACE[] = "wifi";
 constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
+constexpr char DIAGNOSTICS_KEY[] = "diagnostics";
+static bool diagnosticsEnabled = true;
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
 struct TargetAP {
@@ -819,6 +821,38 @@ void setupCredentials() {
   }
 }
 
+void printDiagnosticsSetting() {
+  if (Console::ansiSupported) {
+    Console::color(diagnosticsEnabled ? "1;32m" : "1;31m");
+  }
+  Serial.print("5. Diagnostics: ");
+  Serial.println(diagnosticsEnabled ? "ON" : "OFF");
+  if (Console::ansiSupported) {
+    Console::resetStyle();
+  }
+}
+
+void toggleDiagnostics() {
+  diagnosticsEnabled = !diagnosticsEnabled;
+  preferences.putBool(DIAGNOSTICS_KEY, diagnosticsEnabled);
+
+  if (Console::ansiSupported) {
+    Console::color(diagnosticsEnabled ? "1;32m" : "1;31m");
+  }
+  Serial.print("WiFi diagnostics: ");
+  Serial.println(diagnosticsEnabled ? "ON" : "OFF");
+  if (Console::ansiSupported) {
+    Console::resetStyle();
+  }
+
+  // Discard queued events when diagnostics are turned off so stale records
+  // do not suddenly appear if diagnostics are enabled again later.
+  if (!diagnosticsEnabled && wifiDiagnosticQueue != nullptr) {
+    WiFiDiagnosticRecord record;
+    while (xQueueReceive(wifiDiagnosticQueue, &record, 0) == pdTRUE) {}
+  }
+}
+
 void menu() {
   while (true) {
     serviceDiagnostics();
@@ -838,10 +872,11 @@ void menu() {
     Serial.println("2. Configure SSID/password");
     Serial.println("3. Show WiFi status");
     Serial.println("4. Connect now");
+    printDiagnosticsSetting();
     Serial.println("B. Back");
     Serial.println();
 
-    String choice = Console::readMenuChoice("Select: ", "1234B");
+    String choice = Console::readMenuChoice("Select: ", "12345B");
     choice.trim();
     choice.toUpperCase();
 
@@ -853,6 +888,8 @@ void menu() {
       printStatus();
     } else if (choice == "4") {
       connect();
+    } else if (choice == "5") {
+      toggleDiagnostics();
     } else if (choice == "B") {
       return;
     }
@@ -861,6 +898,7 @@ void menu() {
 
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
+  diagnosticsEnabled = preferences.getBool(DIAGNOSTICS_KEY, true);
 
   wifiDiagnosticQueue = xQueueCreate(32, sizeof(WiFiDiagnosticRecord));
   if (wifiDiagnosticQueue == nullptr) {
