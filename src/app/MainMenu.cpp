@@ -4,6 +4,7 @@
 #include "../interface/Console.h"
 #include "../wifi/WiFiControl.h"
 #include "../network/NetConfig.h"
+#include "../wifi/WiFiDiagnostics.h"
 
 #ifndef FW_BUILD_VERSION
 #define FW_BUILD_VERSION 0
@@ -61,6 +62,8 @@ void showStatus() {
 
 void loop() {
   while (true) {
+    WiFiControl::service();
+    WiFiDiagnostics::service();
     if (Console::disconnected()) {
       // Treat a COM-port loss as a brand-new console session.
       Console::resetTransport();
