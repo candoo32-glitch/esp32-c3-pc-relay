@@ -428,7 +428,7 @@ jobs:
           call :UI_RENDER
           echo.
           echo ========================================
-          echo !VT!1;32m  ✓ VERIFIED FIRMWARE!VT!0m
+          echo !VT!1;32m  [OK] VERIFIED FIRMWARE!VT!0m
           echo ========================================
           echo GitHub Actions run : !ARTIFACT_RUN_ID!
           echo Firmware build     : !ARTIFACT_BUILD_VERSION!
@@ -466,7 +466,7 @@ jobs:
           set "UI_LOG4=Firmware synchronized"
           call :UI_RENDER
           echo.
-          echo !VT!32m  ✓ Local firmware synchronized with build !ARTIFACT_BUILD_VERSION!.!VT!0m
+          echo !VT!32m  [OK] Local firmware synchronized with build !ARTIFACT_BUILD_VERSION!.!VT!0m
           echo.
           echo !VT!36m  READY   !VT!0m Verified image ready to flash.
           set "UI_STATUS=FLASHING"
@@ -484,7 +484,7 @@ jobs:
               set "UI_FLASH=FAILED"
               set "UI_LOG4=Flash failed"
               call :UI_RENDER
-              echo !VT!1;31m  ✕ FLASH FAILED!VT!0m
+              echo !VT!1;31m  [FAIL] FLASH FAILED!VT!0m
               echo !VT!31m  esptool exit code: !FLASH_EXIT!!VT!0m
               echo !VT!90m  Diagnostic log saved to:%VT!0m
               echo   !FLASH_LOG!
@@ -498,9 +498,14 @@ jobs:
           set "UI_FLASH=SUCCESS"
           set "UI_LOG4=Flash successful"
           call :UI_RENDER
-          echo !VT!1;32m  ✓ FLASH SUCCESSFUL!VT!0m
+          echo !VT!1;32m  [OK] FLASH SUCCESSFUL!VT!0m
           echo !VT!32m  Firmware build !ARTIFACT_BUILD_VERSION! was flashed successfully.!VT!0m
           echo.
+          set "UI_STATUS=COMPLETE"
+          set "UI_DETAIL=Firmware build !ARTIFACT_BUILD_VERSION! flashed successfully"
+          set "UI_FLASH=SUCCESS"
+          set "UI_LOG4=Flash successful"
+          call :UI_RENDER
           echo !VT!90m  Press any key to close...!VT!0m
           pause
           if exist "!FLASH_LOG!" del /q "!FLASH_LOG!" >nul 2>&1
@@ -508,33 +513,33 @@ jobs:
 
           :UI_RENDER
           <nul set /p "=!VT!H!VT!2J"
-          echo !VT!1;36m╔══════════════════════════════════════════════════════════════════════════════╗!VT!0m
+          echo !VT!1;36m+------------------------------------------------------------------------------+!VT!0m
           echo !VT!1;36m║                  ESP32-C3 PC RELAY FLASHER                                ║!VT!0m
-          echo !VT!1;36m╠══════════════════════════════════════════════════════════════════════════════╣!VT!0m
+          echo !VT!1;36m+------------------------------------------------------------------------------+!VT!0m
           echo !VT!90m║!VT!0m BRANCH   !TARGET_BRANCH!
           echo !VT!90m║!VT!0m STATUS   !UI_STATUS!
           echo !VT!90m║!VT!0m DETAIL   !UI_DETAIL!
           echo !VT!90m║!VT!0m BUILD    !UI_BUILD!
           echo !VT!90m║!VT!0m ARTIFACT !UI_ARTIFACT!
           echo !VT!90m║!VT!0m FLASH    !UI_FLASH!
-          echo !VT!1;36m╠══════════════════════════════════════════════════════════════════════════════╣!VT!0m
+          echo !VT!1;36m+------------------------------------------------------------------------------+!VT!0m
           echo !VT!90m║!VT!0m ACTIVITY
           echo !VT!90m║!VT!0m   !UI_LOG1!
           echo !VT!90m║!VT!0m   !UI_LOG2!
           echo !VT!90m║!VT!0m   !UI_LOG3!
           echo !VT!90m║!VT!0m   !UI_LOG4!
-          echo !VT!1;36m╚══════════════════════════════════════════════════════════════════════════════╝!VT!0m
+          echo !VT!1;36m+------------------------------------------------------------------------------+!VT!0m
           exit /b 0
 
           :UI_WAIT
           rem Fixed status line. The alternate screen buffer prevents scrollback.
           for /l %%S in (1,1,10) do (
               set /a "UI_POS=%%S %% 4"
-              if !UI_POS!==0 set "UI_BAR=████████████████"
-              if !UI_POS!==1 set "UI_BAR=██████████"
-              if !UI_POS!==2 set "UI_BAR=██████"
-              if !UI_POS!==3 set "UI_BAR=██"
-              <nul set /p "=!VT!8;1H!VT!2K  !VT!93m● !UI_MESSAGE!!VT!0m  !VT!90m[!VT!36m!UI_BAR!!VT!90m] !VT!0m"
+              if !UI_POS!==0 set "UI_BAR=################"
+              if !UI_POS!==1 set "UI_BAR=##########"
+              if !UI_POS!==2 set "UI_BAR=######"
+              if !UI_POS!==3 set "UI_BAR=##"
+              <nul set /p "=!VT!8;1H!VT!2K  !VT!93m* !UI_MESSAGE!!VT!0m  !VT!90m[!VT!36m!UI_BAR!!VT!90m] !VT!0m"
               timeout /t 1 /nobreak >nul
           )
           exit /b 0
