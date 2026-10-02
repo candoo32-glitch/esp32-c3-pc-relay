@@ -972,12 +972,11 @@ void handleWifiScan() {
     return;
   }
 
+  // Scan while remaining associated with the current access point.
+  // Do not force a disconnect or change the station mode: the ESP32 can
+  // perform the scan without intentionally dropping the active connection.
   WiFiControl::service();
   WiFi.scanDelete();
-  WiFi.mode(WIFI_STA);
-  delay(50);
-  WiFi.disconnect(false, false);
-  delay(100);
   const int count = WiFi.scanNetworks();
 
   String html;
