@@ -337,8 +337,6 @@ ConnectResult connectWithCredentials(const String& ssid,
    * No raw wifi_config_t is constructed or modified here.
    * No esp_wifi_* connection calls are required.
    */
-  wl_status_t status;
-
   // Connection baseline:
   //   * bypass Arduino's STA::connect() configuration wrapper
   //   * do not pin a BSSID
@@ -437,18 +435,10 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::CONNECTION_FAILED;
   }
 
-  Serial.println("esp_wifi_connect() accepted.");
+  Serial.print("esp_wifi_connect() returned: ");
+  Serial.println(esp_err_to_name(connectResult));
   Serial.print("Initial WiFi status: ");
   Serial.println(static_cast<int>(WiFi.status()));
-
-
-
-  if (status == WL_CONNECT_FAILED) {
-    printFailureWordLine("WiFi.begin() ", "failed", ".");
-    WiFi.setAutoReconnect(previousAutoReconnect);
-    Console::prepareForMenuInput();
-    return ConnectResult::CONNECTION_FAILED;
-  }
 
   const uint32_t startTime = millis();
 
