@@ -72,6 +72,10 @@ jobs:
 
           set "TARGET_BRANCH=${{ github.head_ref || github.ref_name }}"
 
+          rem Enable Windows Virtual Terminal processing before emitting ANSI sequences.
+          powershell -NoProfile -Command "$sig='[DllImport(^"kernel32.dll^")] public static extern IntPtr GetStdHandle(int nStdHandle); [DllImport(^"kernel32.dll^")] public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode); [DllImport(^"kernel32.dll^")] public static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);'; Add-Type -MemberDefinition $sig -Name Win32 -Namespace VT; $h=[VT.Win32]::GetStdHandle(-11); [uint32]$m=0; if([VT.Win32]::GetConsoleMode($h,[ref]$m)){[VT.Win32]::SetConsoleMode($h,($m -bor 4))|Out-Null}" >nul 2>&1
+          mode con: cols=100 lines=34 >nul 2>&1
+
           rem Modern Windows terminal UI: VT sequences provide per-line colors and cursor control.
           rem No global COLOR command is used, so the whole console never changes color.
           for /f "delims=" %%E in ('echo prompt $E^| cmd') do set "ESC=%%E"
@@ -509,20 +513,20 @@ jobs:
           :UI_RENDER
           <nul set /p "=!VT!H!VT!2J"
           echo !VT!1;36m+------------------------------------------------------------------------------+!VT!0m
-          echo !VT!1;36m║                  ESP32-C3 PC RELAY FLASHER                                ║!VT!0m
+          echo !VT!1;36m|                  ESP32-C3 PC RELAY FLASHER                                |!VT!0m
           echo !VT!1;36m+------------------------------------------------------------------------------+!VT!0m
-          echo !VT!90m║!VT!0m BRANCH   !TARGET_BRANCH!
-          echo !VT!90m║!VT!0m STATUS   !UI_STATUS!
-          echo !VT!90m║!VT!0m DETAIL   !UI_DETAIL!
-          echo !VT!90m║!VT!0m BUILD    !UI_BUILD!
-          echo !VT!90m║!VT!0m ARTIFACT !UI_ARTIFACT!
-          echo !VT!90m║!VT!0m FLASH    !UI_FLASH!
+          echo !VT!90m|!VT!0m BRANCH   !TARGET_BRANCH!
+          echo !VT!90m|!VT!0m STATUS   !UI_STATUS!
+          echo !VT!90m|!VT!0m DETAIL   !UI_DETAIL!
+          echo !VT!90m|!VT!0m BUILD    !UI_BUILD!
+          echo !VT!90m|!VT!0m ARTIFACT !UI_ARTIFACT!
+          echo !VT!90m|!VT!0m FLASH    !UI_FLASH!
           echo !VT!1;36m+------------------------------------------------------------------------------+!VT!0m
-          echo !VT!90m║!VT!0m ACTIVITY
-          echo !VT!90m║!VT!0m   !UI_LOG1!
-          echo !VT!90m║!VT!0m   !UI_LOG2!
-          echo !VT!90m║!VT!0m   !UI_LOG3!
-          echo !VT!90m║!VT!0m   !UI_LOG4!
+          echo !VT!90m|!VT!0m ACTIVITY
+          echo !VT!90m|!VT!0m   !UI_LOG1!
+          echo !VT!90m|!VT!0m   !UI_LOG2!
+          echo !VT!90m|!VT!0m   !UI_LOG3!
+          echo !VT!90m|!VT!0m   !UI_LOG4!
           echo !VT!1;36m+------------------------------------------------------------------------------+!VT!0m
           exit /b 0
 
