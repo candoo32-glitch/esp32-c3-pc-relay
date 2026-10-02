@@ -497,8 +497,11 @@ ConnectResult connectWithCredentials(const String& ssid,
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi connection timed out.");
-    Serial.print("Final WiFi status: ");
-    Serial.println(static_cast<int>(WiFi.status()));
+    char finalStatus[16];
+    snprintf(finalStatus, sizeof(finalStatus), "%d",
+             static_cast<int>(WiFi.status()));
+    printDiagnosticLine("FINAL_STATUS", finalStatus,
+                         "1;36m", "1;31m");
     WiFi.disconnect(false, false);
     delay(100);
     serviceDiagnostics();
