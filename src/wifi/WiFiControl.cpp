@@ -93,14 +93,12 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.println(ssid);
 
   /*
-   * Standard Arduino-ESP32 station connection.
+   * Use the standard Arduino-ESP32 station connection path.
    *
-   * Normal saved/manual connection:
-   *     WiFi.begin(ssid, password);
-   *
-   * A network selected from the scanner may optionally use the documented
-   * channel+BSSID overload:
-   *     WiFi.begin(ssid, password, channel, bssid, true);
+   * In particular, do NOT pin a scanned connection to a BSSID/channel here.
+   * The ESP32-C3 may be behind a mesh, multiple APs, or an AP that changes
+   * its association path. The documented WiFi.begin(ssid, password) path
+   * lets the IDF station driver perform its normal AP selection and roaming.
    *
    * No raw wifi_config_t is constructed or modified here.
    * No esp_wifi_* connection calls are required.
@@ -120,18 +118,13 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
 
-  if (requestedTarget != nullptr && requestedTarget->valid) {
-    status = WiFi.begin(
-        ssid.c_str(),
-        password.isEmpty() ? nullptr : password.c_str(),
-        requestedTarget->channel,
-        requestedTarget->bssid,
-        true);
-  } else {
-    status = WiFi.begin(
-        ssid.c_str(),
-        password.isEmpty() ? nullptr : password.c_str());
-  }
+  // Use the normal SSID/password API even when the user selected an AP from
+  // the scan. The scan remains useful for discovery and diagnostics, but the
+  // connection itself must use the standard station association path.
+  (void)requestedTarget;
+  status = WiFi.begin(
+      ssid.c_str(),
+      password.isEmpty() ? nullptr : password.c_str());
 
   Serial.print("WiFi.begin() returned status: ");
   Serial.println(static_cast<int>(status));
@@ -473,9 +466,8 @@ void scan() {
   }
 
   // Keep the selected AP details visible through the credential prompt.
-  // The selected BSSID is used for this connection attempt only. Saved
-  // credentials do not permanently bind the profile to that AP.
-  
+  // The connection itself uses the standard SSID-based station path.
+
   // Selecting a network from a scan always uses DHCP for the connection.
   WiFi.scanDelete();
   NetConfig::configureDHCP();
