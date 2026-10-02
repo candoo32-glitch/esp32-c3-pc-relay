@@ -173,6 +173,10 @@ String currentDNS1() {
 }
 
 String currentDNS2() {
+  if (WiFi.status() == WL_CONNECTED) {
+    const IPAddress dns2 = WiFi.dnsIP(1);
+    if (dns2 != IPAddress()) return dns2.toString();
+  }
   return preferences.getString(DNS2_KEY, "8.8.8.8");
 }
 
