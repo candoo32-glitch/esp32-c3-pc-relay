@@ -22,7 +22,7 @@ void printHeader(const char* title) {
   Serial.println();
   color("1;36m");
   Serial.println("+---------------------------------------------+");
-  Serial.printf("| %-43s |\n", title);
+  Serial.printf("| %-43s |\r\n", title);
   Serial.println("+---------------------------------------------+");
   reset();
 }
@@ -155,7 +155,7 @@ void viewContents() {
   } else {
     Serial.println();
     color("1;32m");
-    Serial.printf("  %u entries.\n", static_cast<unsigned>(count));
+    Serial.printf("  %u entries.\r\n", static_cast<unsigned>(count));
     reset();
   }
 
