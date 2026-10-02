@@ -253,6 +253,13 @@ bool isEnabled() {
   return wifiEnabled;
 }
 
+bool setEnabled(bool enabled) {
+  if (enabled == wifiEnabled) return true;
+  if (!saveEnabledPreference(enabled)) return false;
+  applyEnabledState(enabled, enabled);
+  return wifiEnabled == enabled;
+}
+
 bool saveEnabledPreference(bool enabled) {
   const size_t saved = preferences.putBool(WIFI_ENABLED_KEY, enabled);
   if (saved != 1) {
