@@ -408,7 +408,15 @@ void handleFirmwareUpdateLatest() {
   }
 
   WiFiClient* stream = download.getStreamPtr();
-  uint8_t buffer[4096];
+  uint8_t* buffer = static_cast<uint8_t*>(malloc(4096));
+  if (buffer == nullptr) {
+    download.end();
+    Update.abort();
+    server.send(500, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Not enough RAM was available for the firmware download buffer.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
   size_t totalWritten = 0;
   bool failed = false;
   uint32_t lastYield = millis();
@@ -436,6 +444,7 @@ void handleFirmwareUpdateLatest() {
   }
 
   const bool finished = !failed && totalWritten == static_cast<size_t>(contentLength) && Update.end(true);
+  free(buffer);
   download.end();
 
   if (!finished) {
