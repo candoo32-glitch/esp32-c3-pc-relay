@@ -369,13 +369,17 @@ String page() {
   }
 
   if (tab == "relays") {
-    html += F("<div class='card'><h2>Relay control</h2><div class='muted'>Each relay is independently configurable. Default behavior is normally OPEN and closes when activated.</div></div>");    html += F("<div class='relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><button class='relay-button good' name='action' value='activate'>");
+    html += F("<div class='card'><h2>Relay control</h2><div class='muted'>Each relay is independently configurable. Either Save relay settings button saves BOTH relays. Blank values use the defaults: Relay 1 / Relay 2, OPEN, LATCHED, 250 ms.</div></div>");
+    html += F("<div class='relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><button class='relay-button good' name='action' value='activate'>");
     html += htmlEscape(Relay::name(Relay::Id::POWER));
     html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><button class='relay-button good' name='action' value='activate'>");
     html += htmlEscape(Relay::name(Relay::Id::RESET));
     html += F("</button></form></div>");
+
+    html += F("<form method='POST' action='/relay/config'>");
     for (uint8_t i = 0; i < 2; ++i) {
       const Relay::Id id = static_cast<Relay::Id>(i);
+      const char* prefix = i == 0 ? "relay0_" : "relay1_";
       html += F("<div class='card'><h2>");
       html += htmlEscape(Relay::name(id));
       html += F("</h2><table class='kv'><tr><td>GPIO</td><td>");
@@ -392,25 +396,30 @@ String page() {
         html += String(Relay::pulseMs(id));
         html += F(" ms</td></tr>");
       }
-      html += F("</table><form method='POST' action='/relay/action'><input type='hidden' name='id' value='");
-      html += String(i);
-      html += F("'><button class='good' name='action' value='activate'>Activate</button><button class='secondary' name='action' value='deactivate'>Deactivate</button></form>");
-      html += F("<h3>Configuration</h3><form method='POST' action='/relay/config'><input type='hidden' name='id' value='");
-      html += String(i);
-      html += F("'><div class='row'><div><label>Name</label><input name='name' maxlength='32' required value='");
+      html += F("</table><div class='row'><div><label>Name</label><input name='");
+      html += prefix;
+      html += F("name' maxlength='32' value='");
       html += htmlEscape(Relay::name(id));
-      html += F("'></div><div><label>Normal contact state</label><select name='normal'><option value='open'");
+      html += F("'></div><div><label>Normal contact state</label><select name='");
+      html += prefix;
+      html += F("normal'><option value='open'");
       if (Relay::normalState(id) == Relay::NormalState::OPEN) html += F(" selected");
       html += F(">OPEN</option><option value='closed'");
       if (Relay::normalState(id) == Relay::NormalState::CLOSED) html += F(" selected");
-      html += F(">CLOSED</option></select></div><div><label>Activation mode</label><select name='mode'><option value='latched'");
+      html += F(">CLOSED</option></select></div><div><label>Activation mode</label><select name='");
+      html += prefix;
+      html += F("mode'><option value='latched'");
       if (Relay::activationMode(id) == Relay::ActivationMode::LATCHED) html += F(" selected");
       html += F(">LATCHED</option><option value='pulse'");
       if (Relay::activationMode(id) == Relay::ActivationMode::PULSE) html += F(" selected");
-      html += F(">PULSE</option></select></div><div><label>Pulse duration (ms)</label><input name='pulse' type='number' min='10' max='60000' step='1' value='");
+      html += F(">PULSE</option></select></div><div><label>Pulse duration (ms)</label><input name='");
+      html += prefix;
+      html += F("pulse' type='number' min='10' max='60000' step='1' value='");
       html += String(Relay::pulseMs(id));
-      html += F("'><div class='help'>10–60000 ms.</div></div></div><button class='good'>Save relay settings</button></form></div>");
+      html += F("'><div class='help'>10–60000 ms. Blank uses 250 ms.</div></div></div>");
+      html += F("<button class='good' type='submit'>Save relay settings</button></div>");
     }
+    html += F("</form>");
   }
 
   if (tab == "storage") {
@@ -580,29 +589,68 @@ void handleRelayAction() {
 }
 
 void handleRelayConfig() {
-  if (!server.hasArg("id") || !server.hasArg("name") ||
-      !server.hasArg("normal") || !server.hasArg("mode") || !server.hasArg("pulse")) {
-    redirect("relays");
-    return;
+  // Either relay's Save button submits the complete two-relay configuration.
+  // Missing/blank fields intentionally fall back to the documented defaults.
+  struct Defaults {
+    const char* name;
+    Relay::NormalState normal;
+    Relay::ActivationMode mode;
+    uint32_t pulse;
+  };
+  constexpr Defaults defaults[] = {
+    {"Relay 1", Relay::NormalState::OPEN, Relay::ActivationMode::LATCHED, 250},
+    {"Relay 2", Relay::NormalState::OPEN, Relay::ActivationMode::LATCHED, 250}
+  };
+
+  for (uint8_t i = 0; i < 2; ++i) {
+    const Relay::Id relay = static_cast<Relay::Id>(i);
+    const String prefix = i == 0 ? "relay0_" : "relay1_";
+
+    String name = server.hasArg(prefix + "name") ? server.arg(prefix + "name") : "";
+    name.trim();
+    if (name.isEmpty()) name = defaults[i].name;
+    if (!Relay::setName(relay, name)) {
+      redirect("relays");
+      return;
+    }
+
+    String normal = server.hasArg(prefix + "normal") ? server.arg(prefix + "normal") : "";
+    normal.trim();
+    if (normal.isEmpty()) normal = "open";
+    if (normal == "open") Relay::setNormalState(relay, Relay::NormalState::OPEN);
+    else if (normal == "closed") Relay::setNormalState(relay, Relay::NormalState::CLOSED);
+    else {
+      redirect("relays");
+      return;
+    }
+
+    String mode = server.hasArg(prefix + "mode") ? server.arg(prefix + "mode") : "";
+    mode.trim();
+    if (mode.isEmpty()) mode = "latched";
+    if (mode == "latched") Relay::setActivationMode(relay, Relay::ActivationMode::LATCHED);
+    else if (mode == "pulse") Relay::setActivationMode(relay, Relay::ActivationMode::PULSE);
+    else {
+      redirect("relays");
+      return;
+    }
+
+    String pulseText = server.hasArg(prefix + "pulse") ? server.arg(prefix + "pulse") : "";
+    pulseText.trim();
+    uint32_t pulse = defaults[i].pulse;
+    if (!pulseText.isEmpty()) {
+      const long parsed = pulseText.toInt();
+      if (parsed >= 10 && parsed <= 60000) pulse = static_cast<uint32_t>(parsed);
+      else {
+        redirect("relays");
+        return;
+      }
+    }
+    if (!Relay::setPulseMs(relay, pulse)) {
+      redirect("relays");
+      return;
+    }
   }
-  const int id = server.arg("id").toInt();
-  if (id < 0 || id > 1) {
-    redirect("relays");
-    return;
-  }
-  const Relay::Id relay = static_cast<Relay::Id>(id);
-  const String name = server.arg("name");
-  const String normal = server.arg("normal");
-  const String mode = server.arg("mode");
-  const uint32_t pulse = static_cast<uint32_t>(server.arg("pulse").toInt());
-  if (!Relay::setName(relay, name)) { redirect("relays"); return; }
-  if (normal == "open") Relay::setNormalState(relay, Relay::NormalState::OPEN);
-  else if (normal == "closed") Relay::setNormalState(relay, Relay::NormalState::CLOSED);
-  else { redirect("relays"); return; }
-  if (mode == "latched") Relay::setActivationMode(relay, Relay::ActivationMode::LATCHED);
-  else if (mode == "pulse") Relay::setActivationMode(relay, Relay::ActivationMode::PULSE);
-  else { redirect("relays"); return; }
-  if (!Relay::setPulseMs(relay, pulse)) { redirect("relays"); return; }
+
   redirect("relays");
 }
 
