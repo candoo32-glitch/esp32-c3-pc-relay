@@ -210,11 +210,16 @@ jobs:
               >>"!UPDATE_HELPER!" echo     exit /b 1
               >>"!UPDATE_HELPER!" echo ^)
               >>"!UPDATE_HELPER!" echo echo Flasher updated to build !UPDATE_RUN_NUMBER!.
+              >>"!UPDATE_HELPER!" echo echo Starting updated flasher...
               >>"!UPDATE_HELPER!" echo start "" "!SELF_PATH!"
-              >>"!UPDATE_HELPER!" echo rmdir /s /q "!SELF_UPDATE_DIR!" ^>nul 2^>^&1
+              >>"!UPDATE_HELPER!" echo echo The updated flasher was launched.
+              >>"!UPDATE_HELPER!" echo echo This helper window will remain open for diagnostics.
+              >>"!UPDATE_HELPER!" echo pause
 
               echo Updating flash.bat in place...
-              start "" /min cmd /c ""!UPDATE_HELPER!""
+              echo The current flasher will close while the update helper replaces it.
+              echo The helper window will remain open so any update error can be read.
+              start "" cmd /k ""!UPDATE_HELPER!""
               endlocal
               exit /b 0
           )
