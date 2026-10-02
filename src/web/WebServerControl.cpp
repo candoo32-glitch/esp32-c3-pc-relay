@@ -317,7 +317,9 @@ String page() {
   if (tab == "network") {
     const bool isStatic = NetConfig::mode() == NetConfig::Mode::STATIC;
     html += F("<div class='card'><h2>Network configuration</h2><form method='POST' action='/network/save'>");
-    html += F("<div class='row'><div><label for='mode'>Address mode</label><select id='mode' name='mode'><option value='dhcp'");
+    html += F("<div class='row'><div><label for='hostname'>Host name</label><input id='hostname' name='hostname' maxlength='32' pattern='[A-Za-z0-9-]+' value='");
+    html += htmlEscape(NetConfig::hostname());
+    html += F("'><div class='help'>Letters, numbers, and hyphens; 1–32 characters.</div></div><div><label for='mode'>Address mode</label><select id='mode' name='mode'><option value='dhcp'");
     if (!isStatic) html += F(" selected");
     html += F(">DHCP</option><option value='static'");
     if (isStatic) html += F(" selected");
@@ -336,7 +338,9 @@ String page() {
     html += F("'></div></div><button class='good'>Save network settings</button></form></div>");
     html += F("<div class='card'><h2>Current effective network</h2><table class='kv'><tr><td>Mode</td><td>");
     html += isStatic ? F("MANUAL / STATIC") : F("DHCP");
-    html += F("</td></tr><tr><td>Hostname</td><td class='mono'>esp32-c3-relay</td></tr><tr><td>IP</td><td class='mono'>");
+    html += F("</td></tr><tr><td>Hostname</td><td class='mono'>");
+    html += htmlEscape(NetConfig::hostname());
+    html += F(".local</td></tr><tr><td>IP</td><td class='mono'>");
     html += NetConfig::currentIP();
     html += F("</td></tr><tr><td>Gateway</td><td class='mono'>");
     html += NetConfig::currentGateway();
@@ -540,6 +544,12 @@ void handleDiagnosticsToggle() {
 }
 
 void handleNetworkSave() {
+  if (server.hasArg("hostname")) {
+    if (!NetConfig::setHostname(server.arg("hostname"))) {
+      redirect("network");
+      return;
+    }
+  }
   const String mode = server.arg("mode");
   if (mode == "dhcp") {
     NetConfig::configureDHCP();
