@@ -502,7 +502,6 @@ jobs:
           set "UI_FLASH=SUCCESS"
           set "UI_LOG4=Flash successful"
           call :UI_RENDER
-          echo !VT!90m  Press any key to close...!VT!0m
           pause
           if exist "!FLASH_LOG!" del /q "!FLASH_LOG!" >nul 2>&1
           exit /b 0
