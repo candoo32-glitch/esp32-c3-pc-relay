@@ -68,6 +68,8 @@ jobs:
 
           cat > dist/flash.bat <<'EOF'
           @echo off
+          set "INTERNAL_UPDATE=0"
+          if /I "%~1"=="__ESP32_INTERNAL" set "INTERNAL_UPDATE=1"
           if /I not "%~1"=="__ESP32_INTERNAL" (
           "%ComSpec%" /d /c call "%~f0" __ESP32_INTERNAL
           exit /b 0
@@ -235,9 +237,8 @@ jobs:
               >>"!UPDATE_HELPER!" echo echo Flasher updated to build !UPDATE_RUN_NUMBER!.
               >>"!UPDATE_HELPER!" echo echo Starting updated flasher...
               >>"!UPDATE_HELPER!" echo call "!SELF_PATH!" __ESP32_INTERNAL
-              >>"!UPDATE_HELPER!" echo echo.
-              >>"!UPDATE_HELPER!" echo echo Updated flasher exited with errorlevel %%ERRORLEVEL%%.
-              >>"!UPDATE_HELPER!" echo pause
+              >>"!UPDATE_HELPER!" echo if errorlevel 1 echo Updated flasher exited with errorlevel %%ERRORLEVEL%%.
+              >>"!UPDATE_HELPER!" echo exit /b %%ERRORLEVEL%%
 
               echo !ESC![95m
               echo Updating flash.bat in place...
@@ -483,7 +484,7 @@ jobs:
           echo Firmware build !ARTIFACT_BUILD_VERSION! was flashed.
           echo.
           echo !ESC![0m
-          pause
+          if "!INTERNAL_UPDATE!"=="0" pause
           endlocal
           EOF
           cat > dist/README.txt <<'EOF'
