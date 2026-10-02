@@ -113,7 +113,7 @@ void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
   xQueueSend(wifiDiagnosticQueue, &record, 0);
 }
 
-void serviceDiagnostics() {
+void service() {
   if (!diagnosticsEnabled || wifiDiagnosticQueue == nullptr) {
     return;
   }
@@ -229,15 +229,7 @@ void serviceDiagnostics() {
   }
 }
 
-void printFailureWordLine(const char* prefix, const char* word, const char* suffix = "") {
-  Serial.print(prefix);
-  if (Console::ansiSupported) Console::color("1;31m");
-  Serial.print(word);
-  if (Console::ansiSupported) Console::resetStyle();
-  Serial.println(suffix);
-}
-
-void printDiagnosticLine(const char* label, const char* value,
+void printLine(const char* label, const char* value,
                           const char* labelColor = "1;36m",
                           const char* valueColor = "1;37m") {
   if (!diagnosticsEnabled) return;
@@ -254,7 +246,7 @@ void printDiagnosticLine(const char* label, const char* value,
   Serial.print("\r\n");
 }
 
-void printDiagnosticText(const char* text, const char* textColor = "1;37m") {
+void printText(const char* text, const char* textColor = "1;37m") {
   if (!diagnosticsEnabled) return;
 
   if (Console::ansiSupported) Console::color("1;36m");
@@ -265,7 +257,7 @@ void printDiagnosticText(const char* text, const char* textColor = "1;37m") {
   Serial.print("\r\n");
 }
 
-void printDiagnosticFailure(const char* label, const char* errorName) {
+void printFailure(const char* label, const char* errorName) {
   if (!diagnosticsEnabled) return;
 
   if (Console::ansiSupported) Console::color("1;36m");
