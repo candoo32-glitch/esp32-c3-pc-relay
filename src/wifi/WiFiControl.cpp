@@ -6,6 +6,7 @@
 #include <cstring>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
+#include <freertos/task.h>
 #include "WiFiControl.h"
 #include "../interface/Console.h"
 #include "../network/NetConfig.h"
@@ -49,6 +50,11 @@ constexpr char TX_POWER_KEY[] = "tx_power";
 constexpr int8_t DEFAULT_TX_POWER_QUARTER_DBM = 60;  // 15 dBm; experimentally stable
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
+constexpr uint32_t RECONNECT_INTERVAL_MS = 5000;
+
+volatile bool reconnectSuppressed = false;
+volatile bool connectionAttemptActive = false;
+TaskHandle_t reconnectTaskHandle = nullptr;
 
 struct TargetAP {
   bool valid = false;
@@ -255,6 +261,10 @@ const char* connectResultName(ConnectResult result) {
 ConnectResult connectWithCredentials(const String& ssid,
                                       const String& password,
                                       const TargetAP* requestedTarget = nullptr) {
+  struct ConnectionAttemptGuard {
+    ConnectionAttemptGuard() { connectionAttemptActive = true; }
+    ~ConnectionAttemptGuard() { connectionAttemptActive = false; }
+  } connectionAttemptGuard;
   if (ssid.isEmpty()) {
     Serial.println("WiFi: not configured.");
     return ConnectResult::SSID_NOT_FOUND;
@@ -473,9 +483,28 @@ bool connect() {
   return connectWithCredentials(ssid, password) == ConnectResult::SUCCESS;
 }
 
+void reconnectTask(void*) {
+  for (;;) {
+    if (!reconnectSuppressed && !connectionAttemptActive &&
+        WiFi.status() != WL_CONNECTED &&
+        !preferences.getString(SSID_KEY, "").isEmpty()) {
+      esp_wifi_set_ps(WIFI_PS_NONE);
+      const esp_err_t result = esp_wifi_connect();
+      if (result == ESP_OK) {
+        WiFiDiagnostics::printText("AUTO_RECONNECT=REQUESTED", "1;33m");
+      } else if (result != ESP_ERR_WIFI_CONN) {
+        WiFiDiagnostics::printFailure("AUTO_RECONNECT", esp_err_to_name(result));
+      }
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(RECONNECT_INTERVAL_MS));
+  }
+}
+
 void service() {
-  // Reserved for asynchronous WiFi maintenance. Connection attempts
-  // currently service diagnostics directly while they are active.
+  // Reconnection runs independently of the console/main loop. Keep this
+  // service hook for diagnostics and future Wi-Fi maintenance.
+  WiFiDiagnostics::service();
 }
 
 // Terminal table geometry.
@@ -614,6 +643,7 @@ void printScanGrid(const int* representatives, int uniqueCount) {
 }
 
 void scan() {
+  reconnectSuppressed = true;
   Serial.println();
   Serial.println("WiFi scan");
   Serial.println("---------");
@@ -645,12 +675,14 @@ void scan() {
     WiFi.disconnect(false, false);
     delay(100);
     WiFi.setAutoReconnect(false);
+    reconnectSuppressed = false;
     return;
   }
 
   if (count == 0) {
     Serial.println("No networks found.");
     WiFi.scanDelete();
+    reconnectSuppressed = false;
     return;
   }
 
@@ -675,6 +707,7 @@ void scan() {
 
   if (choice == "B") {
     WiFi.scanDelete();
+    reconnectSuppressed = false;
     return;
   }
 
@@ -691,6 +724,7 @@ void scan() {
   if (selected < 1 || selected > uniqueCount) {
     Serial.println("Invalid network selection.");
     WiFi.scanDelete();
+    reconnectSuppressed = false;
     return;
   }
 
@@ -745,6 +779,7 @@ void scan() {
     String password = Console::readPassword("PASSWORD: ");
     if (Console::disconnected()) {
       WiFi.scanDelete();
+      reconnectSuppressed = false;
       return;
     }
 
@@ -776,6 +811,7 @@ void scan() {
       Serial.println("Previously saved credentials were left unchanged.");
       Serial.println();
     }
+    reconnectSuppressed = false;
     return;
   }
 
@@ -809,9 +845,11 @@ void scan() {
     Serial.println("Previously saved credentials were left unchanged.");
     Serial.println();
   }
+  reconnectSuppressed = false;
 }
 
 void setupCredentials() {
+  reconnectSuppressed = true;
   Serial.println();
   Serial.println("WiFi configuration");
   Serial.println("------------------");
@@ -820,15 +858,16 @@ void setupCredentials() {
   Serial.println();
 
   String ssid = Console::readPrompt("SSID: ");
-  if (Console::disconnected()) return;
+  if (Console::disconnected()) { reconnectSuppressed = false; return; }
   String password = Console::readPassword("PASSWORD: ");
-  if (Console::disconnected()) return;
+  if (Console::disconnected()) { reconnectSuppressed = false; return; }
 
   // Entering SSID/password always starts from DHCP.
   NetConfig::configureDHCP();
 
   if (ssid.isEmpty()) {
     Serial.println("WiFi: SSID cannot be empty. Nothing was changed.");
+    reconnectSuppressed = false;
     return;
   }
 
@@ -842,6 +881,7 @@ void setupCredentials() {
     Serial.println("WiFi credentials were NOT saved.");
     Serial.println("Previously saved credentials were left unchanged.");
   }
+  reconnectSuppressed = false;
 }
 
 void menu() {
@@ -912,5 +952,14 @@ void begin() {
   configureTxPower();
 
   connect();
+  if (reconnectTaskHandle == nullptr) {
+    xTaskCreate(
+        reconnectTask,
+        "wifi_reconnect",
+        4096,
+        nullptr,
+        1,
+        &reconnectTaskHandle);
+  }
 }
 }
