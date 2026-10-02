@@ -53,41 +53,56 @@ static WiFiEventId_t wifiGotIpEventId = 0;
 static WiFiEventId_t wifiLostIpEventId = 0;
 
 void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
+  // Keep each diagnostic event inside a normal 80-column terminal. The
+  // previous single-line records were wide enough to wrap in PuTTY.
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_START:
       Serial.println("WiFi event: STA_START");
       break;
+
     case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
       const auto& connected = info.wifi_sta_connected;
+      Serial.println("WiFi event: STA_CONNECTED");
       Serial.printf(
-          "WiFi event: STA_CONNECTED  BSSID %02X:%02X:%02X:%02X:%02X:%02X  CH %u  AUTH %s\n",
+          "  BSSID=%02X:%02X:%02X:%02X:%02X:%02X  CH=%u  AUTH=%s\n",
           connected.bssid[0], connected.bssid[1], connected.bssid[2],
           connected.bssid[3], connected.bssid[4], connected.bssid[5],
           connected.channel, authModeName(connected.authmode));
       break;
     }
+
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
       const auto& disconnected = info.wifi_sta_disconnected;
       const uint8_t reason = disconnected.reason;
+      Serial.println("WiFi event: STA_DISCONNECTED");
       Serial.printf(
-          "WiFi event: STA_DISCONNECTED  reason=%u (%s)  RSSI=%d  BSSID %02X:%02X:%02X:%02X:%02X:%02X\n",
-          reason, wifiDisconnectReasonName(reason), disconnected.rssi,
-          disconnected.bssid[0], disconnected.bssid[1], disconnected.bssid[2],
-          disconnected.bssid[3], disconnected.bssid[4], disconnected.bssid[5]);
+          "  reason=%u (%s)  RSSI=%d dBm\n",
+          reason, wifiDisconnectReasonName(reason), disconnected.rssi);
+      Serial.printf(
+          "  BSSID=%02X:%02X:%02X:%02X:%02X:%02X\n",
+          disconnected.bssid[0], disconnected.bssid[1],
+          disconnected.bssid[2], disconnected.bssid[3],
+          disconnected.bssid[4], disconnected.bssid[5]);
       break;
     }
+
     case ARDUINO_EVENT_WIFI_STA_GOT_IP: {
       const auto& gotIp = info.got_ip;
+      Serial.println("WiFi event: STA_GOT_IP");
       Serial.printf(
-          "WiFi event: STA_GOT_IP  IP %s  GW %s  MASK %s\n",
+          "  IP=%s  GW=%s\n",
           IPAddress(gotIp.ip_info.ip.addr).toString().c_str(),
-          IPAddress(gotIp.ip_info.gw.addr).toString().c_str(),
+          IPAddress(gotIp.ip_info.gw.addr).toString().c_str());
+      Serial.printf(
+          "  MASK=%s\n",
           IPAddress(gotIp.ip_info.netmask.addr).toString().c_str());
       break;
     }
+
     case ARDUINO_EVENT_WIFI_STA_LOST_IP:
       Serial.println("WiFi event: STA_LOST_IP");
       break;
+
     default:
       break;
   }
