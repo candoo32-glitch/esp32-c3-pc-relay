@@ -32,6 +32,15 @@ void begin() {
   if (!preferences.isKey(HOSTNAME_KEY)) {
     preferences.putString(HOSTNAME_KEY, DEFAULT_HOSTNAME);
   }
+  // Keep DNS 1 and DNS 2 as explicit NVS configuration values. These are
+  // used by static/manual networking and are also available to the serial
+  // configuration menu and web UI.
+  if (!preferences.isKey(DNS1_KEY)) {
+    preferences.putString(DNS1_KEY, "192.168.1.1");
+  }
+  if (!preferences.isKey(DNS2_KEY)) {
+    preferences.putString(DNS2_KEY, "8.8.8.8");
+  }
 }
 
 String hostname() {
