@@ -8,6 +8,8 @@
 #include <esp_system.h>
 #include <esp_partition.h>
 #include <Update.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <esp_wifi.h>
 #include <cstring>
 #include "WebServerControl.h"
@@ -198,6 +200,109 @@ bool restoreFailed = false;
 
 bool firmwareUpdateFailed = false;
 size_t firmwareUpdateBytes = 0;
+
+
+String jsonStringField(const String& json, const char* field) {
+  String needle = String("\"") + field + "\":";
+  int start = json.indexOf(needle);
+  if (start < 0) return "";
+  start += needle.length();
+  while (start < static_cast<int>(json.length()) && (json[start] == ' ' || json[start] == '\t')) ++start;
+  if (start >= static_cast<int>(json.length()) || json[start] != '"') return "";
+  ++start;
+  String value;
+  while (start < static_cast<int>(json.length())) {
+    char ch = json[start++];
+    if (ch == '"') break;
+    if (ch == '\\' && start < static_cast<int>(json.length())) {
+      char escaped = json[start++];
+      if (escaped == '"' || escaped == '\\' || escaped == '/') value += escaped;
+      else if (escaped == 'n') value += '\n';
+      else if (escaped == 'r') value += '\r';
+      else if (escaped == 't') value += '\t';
+      else value += escaped;
+    } else {
+      value += ch;
+    }
+  }
+  return value;
+}
+
+String latestReleaseBuild(const String& tag) {
+  int end = tag.length() - 1;
+  while (end >= 0 && !isDigit(tag[end])) --end;
+  if (end < 0) return "";
+  int start = end;
+  while (start > 0 && isDigit(tag[start - 1])) --start;
+  return tag.substring(start, end + 1);
+}
+
+void handleFirmwareUpdateCheck() {
+  if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
+    server.send(503, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update check unavailable</h2><p>The ESP32-C3 is not connected to Wi-Fi.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  const char* apiUrl = "https://api.github.com/repos/candoo32-glitch/esp32-c3-pc-relay/releases/latest";
+  if (!http.begin(client, apiUrl)) {
+    server.send(502, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update check failed</h2><p>Could not start the secure connection to GitHub.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  http.setTimeout(10000);
+  http.addHeader("User-Agent", "ESP32-C3-PC-Relay");
+  const int responseCode = http.GET();
+
+  if (responseCode != HTTP_CODE_OK) {
+    http.end();
+    String message = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update check failed</h2><p>GitHub returned HTTP ";
+    message += String(responseCode);
+    message += F(".</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    server.send(responseCode > 0 ? 502 : 504, "text/html; charset=utf-8", message);
+    return;
+  }
+
+  const String json = http.getString();
+  http.end();
+
+  const String tag = jsonStringField(json, "tag_name");
+  const String releaseUrl = jsonStringField(json, "html_url");
+  const String latestBuild = latestReleaseBuild(tag);
+  const String currentBuild = firmwareBuild();
+  const long currentNumber = currentBuild.toInt();
+  const long latestNumber = latestBuild.toInt();
+
+  String html = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'>";
+  if (tag.isEmpty() || latestBuild.isEmpty()) {
+    html += F("<h2>Update check failed</h2><p>GitHub returned a release response, but no firmware version could be identified.</p>");
+  } else if (latestNumber > currentNumber) {
+    html += F("<h2>Firmware update available</h2><p>Current firmware: <b>");
+    html += htmlEscape(currentBuild);
+    html += F("</b><br>Latest release: <b>");
+    html += htmlEscape(tag);
+    html += F("</b></p>");
+    if (!releaseUrl.isEmpty()) {
+      html += F("<p><a href='");
+      html += htmlEscape(releaseUrl);
+      html += F("' style='color:#7eb6ff'>Open GitHub release</a></p>");
+    }
+    html += F("<p>Download the compatible .bin from the release, then use the Firmware upgrade section to install it.</p>");
+  } else {
+    html += F("<h2>Firmware is up to date</h2><p>Current firmware: <b>");
+    html += htmlEscape(currentBuild);
+    html += F("</b><br>Latest release: <b>");
+    html += htmlEscape(tag);
+    html += F("</b></p>");
+  }
+  html += F("<p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body></html>");
+  server.send(200, "text/html; charset=utf-8", html);
+}
 
 void handleFirmwareUpdateUpload() {
   HTTPUpload& upload = server.upload();
@@ -656,6 +761,9 @@ String page() {
     html += F(" MHz</td></tr><tr><td>Uptime</td><td>");
     html += String(uptime);
     html += F(" seconds</td></tr></table></div>");
+    html += F("<div class='card'><h2>Firmware updates</h2>");
+    html += F("<div class='muted'>Check GitHub for the latest published firmware release. The check does not modify the current firmware.</div>");
+    html += F("<form method='GET' action='/system/check-update'><button class='secondary' type='submit'>Check for firmware updates</button></form></div>");
     html += F("<div class='card'><h2>Firmware upgrade</h2>");
     html += F("<div class='warn'>Upload a compatible ESP32-C3 firmware .bin file. The current firmware will be replaced and the device will reboot automatically. NVS configuration is preserved.</div>");
     html += F("<form method='POST' action='/system/update' enctype='multipart/form-data' onsubmit='return confirm(&quot;Upgrade firmware and reboot the ESP32-C3?&quot;);'><div class='row'><div><label for='firmware'>Firmware image</label><input id='firmware' name='firmware' type='file' accept='.bin,application/octet-stream' required></div></div><button class='good' type='submit'>Upgrade firmware</button></form></div>");
@@ -906,6 +1014,7 @@ void begin() {
   server.on("/config/restore", HTTP_POST, handleConfigRestoreComplete, handleConfigRestoreUpload);
   server.on("/nvs/format", HTTP_POST, handleNvsFormat);
   server.on("/system/update", HTTP_POST, handleFirmwareUpdateComplete, handleFirmwareUpdateUpload);
+  server.on("/system/check-update", HTTP_GET, handleFirmwareUpdateCheck);
   server.on("/system/reboot", HTTP_POST, handleReboot);
   server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
   server.begin();
