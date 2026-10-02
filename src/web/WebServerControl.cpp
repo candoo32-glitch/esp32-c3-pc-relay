@@ -304,6 +304,153 @@ void handleFirmwareUpdateCheck() {
   server.send(200, "text/html; charset=utf-8", html);
 }
 
+
+String latestReleaseFirmwareUrl(const String& json) {
+  int pos = 0;
+  while ((pos = json.indexOf("\"browser_download_url\"", pos)) >= 0) {
+    int valueStart = json.indexOf('"', pos + 23);
+    if (valueStart < 0) return "";
+    ++valueStart;
+    int valueEnd = valueStart;
+    while (valueEnd < static_cast<int>(json.length())) {
+      if (json[valueEnd] == '"' && json[valueEnd - 1] != '\\') break;
+      ++valueEnd;
+    }
+    if (valueEnd <= valueStart) return "";
+    const String url = json.substring(valueStart, valueEnd);
+    if (url.endsWith(".bin")) return url;
+    pos = valueEnd + 1;
+  }
+  return "";
+}
+
+void handleFirmwareUpdateLatest() {
+  if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
+    server.send(503, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update unavailable</h2><p>The ESP32-C3 is not connected to Wi-Fi.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  const char* apiUrl = "https://api.github.com/repos/candoo32-glitch/esp32-c3-pc-relay/releases/latest";
+
+  if (!http.begin(client, apiUrl)) {
+    server.send(502, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not connect to GitHub.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  http.setTimeout(10000);
+  http.addHeader("User-Agent", "ESP32-C3-PC-Relay");
+  const int apiStatus = http.GET();
+  if (apiStatus != HTTP_CODE_OK) {
+    http.end();
+    server.send(502, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not retrieve the latest GitHub release.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  const String json = http.getString();
+  http.end();
+
+  const String tag = jsonStringField(json, "tag_name");
+  const String latestBuild = latestReleaseBuild(tag);
+  const long currentNumber = firmwareBuild().toInt();
+  const long latestNumber = latestBuild.toInt();
+  if (tag.isEmpty() || latestBuild.isEmpty() || latestNumber <= currentNumber) {
+    server.send(200, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>No update installed</h2><p>The latest release is not newer than the firmware currently installed.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  const String firmwareUrl = latestReleaseFirmwareUrl(json);
+  if (firmwareUrl.isEmpty()) {
+    server.send(502, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The latest release does not contain a .bin firmware asset.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  WiFiClientSecure downloadClient;
+  downloadClient.setInsecure();
+  HTTPClient download;
+  if (!download.begin(downloadClient, firmwareUrl)) {
+    server.send(502, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not connect to the firmware download.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  download.setTimeout(15000);
+  download.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+  download.addHeader("User-Agent", "ESP32-C3-PC-Relay");
+  const int downloadStatus = download.GET();
+  if (downloadStatus != HTTP_CODE_OK) {
+    download.end();
+    server.send(502, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>GitHub firmware download returned HTTP ");
+    return;
+  }
+
+  const int contentLength = download.getSize();
+  if (contentLength <= 0) {
+    download.end();
+    server.send(502, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The firmware download did not provide a valid image size.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  if (!Update.begin(static_cast<size_t>(contentLength))) {
+    download.end();
+    server.send(500, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The firmware image is too large for the OTA partition.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  WiFiClient* stream = download.getStreamPtr();
+  uint8_t buffer[4096];
+  size_t totalWritten = 0;
+  bool failed = false;
+  uint32_t lastYield = millis();
+
+  while (download.connected() && totalWritten < static_cast<size_t>(contentLength)) {
+    const size_t available = stream->available();
+    if (available == 0) {
+      delay(1);
+      if (millis() - lastYield > 10000) {
+        failed = true;
+        break;
+      }
+      continue;
+    }
+
+    const size_t toRead = min(available, sizeof(buffer));
+    const int readBytes = stream->readBytes(buffer, toRead);
+    if (readBytes <= 0 || Update.write(buffer, static_cast<size_t>(readBytes)) != static_cast<size_t>(readBytes)) {
+      failed = true;
+      break;
+    }
+    totalWritten += static_cast<size_t>(readBytes);
+    lastYield = millis();
+    yield();
+  }
+
+  const bool finished = !failed && totalWritten == static_cast<size_t>(contentLength) && Update.end(true);
+  download.end();
+
+  if (!finished) {
+    Update.abort();
+    server.send(500, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The firmware download or flash operation failed. The existing firmware was not replaced.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  server.send(200, "text/html; charset=utf-8",
+              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Firmware upgraded</h2><p>The new firmware was downloaded and installed successfully. The ESP32-C3 will reboot now.</p>");
+  delay(300);
+  ESP.restart();
+}
+
 void handleFirmwareUpdateUpload() {
   HTTPUpload& upload = server.upload();
 
@@ -762,8 +909,9 @@ String page() {
     html += String(uptime);
     html += F(" seconds</td></tr></table></div>");
     html += F("<div class='card'><h2>Firmware updates</h2>");
-    html += F("<div class='muted'>Check GitHub for the latest published firmware release. The check does not modify the current firmware.</div>");
-    html += F("<form method='GET' action='/system/check-update'><button class='secondary' type='submit'>Check for firmware updates</button></form></div>");
+    html += F("<div class='muted'>Check GitHub for the latest published firmware release. If a newer compatible build is available, it can be downloaded and installed directly.</div>");
+    html += F("<form method='GET' action='/system/check-update'><button class='secondary' type='submit'>Check for firmware updates</button></form>");
+    html += F("<form method='POST' action='/system/update-latest' onsubmit="return confirm('Download and install the latest firmware from GitHub, then reboot the ESP32-C3?');"><button class='good' type='submit'>Download and install latest firmware</button></form></div>");
     html += F("<div class='card'><h2>Firmware upgrade</h2>");
     html += F("<div class='warn'>Upload a compatible ESP32-C3 firmware .bin file. The current firmware will be replaced and the device will reboot automatically. NVS configuration is preserved.</div>");
     html += F("<form method='POST' action='/system/update' enctype='multipart/form-data' onsubmit='return confirm(&quot;Upgrade firmware and reboot the ESP32-C3?&quot;);'><div class='row'><div><label for='firmware'>Firmware image</label><input id='firmware' name='firmware' type='file' accept='.bin,application/octet-stream' required></div></div><button class='good' type='submit'>Upgrade firmware</button></form></div>");
@@ -1015,6 +1163,7 @@ void begin() {
   server.on("/nvs/format", HTTP_POST, handleNvsFormat);
   server.on("/system/update", HTTP_POST, handleFirmwareUpdateComplete, handleFirmwareUpdateUpload);
   server.on("/system/check-update", HTTP_GET, handleFirmwareUpdateCheck);
+  server.on("/system/update-latest", HTTP_POST, handleFirmwareUpdateLatest);
   server.on("/system/reboot", HTTP_POST, handleReboot);
   server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
   server.begin();
