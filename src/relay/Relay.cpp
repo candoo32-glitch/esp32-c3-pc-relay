@@ -23,8 +23,8 @@ struct Config {
   const char* defaultName;
 };
 Config configs[] = {
-  {"power_name", "power_normal", "power_mode", "power_pulse", POWER_RELAY, "POWER"},
-  {"reset_name", "reset_normal", "reset_mode", "reset_pulse", RESET_RELAY, "RESET"}
+  {"power_name", "power_normal", "power_mode", "power_pulse", POWER_RELAY, "Relay 1"},
+  {"reset_name", "reset_normal", "reset_mode", "reset_pulse", RESET_RELAY, "Relay 2"}
 };
 uint32_t pulseDeadline[2] = {0, 0};
 
@@ -119,6 +119,14 @@ void setReset(bool on) { setState(Id::RESET, on); }
 
 void begin() {
   preferences.begin("relay", false);
+  // Seed the relay-name NVS entries with the user-facing defaults. Migrate
+  // the legacy POWER/RESET defaults, but preserve any custom names.
+  if (!preferences.isKey(configs[0].nameKey) || preferences.getString(configs[0].nameKey, "") == "POWER") {
+    preferences.putString(configs[0].nameKey, configs[0].defaultName);
+  }
+  if (!preferences.isKey(configs[1].nameKey) || preferences.getString(configs[1].nameKey, "") == "RESET") {
+    preferences.putString(configs[1].nameKey, configs[1].defaultName);
+  }
   for (const auto& c : configs) {
     digitalWrite(c.pin, OFF);
     pinMode(c.pin, OUTPUT);
