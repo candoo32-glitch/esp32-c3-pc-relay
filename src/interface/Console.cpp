@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "../web/WebServerControl.h"
 
 namespace Console {
 bool ansiSupported = false;
@@ -63,6 +64,7 @@ void prepareForMenuInput() {
   uint32_t quietSince = millis();
 
   while (true) {
+    WebControl::service();
     // This is only an RX framing barrier. Do not treat a transient USB
     // connection-state report as a command/menu failure; the actual CDC bus
     // reset handler sets sessionLost when the transport really resets.
@@ -77,6 +79,7 @@ void prepareForMenuInput() {
       break;
     }
 
+    WebControl::service();
     delay(5);
   }
 
@@ -106,6 +109,7 @@ void resetTransport() {
 
 void waitForConnection() {
   while (!Serial.isConnected()) {
+    WebControl::service();
     delay(50);
   }
   sessionLost = false;
@@ -145,6 +149,7 @@ void begin() {
   Serial.print("Select [Y/N]: ");
 
   while (!Serial.available()) {
+    WebControl::service();
     delay(10);
   }
 
@@ -256,6 +261,7 @@ String readLine(bool allowEmpty) {
       }
     }
 
+    WebControl::service();
     delay(10);
   }
 }
@@ -359,6 +365,7 @@ String readMenuChoice(const char* prompt, const char* allowed) {
       }
     }
 
+    WebControl::service();
     delay(5);
   }
 }
@@ -429,6 +436,7 @@ String readPassword(const char* prompt) {
       }
     }
 
+    WebControl::service();
     delay(10);
   }
 }
