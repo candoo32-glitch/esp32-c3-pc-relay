@@ -374,7 +374,7 @@ void printMenuSetting() {
   if (Console::ansiSupported) {
     Console::color(diagnosticsEnabled ? "1;32m" : "1;31m");
   }
-  Serial.print("5. Diagnostics: ");
+  Serial.print("6. Diagnostics: ");
   Serial.println(diagnosticsEnabled ? "ON" : "OFF");
   if (Console::ansiSupported) {
     Console::resetStyle();
