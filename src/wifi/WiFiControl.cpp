@@ -124,9 +124,25 @@ void configureTxPower() {
   if (saved < 8 || saved > 72) {
     saved = static_cast<uint8_t>(DEFAULT_TX_POWER_QUARTER_DBM);
     preferences.putUChar(TX_POWER_KEY, saved);
+  } else if (!preferences.isKey(TX_POWER_KEY)) {
+    // Make the factory default explicit in NVS so the boot value can be
+    // inspected and verified rather than existing only as a code fallback.
+    preferences.putUChar(TX_POWER_KEY, saved);
   }
 
-  if (applyTxPower(static_cast<int8_t>(saved), false)) return;
+  Serial.print("WiFi boot TX power request: ");
+  Serial.print(static_cast<float>(saved) * 0.25f, 2);
+  Serial.println(" dBm");
+
+  if (applyTxPower(static_cast<int8_t>(saved), false)) {
+    int8_t applied = 0;
+    if (esp_wifi_get_max_tx_power(&applied) == ESP_OK) {
+      Serial.print("WiFi boot TX power applied: ");
+      Serial.print(static_cast<float>(applied) * 0.25f, 2);
+      Serial.println(" dBm");
+    }
+    return;
+  }
 
   // Fall back to the experimentally stable 15 dBm setting if application fails.
   applyTxPower(DEFAULT_TX_POWER_QUARTER_DBM, false);
@@ -314,6 +330,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   stationConfig.sta.channel = pinTarget ? static_cast<uint8_t>(requestedTarget->channel) : 0;
   stationConfig.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
   stationConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+  stationConfig.sta.failure_retry_cnt = 3;
   stationConfig.sta.threshold.rssi = -127;
   stationConfig.sta.threshold.authmode = minimumSecurity;
   stationConfig.sta.pmf_cfg.capable = false;
@@ -341,10 +358,11 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (getConfigResult == ESP_OK) {
     char configSummary[128];
     snprintf(configSummary, sizeof(configSummary),
-             "CH=%u BSSID_SET=%u AUTHMODE=%u PMF_CAPABLE=%u PMF_REQUIRED=%u",
+             "CH=%u BSSID_SET=%u AUTHMODE=%u RETRIES=%u PMF_CAPABLE=%u PMF_REQUIRED=%u",
              static_cast<unsigned>(committedConfig.sta.channel),
              static_cast<unsigned>(committedConfig.sta.bssid_set),
              static_cast<unsigned>(committedConfig.sta.threshold.authmode),
+             static_cast<unsigned>(committedConfig.sta.failure_retry_cnt),
              static_cast<unsigned>(committedConfig.sta.pmf_cfg.capable),
              static_cast<unsigned>(committedConfig.sta.pmf_cfg.required));
     WiFiDiagnostics::printText(configSummary, "1;36m");
