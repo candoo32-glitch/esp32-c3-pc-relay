@@ -70,6 +70,50 @@ jobs:
           @echo off
           setlocal EnableExtensions EnableDelayedExpansion
 
+          title ESP32-C3 PC Relay Firmware Flasher
+          echo.
+          echo ========================================
+          echo   ESP32-C3 PC Relay Firmware Flasher
+          echo ========================================
+          echo.
+
+          where gh >nul 2>&1
+          if errorlevel 1 (
+              echo ERROR: GitHub CLI ^(gh^) was not found.
+              echo Install GitHub CLI before using this flasher.
+              echo.
+              pause
+              exit /b 1
+          )
+          where py >nul 2>&1
+          if errorlevel 1 (
+              echo ERROR: Python launcher ^(py^) was not found.
+              echo Install Python for Windows with the py launcher enabled.
+              echo.
+              pause
+              exit /b 1
+          )
+
+          if not defined GH_TOKEN (
+              echo GitHub token is not configured.
+              echo.
+              echo Enter your GitHub fine-grained token.
+              echo It will be saved for future runs as the Windows user variable GH_TOKEN.
+              echo.
+              for /f "delims=" %%T in ('powershell -NoProfile -Command "$s=Read-Host Token -AsSecureString; $b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($s); try { $t=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($b); [Environment]::SetEnvironmentVariable('GH_TOKEN',$t,'User'); $t } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }"') do set "GH_TOKEN=%%T"
+              echo.
+              if not defined GH_TOKEN (
+                  echo ERROR: Token was not saved.
+                  echo.
+                  pause
+                  exit /b 1
+              )
+              echo GitHub token saved. Future runs will use it automatically.
+              echo.
+          )
+
+          set "TARGET_BRANCH=${{ github.head_ref || github.ref_name }}"
+
           rem Self-update from the newest successful artifact on this branch.
           rem The downloaded artifact contains the authoritative flash.bat.
           set "FLASHER_BUILD=${{ github.run_number }}"
@@ -175,49 +219,6 @@ jobs:
               exit /b 0
           )
 
-                    title ESP32-C3 PC Relay Firmware Flasher
-          echo.
-          echo ========================================
-          echo   ESP32-C3 PC Relay Firmware Flasher
-          echo ========================================
-          echo.
-
-          where gh >nul 2>&1
-          if errorlevel 1 (
-              echo ERROR: GitHub CLI ^(gh^) was not found.
-              echo Install GitHub CLI before using this flasher.
-              echo.
-              pause
-              exit /b 1
-          )
-          where py >nul 2>&1
-          if errorlevel 1 (
-              echo ERROR: Python launcher ^(py^) was not found.
-              echo Install Python for Windows with the py launcher enabled.
-              echo.
-              pause
-              exit /b 1
-          )
-
-          if not defined GH_TOKEN (
-              echo GitHub token is not configured.
-              echo.
-              echo Enter your GitHub fine-grained token.
-              echo It will be saved for future runs as the Windows user variable GH_TOKEN.
-              echo.
-              for /f "delims=" %%T in ('powershell -NoProfile -Command "$s=Read-Host Token -AsSecureString; $b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($s); try { $t=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($b); [Environment]::SetEnvironmentVariable('GH_TOKEN',$t,'User'); $t } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }"') do set "GH_TOKEN=%%T"
-              echo.
-              if not defined GH_TOKEN (
-                  echo ERROR: Token was not saved.
-                  echo.
-                  pause
-                  exit /b 1
-              )
-              echo GitHub token saved. Future runs will use it automatically.
-              echo.
-          )
-
-          set "TARGET_BRANCH=${{ github.head_ref || github.ref_name }}"
           set "LATEST_RUN="
           set "LATEST_RUN_NUMBER="
           set "LATEST_RUN_STATUS="
