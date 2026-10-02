@@ -272,7 +272,7 @@ jobs:
           echo ========================================
           echo GitHub Actions run : !ARTIFACT_RUN_ID!
           echo Firmware build     : !ARTIFACT_BUILD_VERSION!
-          echo Artifact ID        : !ARTIFACT_ID!
+          echo Artifact name      : !ACTUAL_ARTIFACT_NAME!
           echo Factory image      : 4194304 bytes
           echo ========================================
           echo.
