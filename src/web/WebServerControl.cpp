@@ -560,11 +560,11 @@ String page() {
     html += F("<a href='/config/backup'><button class='good' type='button'>Download configuration backup</button></a></div>");
     html += F("<div class='card'><h2>Restore configuration</h2>");
     html += F("<div class='bad'>Restore replaces the entire NVS configuration and then reboots the ESP32-C3. Use a backup created by this firmware on a compatible ESP32-C3 relay device.</div>");
-    html += F("<form method='POST' action='/config/restore' enctype='multipart/form-data' onsubmit="return confirm('Restore this configuration and reboot the ESP32-C3?');"><div class='row'><div><label for='configfile'>Configuration backup</label><input id='configfile' name='configfile' type='file' accept='.bin,application/octet-stream' required></div></div><button class='good'>Restore configuration and reboot</button></form></div>");
+    html += F("<form method='POST' action='/config/restore' enctype='multipart/form-data' onsubmit='return confirm("Restore this configuration and reboot the ESP32-C3?");'><div class='row'><div><label for='configfile'>Configuration backup</label><input id='configfile' name='configfile' type='file' accept='.bin,application/octet-stream' required></div></div><button class='good'>Restore configuration and reboot</button></form></div>");
     html += F("<div class='card'><h2>NVS contents</h2>");
     html += nvsTable();
     html += F("</div><div class='card'><h2>Format NVS</h2><div class='bad'>This erases the entire NVS partition, including Wi-Fi credentials, TX power, diagnostics, and network settings.</div>");
-    html += F("<form method='POST' action='/nvs/format' onsubmit="return confirm('Erase the entire NVS partition and reboot the ESP32?');"><button class='danger'>Format NVS and reboot</button></form></div>");
+    html += F("<form method='POST' action='/nvs/format' onsubmit='return confirm("Erase the entire NVS partition and reboot the ESP32?");'><button class='danger'>Format NVS and reboot</button></form></div>");
   }
   if (tab == "system") {
     html += F("<div class='card'><h2>Firmware</h2><table class='kv'><tr><td>Build</td><td>");
