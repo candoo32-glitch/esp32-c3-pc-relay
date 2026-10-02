@@ -69,7 +69,7 @@ jobs:
           cat > dist/flash.bat <<'EOF'
           @echo off
           if /I not "%~1"=="__ESP32_INTERNAL" (
-          "%ComSpec%" /d /k call "%~f0" __ESP32_INTERNAL
+          "%ComSpec%" /d /c call "%~f0" __ESP32_INTERNAL
           exit /b 0
           )
           setlocal EnableExtensions EnableDelayedExpansion
@@ -240,7 +240,7 @@ jobs:
               echo Updating flash.bat in place...
               echo The current flasher will close while the update helper replaces it.
               echo The helper window will remain open so any update error can be read.
-              start "ESP32 Flasher Update" "%ComSpec%" /d /k call "!UPDATE_HELPER!"
+              start "ESP32 Flasher Update" "%ComSpec%" /d /c call "!UPDATE_HELPER!"
               endlocal
               exit /b 0
           )
