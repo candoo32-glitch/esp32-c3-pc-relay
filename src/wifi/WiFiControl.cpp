@@ -490,7 +490,8 @@ void printScanRow(int number, const String& ssid, int rssi, int channel,
                   bool continuation) {
   if (!Console::ansiSupported) {
     if (continuation) {
-      printSSIDContinuation(ssid);
+      Serial.printf("|     | %-22s | %-6s | %-2s | %-9s | %-17s |\r\n",
+                    ssid.c_str(), "", "", "", "");
     } else {
       Serial.printf("| %-3d | %-22s | %-6d | %-2d | %-9s | %-17s |\r\n",
                     number, ssid.c_str(), rssi, channel,
@@ -523,8 +524,6 @@ void printScanRow(int number, const String& ssid, int rssi, int channel,
   Console::color("1;34m"); Serial.printf("%-17s", bssid.c_str()); Console::resetStyle();
   Serial.print(" |\r\n");
 }
-
-void printSSIDContinuation(const String& part);
 
 constexpr size_t MAX_UNIQUE_SSIDS = 128;
 
