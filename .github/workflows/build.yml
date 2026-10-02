@@ -81,10 +81,17 @@ jobs:
           for /f "delims=" %%E in ('echo prompt $E^| cmd') do set "ESC=%%E"
           set "VT=!ESC!["
           title ESP32-C3 PC Relay Firmware Flasher
+          <nul set /p "=!VT!?1049h!VT!2J!VT!H!VT!?25l"
+          call :FLASH_APP
+          set "FLASH_APP_EXIT=!ERRORLEVEL!"
+          <nul set /p "=!VT!?25h!VT!0m!VT!?1049l"
+          endlocal & exit /b !FLASH_APP_EXIT!
+
+          :FLASH_APP
           cls
-          echo !VT!1;36m========================================!VT!0m
-          echo !VT!1;36m  ESP32-C3 PC RELAY - FIRMWARE UTILITY!VT!0m
-          echo !VT!1;36m========================================!VT!0m
+          echo !VT!1;36m╔══════════════════════════════════════════════════════════════════════════════╗!VT!0m
+          echo !VT!1;36m║              ESP32-C3 PC RELAY - FIRMWARE UTILITY                         ║!VT!0m
+          echo !VT!1;36m╚══════════════════════════════════════════════════════════════════════════════╝!VT!0m
           echo !VT!90m  Branch:!VT!0m !TARGET_BRANCH!
           echo.
 
@@ -132,7 +139,7 @@ jobs:
           mkdir "!SELF_UPDATE_DIR!" >nul 2>&1
           mkdir "!SELF_UPDATE_EXTRACT!" >nul 2>&1
 
-          echo !VT!36m  Checking for a newer flasher...!VT!0m
+          echo !VT!36m  STATUS  !VT!0m Checking for a newer flasher...
           set "UPDATE_RUN="
           set "UPDATE_RUN_NUMBER="
           set "UPDATE_RUN_STATUS="
@@ -194,7 +201,7 @@ jobs:
               echo !VT!33m  New flasher available from build !UPDATE_RUN_NUMBER!.!VT!0m
               echo Downloading updated flasher...
 
-              gh run download "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!UPDATE_ARTIFACT_NAME!" --dir "!SELF_UPDATE_EXTRACT!"
+              gh run download "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!UPDATE_ARTIFACT_NAME!" --dir "!SELF_UPDATE_EXTRACT!" >nul 2>&1
               if errorlevel 1 (
           echo ERROR: Could not download the newer flasher artifact.
                   rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
@@ -240,7 +247,7 @@ jobs:
           set "EXPECTED_ARTIFACT_NAME="
 
           echo Target branch: !TARGET_BRANCH!
-          echo !VT!36mSearching GitHub for the newest build on this branch...!VT!0m
+          echo !VT!36m  STATUS  !VT!0m Searching GitHub for the newest build...
           echo.
 
           rem Always inspect the newest branch run first. If it is queued or
@@ -316,8 +323,8 @@ jobs:
           mkdir "!DOWNLOAD_DIR!" >nul 2>&1
           mkdir "!EXTRACT_DIR!" >nul 2>&1
 
-          echo !VT!36mDownloading the exact artifact from run !LATEST_RUN!...!VT!0m
-          gh run download "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!EXPECTED_ARTIFACT_NAME!" --dir "!EXTRACT_DIR!"
+          echo !VT!36m  STATUS  !VT!0m Downloading verified firmware artifact...
+          gh run download "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!EXPECTED_ARTIFACT_NAME!" --dir "!EXTRACT_DIR!" >nul 2>&1
           if errorlevel 1 (
           echo ERROR: GitHub artifact download failed.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
@@ -329,8 +336,7 @@ jobs:
           if not exist "!EXTRACT_DIR!\firmware\factory.bin" (
           echo ERROR: Extracted artifact does not contain firmware\factory.bin.
               echo.
-              dir /s /b "!EXTRACT_DIR!"
-              rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
+                            rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
               pause
               exit /b 1
           )
@@ -387,7 +393,7 @@ jobs:
 
           echo.
           echo ========================================
-          echo !VT!1;32m  VERIFIED FIRMWARE!VT!0m
+          echo !VT!1;32m  ✓ VERIFIED FIRMWARE!VT!0m
           echo ========================================
           echo GitHub Actions run : !ARTIFACT_RUN_ID!
           echo Firmware build     : !ARTIFACT_BUILD_VERSION!
@@ -398,7 +404,7 @@ jobs:
           echo Updating local firmware files...
           if exist "!LOCAL_FIRMWARE!" rmdir /s /q "!LOCAL_FIRMWARE!"
           mkdir "!LOCAL_FIRMWARE!" >nul 2>&1
-          xcopy /e /i /y /q "!EXTRACT_DIR!\firmware" "!LOCAL_FIRMWARE!" >nul
+          xcopy /e /i /y /q "!EXTRACT_DIR!\firmware" "!LOCAL_FIRMWARE!" >nul 2>&1
           if errorlevel 1 (
           echo ERROR: Could not update the local firmware directory.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
@@ -419,11 +425,11 @@ jobs:
               pause
               exit /b 1
           )
-          echo !VT!32m✓ Local firmware synchronized with verified GitHub build !ARTIFACT_BUILD_VERSION!.!VT!0m
+          echo !VT!32m  ✓ Local firmware synchronized with build !ARTIFACT_BUILD_VERSION!.!VT!0m
           echo.
-          echo !VT!36mThe verified image is ready to flash.!VT!0m
+          echo !VT!36m  READY   !VT!0m Verified image ready to flash.
           echo.
-          py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 "!LOCAL_FIRMWARE!\factory.bin"
+          py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 "!LOCAL_FIRMWARE!\factory.bin" >"!FLASH_LOG!" 2>&1
           set "FLASH_EXIT=!ERRORLEVEL!"
           echo.
           if not "!FLASH_EXIT!"=="0" (
@@ -440,26 +446,26 @@ jobs:
           echo ========================================
           echo !VT!1;32m  FLASH SUCCESSFUL!VT!0m
           echo ========================================
-          echo !VT!1;32mFirmware build !ARTIFACT_BUILD_VERSION! was flashed successfully.!VT!0m
           echo.
-          echo !VT!90mPress any key to close...!VT!0m
+          echo !VT!1;32m  ✓ FLASH SUCCESSFUL!VT!0m
+          echo !VT!32m  Firmware build !ARTIFACT_BUILD_VERSION! was flashed successfully.!VT!0m
+          echo.
+          echo !VT!90m  Press any key to close...!VT!0m
           pause
-          goto :FLASH_MAIN_END_DONE
-
-          goto :FLASH_MAIN_END
+          if exist "!FLASH_LOG!" del /q "!FLASH_LOG!" >nul 2>&1
+          exit /b 0
 
           :UI_WAIT
-          rem Redraw one fixed line for ten seconds while GitHub Actions is being polled.
+          rem Fixed status line. The alternate screen buffer prevents scrollback.
           for /l %%S in (1,1,10) do (
               set /a "UI_POS=%%S %% 4"
-              if !UI_POS!==0 set "UI_BAR=>>>>>>>>>>>>>>>>"
-              if !UI_POS!==1 set "UI_BAR=>>>>>>>>>"
-              if !UI_POS!==2 set "UI_BAR=>>>>>>"
-              if !UI_POS!==3 set "UI_BAR=>>>>"
-              <nul set /p "=!VT!2K!VT!1G  !VT!33m● !UI_MESSAGE!!VT!0m  !VT!90m[!VT!36m!UI_BAR!!VT!90m] !VT!0m"
+              if !UI_POS!==0 set "UI_BAR=████████████████"
+              if !UI_POS!==1 set "UI_BAR=██████████"
+              if !UI_POS!==2 set "UI_BAR=██████"
+              if !UI_POS!==3 set "UI_BAR=██"
+              <nul set /p "=!VT!8;1H!VT!2K  !VT!93m● !UI_MESSAGE!!VT!0m  !VT!90m[!VT!36m!UI_BAR!!VT!90m] !VT!0m"
               timeout /t 1 /nobreak >nul
           )
-          echo.
           exit /b 0
 
           :FLASH_MAIN_END
