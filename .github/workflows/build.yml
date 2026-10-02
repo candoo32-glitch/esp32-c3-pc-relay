@@ -231,7 +231,7 @@ jobs:
               >>"!UPDATE_HELPER!" echo ^)
               >>"!UPDATE_HELPER!" echo echo Flasher updated to build !UPDATE_RUN_NUMBER!.
               >>"!UPDATE_HELPER!" echo echo Starting updated flasher...
-              >>"!UPDATE_HELPER!" echo call "!SELF_PATH!"
+              >>"!UPDATE_HELPER!" echo call "!SELF_PATH!" __ESP32_INTERNAL
               >>"!UPDATE_HELPER!" echo echo.
               >>"!UPDATE_HELPER!" echo echo Updated flasher exited with errorlevel %%ERRORLEVEL%%.
               >>"!UPDATE_HELPER!" echo pause
