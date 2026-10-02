@@ -328,6 +328,8 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (setConfigResult != ESP_OK) {
     WiFiDiagnostics::printFailure("SET_CONFIG", esp_err_to_name(setConfigResult));
     WiFi.setAutoReconnect(previousAutoReconnect);
+    reconnectSuppressed = false;
+    connectionAttemptActive = false;
     Console::prepareForMenuInput();
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
@@ -404,8 +406,13 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  preferences.putString(SSID_KEY, ssid);
-  preferences.putString(PASSWORD_KEY, password);
+  const size_t savedSsid = preferences.putString(SSID_KEY, ssid);
+  const size_t savedPassword = preferences.putString(PASSWORD_KEY, password);
+  if (savedSsid == 0 || savedPassword == 0) {
+    Serial.println("WARNING: WiFi credentials could not be fully saved to NVS.");
+  } else {
+    Serial.println("WiFi credentials saved to NVS.");
+  }
 
   WiFi.setAutoReconnect(previousAutoReconnect);
   Console::prepareForMenuInput();
