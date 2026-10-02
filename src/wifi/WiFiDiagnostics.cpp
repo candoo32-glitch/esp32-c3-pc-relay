@@ -21,6 +21,9 @@ QueueHandle_t wifiDiagnosticQueue = nullptr;
 
 struct WiFiDiagnosticRecord {
   uint32_t event = 0;
+  uint32_t attempt = 0;
+  uint32_t sequence = 0;
+  uint32_t elapsedMs = 0;
   uint8_t reason = 0;
   int8_t rssi = -128;
   uint8_t bssid[6] = {0, 0, 0, 0, 0, 0};
@@ -77,6 +80,9 @@ void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
 
   WiFiDiagnosticRecord record;
   record.event = static_cast<uint32_t>(event);
+  record.attempt = activeAttempt;
+  record.sequence = ++eventSequence;
+  record.elapsedMs = (record.attempt == 0) ? 0 : (millis() - attemptStartMs);
 
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_START:
@@ -115,7 +121,31 @@ void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
 
   // This is a callback task, not an ISR. A zero-timeout send guarantees the
   // Wi-Fi event task can never block on terminal I/O or a full queue.
-  xQueueSend(wifiDiagnosticQueue, &record, 0);
+  if (xQueueSend(wifiDiagnosticQueue, &record, 0) != pdTRUE) {
+    ++droppedEvents;
+  }
+}
+
+void beginConnectionAttempt() {
+  if (!diagnosticsEnabled || wifiDiagnosticQueue == nullptr) return;
+
+  WiFiDiagnosticRecord stale;
+  uint32_t drained = 0;
+  while (xQueueReceive(wifiDiagnosticQueue, &stale, 0) == pdTRUE) {
+    ++drained;
+  }
+
+  ++activeAttempt;
+  if (activeAttempt == 0) ++activeAttempt;
+  attemptStartMs = millis();
+  droppedEvents = 0;
+
+  char summary[96];
+  snprintf(summary, sizeof(summary),
+           "ATTEMPT=%lu QUEUE_DRAINED=%lu",
+           static_cast<unsigned long>(activeAttempt),
+           static_cast<unsigned long>(drained));
+  printText(summary, "1;37m");
 }
 
 void service() {
@@ -156,6 +186,13 @@ void service() {
     switch (record.event) {
       case ARDUINO_EVENT_WIFI_STA_START:
         printPrefix();
+        char eventMeta[64];
+        snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
+                 static_cast<unsigned long>(record.attempt),
+                 static_cast<unsigned long>(record.sequence),
+                 static_cast<unsigned long>(record.elapsedMs));
+        printSection("1;37m", eventMeta);
+        Serial.print(" | ");
         printSection("1;33m", "START");
         Serial.print("\r\n");
         break;
@@ -165,6 +202,13 @@ void service() {
             WiFiControl::authModeName(static_cast<wifi_auth_mode_t>(record.authmode));
 
         printPrefix();
+        char eventMeta[64];
+        snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
+                 static_cast<unsigned long>(record.attempt),
+                 static_cast<unsigned long>(record.sequence),
+                 static_cast<unsigned long>(record.elapsedMs));
+        printSection("1;37m", eventMeta);
+        Serial.print(" | ");
         printSection("1;32m", "CONNECTED");
         Serial.print(" | CH=");
         printSection("1;36m", String(record.channel).c_str());
@@ -184,6 +228,13 @@ void service() {
         const char* reason = wifiDisconnectReasonName(record.reason);
 
         printPrefix();
+        char eventMeta[64];
+        snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
+                 static_cast<unsigned long>(record.attempt),
+                 static_cast<unsigned long>(record.sequence),
+                 static_cast<unsigned long>(record.elapsedMs));
+        printSection("1;37m", eventMeta);
+        Serial.print(" | ");
         printSection("1;31m", "DISCONNECTED");
         Serial.print(" | R=");
         char reasonNumber[4];
@@ -211,6 +262,13 @@ void service() {
         const String netmask = IPAddress(record.netmask).toString();
 
         printPrefix();
+        char eventMeta[64];
+        snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
+                 static_cast<unsigned long>(record.attempt),
+                 static_cast<unsigned long>(record.sequence),
+                 static_cast<unsigned long>(record.elapsedMs));
+        printSection("1;37m", eventMeta);
+        Serial.print(" | ");
         printSection("1;32m", "GOT_IP");
         Serial.print(" | IP=");
         printSection("1;32m", ip.c_str());
@@ -224,6 +282,13 @@ void service() {
 
       case ARDUINO_EVENT_WIFI_STA_LOST_IP:
         printPrefix();
+        char eventMeta[64];
+        snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
+                 static_cast<unsigned long>(record.attempt),
+                 static_cast<unsigned long>(record.sequence),
+                 static_cast<unsigned long>(record.elapsedMs));
+        printSection("1;37m", eventMeta);
+        Serial.print(" | ");
         printSection("1;31m", "LOST_IP");
         Serial.print("\r\n");
         break;
