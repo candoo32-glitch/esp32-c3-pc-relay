@@ -68,7 +68,8 @@ void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
   // terminal output here: even thread-safe Serial calls can interleave with
   // the main task's menu/connection output at character/line boundaries.
   // Copy the event into a fixed-size queue and let the main task render it.
-  if (wifiDiagnosticQueue == nullptr) {
+  // When diagnostics are disabled, do not queue events at all.
+  if (!diagnosticsEnabled || wifiDiagnosticQueue == nullptr) {
     return;
   }
 
@@ -845,9 +846,9 @@ void toggleDiagnostics() {
     Console::resetStyle();
   }
 
-  // Discard queued events when diagnostics are turned off so stale records
-  // do not suddenly appear if diagnostics are enabled again later.
-  if (!diagnosticsEnabled && wifiDiagnosticQueue != nullptr) {
+  // Discard any queued events at the toggle boundary so changing the setting
+  // never causes stale diagnostics to appear under the new state.
+  if (wifiDiagnosticQueue != nullptr) {
     WiFiDiagnosticRecord record;
     while (xQueueReceive(wifiDiagnosticQueue, &record, 0) == pdTRUE) {}
   }
