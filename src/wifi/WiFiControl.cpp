@@ -2,6 +2,7 @@
 #include <Preferences.h>
 #include <WiFi.h>
 #include <esp_event.h>
+#include <esp_wifi.h>
 #include <cstring>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -339,28 +340,27 @@ ConnectResult connectWithCredentials(const String& ssid,
   wl_status_t status;
 
   // Connection baseline:
+  //   * bypass Arduino's STA::connect() configuration wrapper
   //   * do not pin a BSSID
   //   * do not force a channel
-  //   * scan all channels
-  //   * disable automatic reconnect during this transaction
+  //   * scan all channels and sort by signal
+  //   * disable modem sleep for this diagnostic attempt
   //
-  // The previous implementation locked the scan-selected BSSID/channel.
-  // The hardware is repeatedly reporting AUTH_EXPIRE against that BSSID.
-  // Espressif defines AUTH_EXPIRE as an authentication timeout or a reason
-  // received from the AP. Removing the pin lets the station driver perform
-  // its normal AP selection and gives us a clean test of the standard path.
+  // The Arduino WiFi.begin() path still produced AUTH_EXPIRE. Build the
+  // station configuration explicitly with the public ESP-IDF API so this
+  // attempt isolates the Arduino wrapper from the Wi-Fi driver.
   const bool previousAutoReconnect = WiFi.getAutoReconnect();
   WiFi.setAutoReconnect(false);
-  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
-  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
 
-  // Arduino-ESP32 4.0 defaults the minimum STA security to WPA2-PSK.
-  // An OPEN AP must explicitly lower that threshold before WiFi.begin().
   const wifi_auth_mode_t minimumSecurity =
       password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
   WiFi.setMinSecurity(minimumSecurity);
+
   Serial.print("Minimum WiFi security: ");
   Serial.println(authModeName(minimumSecurity));
+  Serial.println("Connection path: raw ESP-IDF station configuration.");
+  Serial.println("BSSID/channel pinning: DISABLED.");
+  Serial.println("WiFi modem sleep: DISABLED for diagnostic attempt.");
 
   if (!NetConfig::apply()) {
     printFailureWordLine("ERROR: network/IP configuration ", "failed", ".");
@@ -377,14 +377,70 @@ ConnectResult connectWithCredentials(const String& ssid,
         requestedTarget->bssid[4], requestedTarget->bssid[5],
         static_cast<long>(requestedTarget->channel),
         static_cast<int>(requestedTarget->rssi));
-    Serial.println("Connection mode: SSID-based; BSSID/channel pinning DISABLED.");
   }
 
-  status = WiFi.begin(
-      ssid.c_str(),
-      password.isEmpty() ? nullptr : password.c_str());
+  wifi_config_t stationConfig = {};
+  ssid.toCharArray(
+      reinterpret_cast<char*>(stationConfig.sta.ssid),
+      sizeof(stationConfig.sta.ssid));
 
-  Serial.print("WiFi.begin() returned status: ");
+  if (!password.isEmpty()) {
+    password.toCharArray(
+        reinterpret_cast<char*>(stationConfig.sta.password),
+        sizeof(stationConfig.sta.password));
+  }
+
+  stationConfig.sta.channel = 0;
+  stationConfig.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+  stationConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+  stationConfig.sta.threshold.rssi = -127;
+  stationConfig.sta.threshold.authmode = minimumSecurity;
+  stationConfig.sta.pmf_cfg.capable = true;
+  stationConfig.sta.pmf_cfg.required = false;
+  stationConfig.sta.bssid_set = 0;
+  memset(stationConfig.sta.bssid, 0, sizeof(stationConfig.sta.bssid));
+
+  const esp_err_t setConfigResult =
+      esp_wifi_set_config(WIFI_IF_STA, &stationConfig);
+  if (setConfigResult != ESP_OK) {
+    printFailureWordLine("esp_wifi_set_config() ", "FAILED", ": ");
+    Serial.println(esp_err_to_name(setConfigResult));
+    WiFi.setAutoReconnect(previousAutoReconnect);
+    Console::prepareForMenuInput();
+    return ConnectResult::NETWORK_CONFIG_FAILED;
+  }
+
+  wifi_config_t committedConfig = {};
+  const esp_err_t getConfigResult =
+      esp_wifi_get_config(WIFI_IF_STA, &committedConfig);
+  if (getConfigResult == ESP_OK) {
+    Serial.printf(
+        "Committed station config: channel=%u bssid_set=%u authmode=%u pmf_required=%u\r\n",
+        static_cast<unsigned>(committedConfig.sta.channel),
+        static_cast<unsigned>(committedConfig.sta.bssid_set),
+        static_cast<unsigned>(committedConfig.sta.threshold.authmode),
+        static_cast<unsigned>(committedConfig.sta.pmf_cfg.required));
+  }
+
+  const esp_err_t powerSaveResult = esp_wifi_set_ps(WIFI_PS_NONE);
+  if (powerSaveResult != ESP_OK) {
+    printFailureWordLine("WARNING: WiFi power-save disable ", "failed", ": ");
+    Serial.println(esp_err_to_name(powerSaveResult));
+  }
+
+  const esp_err_t connectResult = esp_wifi_connect();
+  if (connectResult != ESP_OK) {
+    printFailureWordLine("esp_wifi_connect() ", "FAILED", ": ");
+    Serial.println(esp_err_to_name(connectResult));
+    WiFi.setAutoReconnect(previousAutoReconnect);
+    Console::prepareForMenuInput();
+    return ConnectResult::CONNECTION_FAILED;
+  }
+
+  Serial.println("esp_wifi_connect() accepted.");
+  Serial.print("Initial WiFi status: ");
+  Serial.println(static_cast<int>(WiFi.status()));
+
 
 
   if (status == WL_CONNECT_FAILED) {
