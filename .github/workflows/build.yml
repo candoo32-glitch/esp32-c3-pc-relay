@@ -155,7 +155,7 @@ jobs:
           set "UPDATE_RUN_STATUS="
           set "UPDATE_RUN_CONCLUSION="
 
-          for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch "!TARGET_BRANCH!" --limit 1 --json databaseId --jq ".[0].databaseId"') do set "UPDATE_RUN=%%I"
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/workflows/build.yml/runs?branch=!TARGET_BRANCH!&event=push&per_page=1" --jq ".workflow_runs[0].id"') do set "UPDATE_RUN=%%I"
 
           if not defined UPDATE_RUN (
           echo ERROR: Could not determine the newest build for flasher update.
@@ -168,9 +168,9 @@ jobs:
           set "UPDATE_RUN_NUMBER="
           set "UPDATE_RUN_STATUS="
           set "UPDATE_RUN_CONCLUSION="
-          for /f "delims=" %%I in ('gh run view "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json number --jq ".number"') do set "UPDATE_RUN_NUMBER=%%I"
-          for /f "delims=" %%I in ('gh run view "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json status --jq ".status"') do set "UPDATE_RUN_STATUS=%%I"
-          for /f "delims=" %%I in ('gh run view "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json conclusion --jq ".conclusion"') do set "UPDATE_RUN_CONCLUSION=%%I"
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!UPDATE_RUN!" --jq ".run_number"') do set "UPDATE_RUN_NUMBER=%%I"
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!UPDATE_RUN!" --jq ".status"') do set "UPDATE_RUN_STATUS=%%I"
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!UPDATE_RUN!" --jq ".conclusion"') do set "UPDATE_RUN_CONCLUSION=%%I"
 
           if /I "!UPDATE_RUN_STATUS!"=="queued" (
               set "UI_STATUS=UPDATE WAIT"
@@ -279,7 +279,7 @@ jobs:
           rem Always inspect the newest branch run first. If it is queued or
           rem running, wait for that exact run instead of falling back to an
           rem older successful artifact.
-          for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch "!TARGET_BRANCH!" --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/workflows/build.yml/runs?branch=!TARGET_BRANCH!&event=push&per_page=1" --jq ".workflow_runs[0].id"') do set "LATEST_RUN=%%I"
 
           if not defined LATEST_RUN (
           echo ERROR: No build was found for branch !TARGET_BRANCH!.
@@ -293,9 +293,9 @@ jobs:
           set "LATEST_RUN_STATUS="
           set "LATEST_RUN_CONCLUSION="
 
-          for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json number --jq ".number"') do set "LATEST_RUN_NUMBER=%%I"
-          for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json status --jq ".status"') do set "LATEST_RUN_STATUS=%%I"
-          for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json conclusion --jq ".conclusion"') do set "LATEST_RUN_CONCLUSION=%%I"
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!LATEST_RUN!" --jq ".run_number"') do set "LATEST_RUN_NUMBER=%%I"
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!LATEST_RUN!" --jq ".status"') do set "LATEST_RUN_STATUS=%%I"
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!LATEST_RUN!" --jq ".conclusion"') do set "LATEST_RUN_CONCLUSION=%%I"
 
           if not defined LATEST_RUN_NUMBER (
           echo ERROR: Could not read build !LATEST_RUN!.
