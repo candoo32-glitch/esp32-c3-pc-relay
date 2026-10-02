@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <esp_idf_version.h>
 #include <esp_system.h>
+#include <esp_wifi.h>
 #include "WebServerControl.h"
 #include "../wifi/WiFiControl.h"
 
@@ -100,7 +101,7 @@ void handleReconnect() {
 }
 
 void begin() {
-  if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) return;
+  if (!WiFiControl::isEnabled()) return;
   server.on("/", HTTP_GET, handleRoot);
   server.on("/wifi/toggle", HTTP_POST, handleToggle);
   server.on("/wifi/reconnect", HTTP_POST, handleReconnect);
