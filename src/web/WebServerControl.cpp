@@ -171,6 +171,11 @@ bool sendNvsBackup() {
     return false;
   }
 
+  String filename = NetConfig::hostname();
+  filename.trim();
+  if (filename.isEmpty()) filename = "relay";
+  filename += F("-ESP32-C3-Config.backup");
+  server.sendHeader("Content-Disposition", String("attachment; filename=\"") + filename + "\"");
   server.setContentLength(partition->size);
   server.send(200, "application/octet-stream", "");
   WiFiClient& client = server.client();
