@@ -121,6 +121,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   // attempt isolates the Arduino wrapper from the Wi-Fi driver.
   const bool previousAutoReconnect = WiFi.getAutoReconnect();
   WiFi.setAutoReconnect(false);
+  WiFiDiagnostics::beginConnectionAttempt();
 
   const wifi_auth_mode_t minimumSecurity =
       password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
@@ -134,7 +135,7 @@ ConnectResult connectWithCredentials(const String& ssid,
       pinTarget ? "BSSID_CHANNEL_PINNING=ENABLED FOR DIAGNOSTIC A/B TEST."
                 : "BSSID_CHANNEL_PINNING=DISABLED.",
       "1;37m");
-  WiFiDiagnostics::printText("PMF=DISABLED FOR OPEN-NETWORK DIAGNOSTIC ATTEMPT.", "1;37m");
+  WiFiDiagnostics::printText("PMF=OPTIONAL / NOT REQUIRED.", "1;37m");
   WiFiDiagnostics::printText("MODEM_SLEEP=DISABLED FOR DIAGNOSTIC ATTEMPT.", "1;37m");
 
   if (!NetConfig::apply()) {
