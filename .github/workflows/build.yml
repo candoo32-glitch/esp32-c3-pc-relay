@@ -81,6 +81,7 @@ jobs:
           for /f "delims=" %%E in ('echo prompt $E^| cmd') do set "ESC=%%E"
           set "VT=!ESC!["
           title ESP32-C3 PC Relay Firmware Flasher
+          rem Build trigger: ANSI flasher verification.
           <nul set /p "=!VT!?1049h!VT!2J!VT!H!VT!?25l"
           call :FLASH_APP
           set "FLASH_APP_EXIT=!ERRORLEVEL!"
