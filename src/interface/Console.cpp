@@ -128,6 +128,164 @@ void detectANSI() {
 String readLine(bool allowEmpty = true);
 
 void begin() {
+  // WiFi startup is intentionally completed before this function is called.
+  // The terminal is an optional management interface, so waiting here cannot
+  // prevent the radio from connecting.
+  resetSession();
+  waitForConnection();
+
+  Serial.println();
+  Serial.println("Terminal display mode");
+  Serial.println("---------------------");
+  Serial.println("Use ANSI colors and boxed menus?");
+  Serial.println("Y = ANSI");
+  Serial.println("N = Plain text");
+  Serial.print("Select [Y/N]: ");
+
+  while (!Serial.available()) {
+    delay(10);
+  }
+
+  String choice = readLine();
+  choice.trim();
+  choice.toUpperCase();
+
+  ansiSupported = (choice == "Y" || choice == "YES");
+
+  Serial.println();
+  Serial.print("Terminal mode: ");
+  Serial.println(ansiSupported ? "ANSI" : "plain text");
+}
+include <Arduino.h>
+
+namespace Console {
+bool ansiSupported = false;
+volatile bool sessionLost = false;
+
+// A CRLF is one Enter key even when CR and LF arrive in different USB
+// packets. Keep this state until the next byte; do not use a short timeout.
+bool consumePendingLineFeed = false;
+
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1 && \
+    defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT
+void onHardwareCDCEvent(void* arg, esp_event_base_t eventBase,
+                        int32_t eventId, void* eventData) {
+  (void)arg;
+  (void)eventData;
+  if (eventBase == ARDUINO_HW_CDC_EVENTS &&
+      eventId == ARDUINO_HW_CDC_BUS_RESET_EVENT) {
+    // Let the main task reset the CDC transport safely.
+    sessionLost = true;
+  }
+}
+#endif
+
+bool connected() {
+  return !sessionLost && Serial.isConnected();
+}
+
+bool disconnected() {
+  if (sessionLost) {
+    return true;
+  }
+
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1 && \
+    defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT
+  // Native USB CDC has its own bus-reset event. Do not use
+  // Serial.isConnected() as a menu-input gate here: on the ESP32-C3 it can
+  // transiently report false while the host terminal is still open, which
+  // makes nested menus return an empty command and spin indefinitely.
+  return false;
+#else
+  if (!Serial.isConnected()) {
+    sessionLost = true;
+    return true;
+  }
+  return false;
+#endif
+}
+
+// Establish a hard RX transaction boundary before a menu is shown.
+//
+// A terminal CR/LF can arrive in separate USB CDC packets. If the final byte
+// of the previous menu transaction arrives while Wi-Fi is connecting, the next
+// menu can otherwise see that byte as its first input. The timing then appears
+// random.
+//
+// Keep the menu closed until the USB RX queue has been quiet for a complete
+// settling interval, discard everything already queued, and only then allow
+// the next menu transaction to begin.
+constexpr uint32_t MENU_INPUT_QUIET_MS = 250;
+
+void prepareForMenuInput() {
+  uint32_t quietSince = millis();
+
+  while (true) {
+    // This is only an RX framing barrier. Do not treat a transient USB
+    // connection-state report as a command/menu failure; the actual CDC bus
+    // reset handler sets sessionLost when the transport really resets.
+    if (Serial.available()) {
+      while (Serial.available()) {
+        Serial.read();
+      }
+      quietSince = millis();
+    }
+
+    if (millis() - quietSince >= MENU_INPUT_QUIET_MS) {
+      break;
+    }
+
+    delay(5);
+  }
+
+  consumePendingLineFeed = false;
+
+  // One final drain handles a packet delivered exactly at the boundary.
+  while (Serial.available()) {
+    Serial.read();
+  }
+}
+
+void resetTransport() {
+  // Reinitialize native USB-Serial/JTAG after a detected disconnect/reset.
+  // This clears stale RX/TX state before a new PuTTY session starts.
+  Serial.end();
+  delay(50);
+  Serial.begin(115200);
+  Serial.setTxTimeoutMs(50);
+
+  while (Serial.available()) {
+    Serial.read();
+  }
+
+  consumePendingLineFeed = false;
+  sessionLost = false;
+}
+
+void waitForConnection() {
+  while (!Serial.isConnected()) {
+    delay(50);
+  }
+  sessionLost = false;
+}
+
+void resetSession() {
+  sessionLost = false;
+  ansiSupported = false;
+  consumePendingLineFeed = false;
+
+  while (Serial.available()) {
+    Serial.read();
+  }
+}
+
+void detectANSI() {
+  ansiSupported = false;
+}
+
+String readLine(bool allowEmpty = true);
+
+void begin() {
   // The USB terminal is an optional management interface. Never block
   // firmware startup or WiFi initialization waiting for a host terminal.
   // PuTTY and other ANSI-capable terminals are the normal console target.
