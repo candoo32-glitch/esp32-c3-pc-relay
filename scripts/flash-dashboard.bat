@@ -16,10 +16,15 @@ call :INIT
 where gh >nul 2>&1 || (call :STATUS ERROR "GitHub CLI (gh) was not found." & call :WAIT & exit /b 1)
 where py >nul 2>&1 || (call :STATUS ERROR "Python launcher (py) was not found." & call :WAIT & exit /b 1)
 if not defined GH_TOKEN (
- call :STATUS AUTH "GH_TOKEN is not configured."
- call :LOG "Set GH_TOKEN in Windows and run again."
- call :WAIT
- exit /b 1
+ call :STATUS AUTH "Checking GitHub CLI credentials..."
+ gh auth status >nul 2>&1
+ if errorlevel 1 (
+  call :STATUS ERROR "GitHub CLI is not authenticated."
+  call :LOG "Run: gh auth login"
+  call :WAIT
+  exit /b 1
+ )
+ call :LOG "Using GitHub CLI credential store."
 )
 
 call :STATUS CHECKING "Checking for newer flasher..."
