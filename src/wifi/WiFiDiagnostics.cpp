@@ -65,23 +65,6 @@ const char* wifiDisconnectReasonName(uint8_t reason) {
   }
 }
 
-// IDF 6 exposes the actual station failure through WIFI_EVENT_STA_DISCONNECTED.
-// Arduino's wl_status_t alone is not enough to diagnose an association failure.
-static WiFiEventId_t wifiEventId = 0;
-static QueueHandle_t wifiDiagnosticQueue = nullptr;
-
-struct WiFiDiagnosticRecord {
-  uint32_t event = 0;
-  uint8_t reason = 0;
-  int8_t rssi = -128;
-  uint8_t bssid[6] = {0, 0, 0, 0, 0, 0};
-  uint8_t channel = 0;
-  uint8_t authmode = WIFI_AUTH_OPEN;
-  uint32_t ip = 0;
-  uint32_t gateway = 0;
-  uint32_t netmask = 0;
-};
-
 void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
   // Wi-Fi event callbacks execute on a separate FreeRTOS task. Never write
   // terminal output here: even thread-safe Serial calls can interleave with
@@ -252,8 +235,8 @@ void service() {
 }
 
 void printLine(const char* label, const char* value,
-                          const char* labelColor = "1;36m",
-                          const char* valueColor = "1;37m") {
+               const char* labelColor,
+               const char* valueColor) {
   if (!diagnosticsEnabled) return;
 
   if (Console::ansiSupported) Console::color("1;36m");
@@ -268,7 +251,7 @@ void printLine(const char* label, const char* value,
   Serial.print("\r\n");
 }
 
-void printText(const char* text, const char* textColor = "1;37m") {
+void printText(const char* text, const char* textColor) {
   if (!diagnosticsEnabled) return;
 
   if (Console::ansiSupported) Console::color("1;36m");
@@ -292,9 +275,6 @@ void printFailure(const char* label, const char* errorName) {
   Serial.print("\r\n");
 }
 
-
-constexpr char PREF_NAMESPACE[] = "wifi";
-constexpr char DIAGNOSTICS_KEY[] = "diagnostics";
 
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
