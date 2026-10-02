@@ -69,6 +69,9 @@ bool setHostname(const String& value) {
     mdnsStarted = false;
   }
   WiFi.setHostname(candidate.c_str());
+  if (WiFi.status() == WL_CONNECTED) {
+    service();
+  }
   return true;
 }
 
