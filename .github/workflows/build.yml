@@ -426,6 +426,7 @@ jobs:
           echo Factory image      : 4194304 bytes
           echo ========================================
           echo.
+          color 0B
 
           echo Updating local firmware files...
           if exist "!LOCAL_FIRMWARE!" rmdir /s /q "!LOCAL_FIRMWARE!"
@@ -461,6 +462,7 @@ jobs:
           set "FLASH_EXIT=!ERRORLEVEL!"
           echo.
           if not "!FLASH_EXIT!"=="0" (
+              color 0C
               echo ========================================
               echo   FLASH FAILED
               echo ========================================
