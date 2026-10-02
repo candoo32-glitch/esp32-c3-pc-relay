@@ -128,8 +128,13 @@ ConnectResult connectWithCredentials(const String& ssid,
 
   WiFiDiagnostics::printLine("MIN_SECURITY", authModeName(minimumSecurity),
                        "1;33m", "1;33m");
+  const bool pinTarget = requestedTarget != nullptr && requestedTarget->valid;
   WiFiDiagnostics::printText("PATH=RAW ESP-IDF STATION CONFIGURATION.", "1;37m");
-  WiFiDiagnostics::printText("BSSID_CHANNEL_PINNING=DISABLED.", "1;37m");
+  WiFiDiagnostics::printText(
+      pinTarget ? "BSSID_CHANNEL_PINNING=ENABLED FOR DIAGNOSTIC A/B TEST."
+                : "BSSID_CHANNEL_PINNING=DISABLED.",
+      "1;37m");
+  WiFiDiagnostics::printText("PMF=DISABLED FOR OPEN-NETWORK DIAGNOSTIC ATTEMPT.", "1;37m");
   WiFiDiagnostics::printText("MODEM_SLEEP=DISABLED FOR DIAGNOSTIC ATTEMPT.", "1;37m");
 
   if (!NetConfig::apply()) {
@@ -162,15 +167,20 @@ ConnectResult connectWithCredentials(const String& ssid,
         sizeof(stationConfig.sta.password));
   }
 
-  stationConfig.sta.channel = 0;
+  stationConfig.sta.channel = pinTarget ? static_cast<uint8_t>(requestedTarget->channel) : 0;
   stationConfig.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
   stationConfig.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
   stationConfig.sta.threshold.rssi = -127;
   stationConfig.sta.threshold.authmode = minimumSecurity;
-  stationConfig.sta.pmf_cfg.capable = true;
+  stationConfig.sta.pmf_cfg.capable = false;
   stationConfig.sta.pmf_cfg.required = false;
-  stationConfig.sta.bssid_set = 0;
-  memset(stationConfig.sta.bssid, 0, sizeof(stationConfig.sta.bssid));
+  stationConfig.sta.bssid_set = pinTarget ? 1 : 0;
+  if (pinTarget) {
+    memcpy(stationConfig.sta.bssid, requestedTarget->bssid,
+           sizeof(stationConfig.sta.bssid));
+  } else {
+    memset(stationConfig.sta.bssid, 0, sizeof(stationConfig.sta.bssid));
+  }
 
   const esp_err_t setConfigResult =
       esp_wifi_set_config(WIFI_IF_STA, &stationConfig);
@@ -187,10 +197,11 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (getConfigResult == ESP_OK) {
     char configSummary[128];
     snprintf(configSummary, sizeof(configSummary),
-             "CH=%u BSSID_SET=%u AUTHMODE=%u PMF_REQUIRED=%u",
+             "CH=%u BSSID_SET=%u AUTHMODE=%u PMF_CAPABLE=%u PMF_REQUIRED=%u",
              static_cast<unsigned>(committedConfig.sta.channel),
              static_cast<unsigned>(committedConfig.sta.bssid_set),
              static_cast<unsigned>(committedConfig.sta.threshold.authmode),
+             static_cast<unsigned>(committedConfig.sta.pmf_cfg.capable),
              static_cast<unsigned>(committedConfig.sta.pmf_cfg.required));
     WiFiDiagnostics::printText(configSummary, "1;36m");
   } else {
