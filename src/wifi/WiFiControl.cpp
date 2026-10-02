@@ -9,6 +9,27 @@
 namespace WiFiControl {
 Preferences preferences;
 
+const char* authModeName(wifi_auth_mode_t authMode) {
+  switch (authMode) {
+    case WIFI_AUTH_OPEN: return "OPEN";
+    case WIFI_AUTH_WEP: return "WEP";
+    case WIFI_AUTH_WPA_PSK: return "WPA-PSK";
+    case WIFI_AUTH_WPA2_PSK: return "WPA2-PSK";
+    case WIFI_AUTH_WPA_WPA2_PSK: return "WPA/WPA2";
+    case WIFI_AUTH_WPA2_ENTERPRISE: return "WPA2-ENT";
+    case WIFI_AUTH_WPA3_PSK: return "WPA3-PSK";
+    case WIFI_AUTH_WPA2_WPA3_PSK: return "WPA2/WPA3";
+    case WIFI_AUTH_WAPI_PSK: return "WAPI-PSK";
+    case WIFI_AUTH_OWE: return "OWE";
+    case WIFI_AUTH_WPA3_ENT_192: return "WPA3-ENT-192";
+    case WIFI_AUTH_WPA3_ENTERPRISE: return "WPA3-ENT";
+    case WIFI_AUTH_WPA2_WPA3_ENTERPRISE: return "WPA2/WPA3-ENT";
+    case WIFI_AUTH_WPA_ENTERPRISE: return "WPA-ENT";
+    case WIFI_AUTH_DPP: return "DPP";
+    default: return "UNKNOWN";
+  }
+}
+
 constexpr char PREF_NAMESPACE[] = "wifi";
 constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
