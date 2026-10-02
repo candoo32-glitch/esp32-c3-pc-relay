@@ -460,7 +460,7 @@ jobs:
           echo.
           echo The verified image is ready to flash.
           echo.
-          py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 "!LOCAL_FIRMWARE!\factory.bin"
+          py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 "!LOCAL_FIRMWARE!\bootloader.bin" 0x8000 "!LOCAL_FIRMWARE!\partitions.bin" 0xe000 "!LOCAL_FIRMWARE!\boot_app0.bin" 0x10000 "!LOCAL_FIRMWARE!\firmware.bin"
           set "FLASH_EXIT=!ERRORLEVEL!"
           echo.
           if not "!FLASH_EXIT!"=="0" (
@@ -480,6 +480,7 @@ jobs:
           echo   FLASH SUCCESSFUL
           echo ========================================
           echo Firmware build !ARTIFACT_BUILD_VERSION! was flashed.
+          echo NVS was preserved by flashing bootloader, partitions, boot_app0, and firmware separately.
           echo.
           echo Opening PuTTY with session profile "ESP"...
           where putty.exe >nul 2>&1
