@@ -11,6 +11,28 @@
 
 namespace WiFiDiagnostics {
 
+namespace {
+constexpr char PREF_NAMESPACE[] = "wifi";
+constexpr char DIAGNOSTICS_KEY[] = "diagnostics";
+Preferences preferences;
+bool diagnosticsEnabled = true;
+WiFiEventId_t wifiEventId = 0;
+QueueHandle_t wifiDiagnosticQueue = nullptr;
+
+struct WiFiDiagnosticRecord {
+  uint32_t event = 0;
+  uint8_t reason = 0;
+  int8_t rssi = -128;
+  uint8_t bssid[6] = {0, 0, 0, 0, 0, 0};
+  uint8_t channel = 0;
+  uint8_t authmode = WIFI_AUTH_OPEN;
+  uint32_t ip = 0;
+  uint32_t gateway = 0;
+  uint32_t netmask = 0;
+};
+
+} // namespace
+
 const char* wifiDisconnectReasonName(uint8_t reason) {
   switch (reason) {
     case WIFI_REASON_UNSPECIFIED: return "UNSPECIFIED";
@@ -157,7 +179,7 @@ void service() {
 
       case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
         const char* auth =
-            authModeName(static_cast<wifi_auth_mode_t>(record.authmode));
+            WiFiControl::authModeName(static_cast<wifi_auth_mode_t>(record.authmode));
 
         printPrefix();
         printSection("1;32m", "CONNECTED");
