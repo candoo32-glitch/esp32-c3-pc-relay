@@ -104,6 +104,17 @@ void showStatus() {
 }
 
 void loop() {
+  // USB is an optional management console. Never block the firmware waiting
+  // for a terminal; headless operation must continue servicing the web server.
+  if (!Console::connected()) {
+    if (Serial.isConnected()) {
+      Console::begin();
+    } else {
+      delay(10);
+      return;
+    }
+  }
+
   while (true) {
     WiFiControl::service();
     WiFiDiagnostics::service();
