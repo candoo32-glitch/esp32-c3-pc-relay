@@ -88,11 +88,6 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::SSID_NOT_FOUND;
   }
 
-  if (!NetConfig::apply()) {
-    Serial.println("ERROR: network/IP configuration failed.");
-    return ConnectResult::NETWORK_CONFIG_FAILED;
-  }
-
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
@@ -112,6 +107,19 @@ ConnectResult connectWithCredentials(const String& ssid,
    */
   wl_status_t status;
 
+  // Use the Arduino-ESP32/ESP-IDF station path directly. Keep the driver
+  // configuration simple: STA mode, normal scan selection, and the default
+  // reconnect behavior. This is the same connection model used by Espressif's
+  // ESP32-C3 Wi-Fi examples.
+  WiFi.setAutoReconnect(true);
+  WiFi.setScanMethod(WIFI_FAST_SCAN);
+
+  if (!NetConfig::apply()) {
+    Serial.println("ERROR: network/IP configuration failed.");
+    Console::prepareForMenuInput();
+    return ConnectResult::NETWORK_CONFIG_FAILED;
+  }
+
   if (requestedTarget != nullptr && requestedTarget->valid) {
     status = WiFi.begin(
         ssid.c_str(),
@@ -124,6 +132,9 @@ ConnectResult connectWithCredentials(const String& ssid,
         ssid.c_str(),
         password.isEmpty() ? nullptr : password.c_str());
   }
+
+  Serial.print("WiFi.begin() returned status: ");
+  Serial.println(static_cast<int>(status));
 
   if (status == WL_CONNECT_FAILED) {
     Serial.println("WiFi.begin() failed.");
@@ -145,7 +156,9 @@ ConnectResult connectWithCredentials(const String& ssid,
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi connection timed out.");
-    WiFi.disconnect();
+    Serial.print("Final WiFi status: ");
+    Serial.println(static_cast<int>(WiFi.status()));
+    WiFi.disconnect(false, false);
     Console::prepareForMenuInput();
     return ConnectResult::TIMEOUT;
   }
@@ -570,9 +583,11 @@ void begin() {
   Serial.println();
   Serial.println("WiFi subsystem starting...");
 
+  // Initialize the station configuration before starting the Wi-Fi interface.
+  // This matches the ordering used by Espressif's Arduino ESP32 examples.
   WiFi.persistent(false);
   WiFi.setHostname(HOSTNAME);
-  WiFi.setAutoReconnect(false);
+  WiFi.setAutoReconnect(true);
   WiFi.mode(WIFI_STA);
 
   connect();
