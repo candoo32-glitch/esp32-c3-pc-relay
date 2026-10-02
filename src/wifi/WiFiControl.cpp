@@ -46,7 +46,6 @@ constexpr char PREF_NAMESPACE[] = "wifi";
 constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
-constexpr char DIAGNOSTICS_KEY[] = "diagnostics";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
 struct TargetAP {
