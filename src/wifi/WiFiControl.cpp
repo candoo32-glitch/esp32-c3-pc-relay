@@ -17,10 +17,7 @@ const char* wifiDisconnectReasonName(uint8_t reason) {
     case WIFI_REASON_UNSPECIFIED: return "UNSPECIFIED";
     case WIFI_REASON_AUTH_EXPIRE: return "AUTH_EXPIRE";
     case WIFI_REASON_AUTH_LEAVE: return "AUTH_LEAVE";
-    case WIFI_REASON_ASSOC_EXPIRE: return "ASSOC_EXPIRE";
     case WIFI_REASON_ASSOC_TOOMANY: return "ASSOC_TOOMANY";
-    case WIFI_REASON_NOT_AUTHED: return "NOT_AUTHED";
-    case WIFI_REASON_NOT_ASSOCED: return "NOT_ASSOCED";
     case WIFI_REASON_ASSOC_LEAVE: return "ASSOC_LEAVE";
     case WIFI_REASON_ASSOC_NOT_AUTHED: return "ASSOC_NOT_AUTHED";
     case WIFI_REASON_DISASSOC_PWRCAP_BAD: return "DISASSOC_PWRCAP_BAD";
@@ -42,6 +39,7 @@ const char* wifiDisconnectReasonName(uint8_t reason) {
     case WIFI_REASON_AUTH_FAIL: return "AUTH_FAIL";
     case WIFI_REASON_ASSOC_FAIL: return "ASSOC_FAIL";
     case WIFI_REASON_HANDSHAKE_TIMEOUT: return "HANDSHAKE_TIMEOUT";
+    case WIFI_REASON_CONNECTION_FAIL: return "CONNECTION_FAIL";
     default: return "UNKNOWN";
   }
 }
