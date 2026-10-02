@@ -137,8 +137,12 @@ void viewContents() {
   Serial.println("Partition: nvs");
   Serial.println();
   color("1;36m");
-  Serial.println("  Serial.println("| #   | NAMESPACE       | KEY                  | TYPE    | VALUE                 |");
-  Serial.println("  nvs_iterator_t iterator = nullptr;
+  Serial.println("+-----+--------------+-------------------+-------+--------------------+");
+  Serial.println("| #   | NAMESPACE    | KEY               | TYPE  | VALUE              |");
+  Serial.println("+-----+--------------+-------------------+-------+--------------------+");
+  reset();
+
+  nvs_iterator_t iterator = nullptr;
   size_t count = 0;
 
   esp_err_t findResult =
@@ -155,14 +159,17 @@ void viewContents() {
   }
 
   color("1;36m");
-  Serial.println("  if (count == 0) {
+  Serial.println("+-----+--------------+-------------------+-------+--------------------+");
+  reset();
+
+  if (count == 0) {
     color("1;33m");
-    Serial.println("  NVS is empty.");
+    Serial.println("NVS is empty.");
     reset();
   } else {
     Serial.println();
     color("1;32m");
-    Serial.printf("  %u entries.\r\n", static_cast<unsigned>(count));
+    Serial.printf("%u entries.\r\n", static_cast<unsigned>(count));
     reset();
   }
 
