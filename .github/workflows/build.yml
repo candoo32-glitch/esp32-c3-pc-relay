@@ -153,6 +153,7 @@ jobs:
           )
 
           :WAIT_FOR_FLASHER_UPDATE_RUN
+          if not defined WAIT_SECONDS set "WAIT_SECONDS=0"
           set "UPDATE_RUN_NUMBER="
           set "UPDATE_RUN_STATUS="
           set "UPDATE_RUN_CONCLUSION="
@@ -161,17 +162,20 @@ jobs:
           for /f "delims=" %%I in ('gh run view "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json conclusion --jq ".conclusion"') do set "UPDATE_RUN_CONCLUSION=%%I"
 
           if /I "!UPDATE_RUN_STATUS!"=="queued" (
-              echo !ESC![93mNewest build !UPDATE_RUN_NUMBER! is queued. Waiting before flashing...
+              set /a WAIT_SECONDS+=10
+              echo !ESC![93mWaiting !WAIT_SECONDS!... Newest build !UPDATE_RUN_NUMBER! is queued.
               timeout /t 10 /nobreak >nul
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
           if /I "!UPDATE_RUN_STATUS!"=="in_progress" (
-              echo !ESC![93mNewest build !UPDATE_RUN_NUMBER! is in progress. Waiting before flashing...
+              set /a WAIT_SECONDS+=10
+              echo !ESC![93mWaiting !WAIT_SECONDS!... Newest build !UPDATE_RUN_NUMBER! is in progress.
               timeout /t 10 /nobreak >nul
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
           if /I "!UPDATE_RUN_STATUS!"=="waiting" (
-              echo !ESC![93mNewest build !UPDATE_RUN_NUMBER! is waiting. Waiting before flashing...
+              set /a WAIT_SECONDS+=10
+              echo !ESC![93mWaiting !WAIT_SECONDS!... Newest build !UPDATE_RUN_NUMBER! is waiting.
               timeout /t 10 /nobreak >nul
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
