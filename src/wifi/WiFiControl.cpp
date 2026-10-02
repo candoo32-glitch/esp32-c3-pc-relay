@@ -46,7 +46,7 @@ constexpr char PREF_NAMESPACE[] = "wifi";
 constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
 constexpr char TX_POWER_KEY[] = "tx_power";
-constexpr int8_t DEFAULT_TX_POWER_QUARTER_DBM = 80;  // 20 dBm
+constexpr int8_t DEFAULT_TX_POWER_QUARTER_DBM = 72;  // 18 dBm; 20 dBm intentionally excluded
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
@@ -83,7 +83,7 @@ enum class ConnectResult : uint8_t {
 };
 
 bool applyTxPower(int8_t requestedQuarterDbm, bool persist) {
-  const int clamped = max(8, min(84, static_cast<int>(requestedQuarterDbm)));
+  const int clamped = max(8, min(72, static_cast<int>(requestedQuarterDbm)));
   const esp_err_t result = esp_wifi_set_max_tx_power(static_cast<int8_t>(clamped));
   if (result != ESP_OK) {
     Serial.print("WiFi TX power: failed to set (");
@@ -112,15 +112,36 @@ bool applyTxPower(int8_t requestedQuarterDbm, bool persist) {
 }
 
 void configureTxPower() {
-  const uint8_t saved = preferences.getUChar(
+  uint8_t saved = preferences.getUChar(
       TX_POWER_KEY, static_cast<uint8_t>(DEFAULT_TX_POWER_QUARTER_DBM));
-  const int8_t requested = static_cast<int8_t>(saved);
 
-  if (applyTxPower(requested, false)) return;
+  // 20 dBm was intentionally removed because it is not reliable on this
+  // hardware. Migrate an older saved 20 dBm setting to 18 dBm.
+  if (saved > DEFAULT_TX_POWER_QUARTER_DBM) {
+    saved = static_cast<uint8_t>(DEFAULT_TX_POWER_QUARTER_DBM);
+    preferences.putUChar(TX_POWER_KEY, saved);
+  }
 
-  // Fall back to the normal maximum if an invalid/corrupt saved value is
-  // encountered. Do not overwrite the stored setting unless this succeeds.
+  if (applyTxPower(static_cast<int8_t>(saved), false)) return;
+
+  // Fall back to the supported 18 dBm setting if the saved value is invalid.
   applyTxPower(DEFAULT_TX_POWER_QUARTER_DBM, false);
+}
+
+void printTxPowerOption(const char* key, float dbm, const char* description,
+                       bool selected) {
+  if (Console::ansiSupported) {
+    Console::color(selected ? "1;32m" : "1;36m");
+  }
+  Serial.print(key);
+  Serial.print(". ");
+  Serial.print(dbm, 2);
+  Serial.print(" dBm");
+  if (Console::ansiSupported) Console::resetStyle();
+  Serial.print(" - ");
+  if (Console::ansiSupported) Console::color("1;37m");
+  Serial.println(description);
+  if (Console::ansiSupported) Console::resetStyle();
 }
 
 void configureTxPowerMenu() {
@@ -130,33 +151,72 @@ void configureTxPowerMenu() {
   }
 
   Serial.println();
-  Serial.println("WiFi TX power");
-  Serial.println("--------------");
+  if (Console::ansiSupported) Console::color("1;36m");
+  Serial.println("+---------------------------------------------+");
+  Serial.println("|              WIFI TX POWER                  |");
+  Serial.println("+---------------------------------------------+");
+  if (Console::ansiSupported) Console::resetStyle();
+
   Serial.print("Current: ");
+  if (Console::ansiSupported) Console::color("1;32m");
   Serial.print(static_cast<float>(current) * 0.25f, 2);
   Serial.println(" dBm");
-  Serial.println("Range: 2.00 to 20.00 dBm");
-  Serial.println("Enter the desired maximum TX power, or B to cancel.");
+  if (Console::ansiSupported) Console::resetStyle();
+  Serial.println();
 
-  String choice = Console::readLine(false);
-  if (Console::disconnected()) return;
+  printTxPowerOption("1", 18.00f, "High performance", current == 72);
+  printTxPowerOption("2", 15.00f, "Balanced", current == 60);
+  printTxPowerOption("3", 11.00f, "Low power", current == 44);
+  printTxPowerOption("4", 8.50f, "Recommended for power stability", current == 34);
+  printTxPowerOption("5", 2.00f, "Minimum power / short range", current == 8);
+  if (Console::ansiSupported) Console::color("1;35m");
+  Serial.println("6. Manual entry - enter a custom value");
+  if (Console::ansiSupported) Console::resetStyle();
+  Serial.println("B. Back");
+  Serial.println();
+
+  String choice = Console::readMenuChoice("Select: ", "123456B");
   choice.trim();
   choice.toUpperCase();
-  if (choice == "B" || choice.isEmpty()) return;
 
-  const float requestedDbm = choice.toFloat();
-  if (requestedDbm < 2.0f || requestedDbm > 20.0f) {
-    Serial.println("Invalid TX power. Enter a value from 2.00 to 20.00 dBm.");
-    return;
+  int8_t requestedQuarterDbm = 0;
+  bool selectedPreset = true;
+
+  if (choice == "1") requestedQuarterDbm = 72;
+  else if (choice == "2") requestedQuarterDbm = 60;
+  else if (choice == "3") requestedQuarterDbm = 44;
+  else if (choice == "4") requestedQuarterDbm = 34;
+  else if (choice == "5") requestedQuarterDbm = 8;
+  else if (choice == "6") selectedPreset = false;
+  else return;
+
+  if (!selectedPreset) {
+    Serial.println();
+    Serial.println("Manual TX power: enter 2.00 to 18.00 dBm.");
+    Serial.println("20.00 dBm is intentionally unavailable.");
+    String entry = Console::readLine(false);
+    if (Console::disconnected()) return;
+    entry.trim();
+
+    const float requestedDbm = entry.toFloat();
+    if (requestedDbm < 2.0f || requestedDbm > 18.0f) {
+      if (Console::ansiSupported) Console::color("1;31m");
+      Serial.println("Invalid TX power. Enter 2.00 to 18.00 dBm.");
+      if (Console::ansiSupported) Console::resetStyle();
+      return;
+    }
+
+    requestedQuarterDbm = static_cast<int8_t>(lroundf(requestedDbm * 4.0f));
   }
 
-  const int8_t requestedQuarterDbm = static_cast<int8_t>(
-      lroundf(requestedDbm * 4.0f));
-
   if (!applyTxPower(requestedQuarterDbm, true)) {
+    if (Console::ansiSupported) Console::color("1;31m");
     Serial.println("TX power was not changed or saved.");
+    if (Console::ansiSupported) Console::resetStyle();
   } else {
+    if (Console::ansiSupported) Console::color("1;32m");
     Serial.println("TX power saved to NVS and will be restored on boot.");
+    if (Console::ansiSupported) Console::resetStyle();
   }
 }
 
