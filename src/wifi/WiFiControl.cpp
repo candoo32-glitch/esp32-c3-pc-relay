@@ -3,6 +3,8 @@
 #include <WiFi.h>
 #include <esp_event.h>
 #include <cstring>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
 #include "WiFiControl.h"
 #include "../interface/Console.h"
 #include "../network/NetConfig.h"
@@ -47,55 +49,116 @@ const char* wifiDisconnectReasonName(uint8_t reason) {
 // IDF 6 exposes the actual station failure through WIFI_EVENT_STA_DISCONNECTED.
 // Arduino's wl_status_t alone is not enough to diagnose an association failure.
 static WiFiEventId_t wifiEventId = 0;
+static QueueHandle_t wifiDiagnosticQueue = nullptr;
+
+struct WiFiDiagnosticRecord {
+  uint32_t event = 0;
+  uint8_t reason = 0;
+  int8_t rssi = -128;
+  uint8_t bssid[6] = {0, 0, 0, 0, 0, 0};
+  uint8_t channel = 0;
+  uint8_t authmode = WIFI_AUTH_OPEN;
+  uint32_t ip = 0;
+  uint32_t gateway = 0;
+  uint32_t netmask = 0;
+};
 
 void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
-  // Emit each event as one compact record. Keeping the complete record in a
-  // single Serial call prevents multi-line event output from being visually
-  // interleaved with another asynchronous Wi-Fi event.
+  // Wi-Fi event callbacks execute on a separate FreeRTOS task. Never write
+  // terminal output here: even thread-safe Serial calls can interleave with
+  // the main task's menu/connection output at character/line boundaries.
+  // Copy the event into a fixed-size queue and let the main task render it.
+  if (wifiDiagnosticQueue == nullptr) {
+    return;
+  }
+
+  WiFiDiagnosticRecord record;
+  record.event = static_cast<uint32_t>(event);
+
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_START:
-      Serial.println("WIFI | START");
       break;
 
     case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
       const auto& connected = info.wifi_sta_connected;
-      Serial.printf(
-          "WIFI | CONNECTED | CH=%u | AUTH=%s | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\n",
-          connected.channel, authModeName(connected.authmode),
-          connected.bssid[0], connected.bssid[1], connected.bssid[2],
-          connected.bssid[3], connected.bssid[4], connected.bssid[5]);
+      record.channel = connected.channel;
+      record.authmode = connected.authmode;
+      memcpy(record.bssid, connected.bssid, 6);
       break;
     }
 
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
       const auto& disconnected = info.wifi_sta_disconnected;
-      Serial.printf(
-          "WIFI | DISCONNECTED | R=%u %s | RSSI=%d | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\n",
-          disconnected.reason,
-          wifiDisconnectReasonName(disconnected.reason),
-          disconnected.rssi,
-          disconnected.bssid[0], disconnected.bssid[1],
-          disconnected.bssid[2], disconnected.bssid[3],
-          disconnected.bssid[4], disconnected.bssid[5]);
+      record.reason = disconnected.reason;
+      record.rssi = disconnected.rssi;
+      memcpy(record.bssid, disconnected.bssid, 6);
       break;
     }
 
     case ARDUINO_EVENT_WIFI_STA_GOT_IP: {
       const auto& gotIp = info.got_ip;
-      Serial.printf(
-          "WIFI | GOT_IP | IP=%s | GW=%s | MASK=%s\n",
-          IPAddress(gotIp.ip_info.ip.addr).toString().c_str(),
-          IPAddress(gotIp.ip_info.gw.addr).toString().c_str(),
-          IPAddress(gotIp.ip_info.netmask.addr).toString().c_str());
+      record.ip = gotIp.ip_info.ip.addr;
+      record.gateway = gotIp.ip_info.gw.addr;
+      record.netmask = gotIp.ip_info.netmask.addr;
       break;
     }
 
     case ARDUINO_EVENT_WIFI_STA_LOST_IP:
-      Serial.println("WIFI | LOST_IP");
       break;
 
     default:
-      break;
+      return;
+  }
+
+  // This is a callback task, not an ISR. A zero-timeout send guarantees the
+  // Wi-Fi event task can never block on terminal I/O or a full queue.
+  xQueueSend(wifiDiagnosticQueue, &record, 0);
+}
+
+void serviceDiagnostics() {
+  if (wifiDiagnosticQueue == nullptr) {
+    return;
+  }
+
+  WiFiDiagnosticRecord record;
+  while (xQueueReceive(wifiDiagnosticQueue, &record, 0) == pdTRUE) {
+    switch (record.event) {
+      case ARDUINO_EVENT_WIFI_STA_START:
+        Serial.println("WIFI | START");
+        break;
+
+      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+        Serial.printf(
+            "WIFI | CONNECTED | CH=%u | AUTH=%s | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\n",
+            record.channel, authModeName(static_cast<wifi_auth_mode_t>(record.authmode)),
+            record.bssid[0], record.bssid[1], record.bssid[2],
+            record.bssid[3], record.bssid[4], record.bssid[5]);
+        break;
+
+      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+        Serial.printf(
+            "WIFI | DISCONNECTED | R=%u %s | RSSI=%d | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\n",
+            record.reason, wifiDisconnectReasonName(record.reason),
+            record.rssi,
+            record.bssid[0], record.bssid[1], record.bssid[2],
+            record.bssid[3], record.bssid[4], record.bssid[5]);
+        break;
+
+      case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+        Serial.printf(
+            "WIFI | GOT_IP | IP=%s | GW=%s | MASK=%s\n",
+            IPAddress(record.ip).toString().c_str(),
+            IPAddress(record.gateway).toString().c_str(),
+            IPAddress(record.netmask).toString().c_str());
+        break;
+
+      case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+        Serial.println("WIFI | LOST_IP");
+        break;
+
+      default:
+        break;
+    }
   }
 }
 
@@ -254,6 +317,7 @@ ConnectResult connectWithCredentials(const String& ssid,
 
   while (WiFi.status() != WL_CONNECTED &&
          millis() - startTime < CONNECT_TIMEOUT_MS) {
+    serviceDiagnostics();
     if (Console::disconnected()) {
       WiFi.disconnect();
       Console::prepareForMenuInput();
@@ -267,10 +331,13 @@ ConnectResult connectWithCredentials(const String& ssid,
     Serial.print("Final WiFi status: ");
     Serial.println(static_cast<int>(WiFi.status()));
     WiFi.disconnect(false, false);
+    delay(100);
+    serviceDiagnostics();
     Console::prepareForMenuInput();
     return ConnectResult::TIMEOUT;
   }
 
+  serviceDiagnostics();
   Serial.println("WiFi connected.");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
@@ -647,6 +714,7 @@ void setupCredentials() {
 
 void menu() {
   while (true) {
+    serviceDiagnostics();
     Serial.println();
     if (Console::ansiSupported) {
       Console::color("1;33m");
@@ -686,6 +754,11 @@ void menu() {
 
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
+
+  wifiDiagnosticQueue = xQueueCreate(32, sizeof(WiFiDiagnosticRecord));
+  if (wifiDiagnosticQueue == nullptr) {
+    Serial.println("WARNING: WiFi diagnostic queue allocation failed.");
+  }
 
   // Use Arduino-ESP32's public WiFi event API so diagnostics follow the
   // same event translation used internally by the STA implementation.
