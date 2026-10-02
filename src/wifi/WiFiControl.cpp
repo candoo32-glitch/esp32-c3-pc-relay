@@ -46,7 +46,7 @@ constexpr char PREF_NAMESPACE[] = "wifi";
 constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
 constexpr char TX_POWER_KEY[] = "tx_power";
-constexpr int8_t DEFAULT_TX_POWER_QUARTER_DBM = 72;  // 18 dBm; 20 dBm intentionally excluded
+constexpr int8_t DEFAULT_TX_POWER_QUARTER_DBM = 60;  // 15 dBm; experimentally stable
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
@@ -102,7 +102,11 @@ bool applyTxPower(int8_t requestedQuarterDbm, bool persist) {
   }
 
   if (persist) {
-    preferences.putUChar(TX_POWER_KEY, static_cast<uint8_t>(applied));
+    const size_t saved = preferences.putUChar(TX_POWER_KEY, static_cast<uint8_t>(applied));
+    if (saved != sizeof(uint8_t)) {
+      Serial.println("WiFi TX power: WARNING - NVS save failed.");
+      return false;
+    }
   }
 
   Serial.print("WiFi TX power: ");
@@ -115,16 +119,16 @@ void configureTxPower() {
   uint8_t saved = preferences.getUChar(
       TX_POWER_KEY, static_cast<uint8_t>(DEFAULT_TX_POWER_QUARTER_DBM));
 
-  // 20 dBm was intentionally removed because it is not reliable on this
-  // hardware. Migrate an older saved 20 dBm setting to 18 dBm.
-  if (saved > DEFAULT_TX_POWER_QUARTER_DBM) {
+  // 20 dBm and other out-of-range legacy values are migrated to the
+  // experimentally stable 15 dBm setting.
+  if (saved < 8 || saved > 72) {
     saved = static_cast<uint8_t>(DEFAULT_TX_POWER_QUARTER_DBM);
     preferences.putUChar(TX_POWER_KEY, saved);
   }
 
   if (applyTxPower(static_cast<int8_t>(saved), false)) return;
 
-  // Fall back to the supported 18 dBm setting if the saved value is invalid.
+  // Fall back to the experimentally stable 15 dBm setting if application fails.
   applyTxPower(DEFAULT_TX_POWER_QUARTER_DBM, false);
 }
 
