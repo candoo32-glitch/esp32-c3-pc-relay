@@ -242,6 +242,14 @@ bool apply() {
     return WiFi.config(ip, gateway, subnet, dns1, dns2);
   }
 
+  // Explicitly clear any previously applied static IPv4 configuration.
+  // Selecting DHCP must be able to undo a prior manual/static address in the
+  // live network interface, not merely change the saved NVS mode.
+  if (!WiFi.config(IPAddress(), IPAddress(), IPAddress(), IPAddress(), IPAddress())) {
+    Serial.println("ERROR: failed to switch live interface back to DHCP.");
+    return false;
+  }
+
   Serial.println("Network: using DHCP.");
   return true;
 }
