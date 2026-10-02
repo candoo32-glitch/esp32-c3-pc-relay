@@ -11,6 +11,7 @@
 
 namespace WiFiControl {
 Preferences preferences;
+static bool diagnosticsEnabled = true;
 
 const char* authModeName(wifi_auth_mode_t authMode);
 
@@ -258,7 +259,6 @@ constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr char DIAGNOSTICS_KEY[] = "diagnostics";
-static bool diagnosticsEnabled = true;
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
 struct TargetAP {
@@ -523,6 +523,8 @@ void printScanRow(int number, const String& ssid, int rssi, int channel,
   Console::color("1;34m"); Serial.printf("%-17s", bssid.c_str()); Console::resetStyle();
   Serial.print(" |\r\n");
 }
+
+void printSSIDContinuation(const String& part);
 
 constexpr size_t MAX_UNIQUE_SSIDS = 128;
 
