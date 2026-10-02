@@ -471,7 +471,54 @@ static_assert(
     "WiFi scan table geometry must remain fixed");
 
 void printGridSeparator() {
+  if (Console::ansiSupported) Console::color("1;36m");
   Serial.println("+-----+------------------------+--------+----+-----------+-------------------+");
+  if (Console::ansiSupported) Console::resetStyle();
+}
+
+void printScanHeader() {
+  if (Console::ansiSupported) Console::color("1;36m");
+  printScanHeader();
+  if (Console::ansiSupported) Console::resetStyle();
+}
+
+void printScanRow(int number, const String& ssid, int rssi, int channel,
+                  const String& security, const String& bssid,
+                  bool continuation) {
+  if (!Console::ansiSupported) {
+    if (continuation) {
+      printSSIDContinuation(ssid);
+    } else {
+      Serial.printf("| %-3d | %-22s | %-6d | %-2d | %-9s | %-17s |\r\n",
+                    number, ssid.c_str(), rssi, channel,
+                    security.c_str(), bssid.c_str());
+    }
+    return;
+  }
+
+  Serial.print("| ");
+  Console::color("1;33m");
+  if (continuation) Serial.print("   ");
+  else Serial.printf("%-3d", number);
+  Console::resetStyle();
+  Serial.print(" | ");
+
+  Console::color("1;37m"); Serial.printf("%-22s", ssid.c_str()); Console::resetStyle();
+  Serial.print(" | ");
+
+  Console::color(rssi >= -50 ? "1;32m" : (rssi >= -70 ? "1;33m" : "1;31m"));
+  Serial.printf("%-6d", rssi); Console::resetStyle();
+  Serial.print(" | ");
+
+  Console::color("1;36m"); Serial.printf("%-2d", channel); Console::resetStyle();
+  Serial.print(" | ");
+
+  Console::color(security == "OPEN" ? "1;32m" : "1;35m");
+  Serial.printf("%-9s", security.c_str()); Console::resetStyle();
+  Serial.print(" | ");
+
+  Console::color("1;34m"); Serial.printf("%-17s", bssid.c_str()); Console::resetStyle();
+  Serial.print(" |\r\n");
 }
 
 constexpr size_t MAX_UNIQUE_SSIDS = 128;
@@ -533,17 +580,8 @@ void printScanGrid(const int* representatives, int uniqueCount) {
       const String part =
           ssid.substring(offset, min(offset + SSID_WIDTH, ssid.length()));
 
-      if (line == 0) {
-        Serial.printf("| %-3d | %-22s | %-6d | %-2d | %-9s | %-17s |\r\n",
-                      i + 1,
-                      part.c_str(),
-                      WiFi.RSSI(index),
-                      WiFi.channel(index),
-                      security.c_str(),
-                      bssid.c_str());
-      } else {
-        printSSIDContinuation(part);
-      }
+      printScanRow(i + 1, part, WiFi.RSSI(index), WiFi.channel(index),
+                    security, bssid, line != 0);
     }
   }
 
