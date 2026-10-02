@@ -53,7 +53,14 @@ bool setHostname(const String& value) {
   String candidate = value;
   candidate.trim();
   if (!validHostname(candidate)) return false;
-  return preferences.putString(HOSTNAME_KEY, candidate) == candidate.length() + 1;
+  const size_t saved = preferences.putString(HOSTNAME_KEY, candidate);
+  if (saved != candidate.length() + 1) return false;
+  if (mdnsStarted) {
+    MDNS.end();
+    mdnsStarted = false;
+  }
+  WiFi.setHostname(candidate.c_str());
+  return true;
 }
 
 void service() {
