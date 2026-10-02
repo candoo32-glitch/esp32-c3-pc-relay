@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <esp_event.h>
+#include <esp_log.h>
 #include <cstring>
 #include "WiFiControl.h"
 #include "../interface/Console.h"
@@ -8,6 +10,33 @@
 
 namespace WiFiControl {
 Preferences preferences;
+
+// IDF 6 exposes the actual station failure through WIFI_EVENT_STA_DISCONNECTED.
+// Arduino's wl_status_t alone is not enough to diagnose an association failure.
+static esp_event_handler_instance_t wifiEventHandlerInstance = nullptr;
+
+void wifiEventHandler(void*, esp_event_base_t eventBase, int32_t eventId, void* eventData) {
+  if (eventBase != WIFI_EVENT) return;
+
+  if (eventId == WIFI_EVENT_STA_CONNECTED) {
+    const auto* event = static_cast<const wifi_event_sta_connected_t*>(eventData);
+    Serial.printf(
+        "WiFi event: STA_CONNECTED  BSSID %02X:%02X:%02X:%02X:%02X:%02X  CH %u  AUTH %s\\n",
+        event->bssid[0], event->bssid[1], event->bssid[2],
+        event->bssid[3], event->bssid[4], event->bssid[5],
+        event->channel, authModeName(event->authmode));
+  } else if (eventId == WIFI_EVENT_STA_DISCONNECTED) {
+    const auto* event = static_cast<const wifi_event_sta_disconnected_t*>(eventData);
+    const uint8_t reason = event->reason;
+    Serial.printf(
+        "WiFi event: STA_DISCONNECTED  reason=%u (%s)  RSSI=%d  BSSID %02X:%02X:%02X:%02X:%02X:%02X\\n",
+        reason,
+        WiFi.STA.disconnectReasonName(static_cast<wifi_err_reason_t>(reason)),
+        event->rssi,
+        event->bssid[0], event->bssid[1], event->bssid[2],
+        event->bssid[3], event->bssid[4], event->bssid[5]);
+  }
+}
 
 const char* authModeName(wifi_auth_mode_t authMode) {
   switch (authMode) {
@@ -111,6 +140,15 @@ ConnectResult connectWithCredentials(const String& ssid,
   // ESP32-C3 Wi-Fi examples.
   WiFi.setAutoReconnect(true);
   WiFi.setScanMethod(WIFI_FAST_SCAN);
+
+  // Arduino-ESP32 4.0 defaults the minimum STA security to WPA2-PSK.
+  // That default must be explicitly lowered for an OPEN AP. This is required
+  // before WiFi.begin(); otherwise an open test AP can be rejected by the
+  // station scan/selection policy even though the scan reports it correctly.
+  WiFi.setMinSecurity(
+      password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK);
+  Serial.print("Minimum WiFi security: ");
+  Serial.println(authModeName(password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK));
 
   if (!NetConfig::apply()) {
     Serial.println("ERROR: network/IP configuration failed.");
@@ -571,6 +609,15 @@ void menu() {
 
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
+
+  if (wifiEventHandlerInstance == nullptr) {
+    esp_err_t err = esp_event_handler_instance_register(
+        WIFI_EVENT, ESP_EVENT_ANY_ID, &wifiEventHandler, nullptr,
+        &wifiEventHandlerInstance);
+    if (err != ESP_OK) {
+      Serial.printf("WiFi event handler registration failed: 0x%X\\n", err);
+    }
+  }
 
   Serial.println();
   Serial.println("WiFi subsystem starting...");
