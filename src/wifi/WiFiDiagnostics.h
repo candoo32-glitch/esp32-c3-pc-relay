@@ -1,12 +1,15 @@
 #pragma once
 
-#include <esp_wifi.h>
-
-namespace WiFiControl {
+namespace WiFiDiagnostics {
 void begin();
-bool connect();
-void menu();
-void printStatus();
-const char* authModeName(wifi_auth_mode_t authMode);
+void service();
+bool enabled();
+void printMenuSetting();
+void toggle();
+void printLine(const char* label, const char* value,
+               const char* labelColor = "1;36m",
+               const char* valueColor = "1;37m");
+void printText(const char* text, const char* textColor = "1;37m");
+void printFailure(const char* label, const char* errorName);
 }
 
