@@ -347,8 +347,7 @@ void handleFirmwareUpdateLatest() {
   const int apiStatus = http.GET();
   if (apiStatus != HTTP_CODE_OK) {
     http.end();
-    server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not retrieve the latest GitHub release.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    server.send(502, "text/html; charset=utf-8",                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not retrieve the latest GitHub release.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
     return;
   }
 
@@ -666,7 +665,7 @@ String page() {
   html += F("input[type=number]{appearance:textfield}.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:10px 0}.help{font-size:12px;color:#888;margin-top:4px}");
   html += F("button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 0 0;color:white;background:#315f93;cursor:pointer}.danger{background:#7b3030}.good{background:#286a39}.secondary{background:#454545}");
   html += F(".status{display:inline-block;padding:5px 9px;border-radius:20px;background:#292929}.mono{font-family:ui-monospace,SFMono-Regular,monospace}.notice{padding:11px 13px;border:1px solid #555;border-radius:8px;background:#252525;margin:12px 0}");
-  html += F(".relay-buttons{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.relay-buttons form{margin:0}.relay-button{min-width:160px;font-size:1.05rem;font-weight:700;padding:12px 18px}</style></head><body>");
+  html += F(".relay-buttons{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.relay-buttons form{margin:0}.relay-button{min-width:160px;font-size:1.05rem;font-weight:700;padding:12px 18px}.dashboard-relay-buttons{justify-content:center;gap:32px}.dashboard-relay-buttons form{margin:0}.firmware-update-actions{display:flex;justify-content:center;align-items:center;gap:24px;flex-wrap:wrap;margin-top:8px}.firmware-update-actions form{margin:0}</style></head><body>");
 
   html += F("<h1>ESP32-C3 PC Relay</h1><div class='muted'>Headless control and configuration</div>");
 
@@ -697,7 +696,6 @@ String page() {
     html += F("</td></tr><tr><td>Channel</td><td>");
     html += connected ? String(WiFi.channel()) : F("-");
     html += F("</td></tr></table></div>");
-
     html += F("<div class='card'><h2>System</h2><table class='kv'><tr><td>Uptime</td><td>");
     html += String(uptime);
     html += F(" seconds</td></tr><tr><td>Firmware build</td><td>");
@@ -708,7 +706,7 @@ String page() {
     html += String(getCpuFrequencyMhz());
     html += F(" MHz</td></tr></table></div></div>");
 
-    html += F("<div class='card'><h2>Relay</h2><div class='relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><button class='relay-button good' name='action' value='activate'>");
+    html += F("<div class='card'><h2>Relay</h2><div class='relay-buttons dashboard-relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><button class='relay-button good' name='action' value='activate'>");
     html += htmlEscape(Relay::name(Relay::Id::POWER));
     html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><button class='relay-button good' name='action' value='activate'>");
     html += htmlEscape(Relay::name(Relay::Id::RESET));
@@ -919,8 +917,8 @@ String page() {
     html += F(" seconds</td></tr></table></div>");
     html += F("<div class='card'><h2>Firmware updates</h2>");
     html += F("<div class='muted'>Check GitHub for the latest published firmware release. If a newer compatible build is available, it can be downloaded and installed directly.</div>");
-    html += F("<form method='GET' action='/system/check-update'><button class='secondary' type='submit'>Check for firmware updates</button></form>");
-    html += F("<form method='POST' action='/system/update-latest' onsubmit=&quot;return confirm('Download and install the latest firmware from GitHub, then reboot the ESP32-C3?');&quot;><button class='good' type='submit'>Download and install latest firmware</button></form></div>");
+    html += F("<div class='firmware-update-actions'><form method='GET' action='/system/check-update'><button class='secondary' type='submit'>Check for firmware updates</button></form>");
+    html += F("<form method='POST' action='/system/update-latest' onsubmit=&quot;return confirm('Download and install the latest firmware from GitHub, then reboot the ESP32-C3?');&quot;><button class='good' type='submit'>Download and install latest firmware</button></form></div></div>");
     html += F("<div class='card'><h2>Firmware upgrade</h2>");
     html += F("<div class='warn'>Upload a compatible ESP32-C3 firmware .bin file. The current firmware will be replaced and the device will reboot automatically. NVS configuration is preserved.</div>");
     html += F("<form method='POST' action='/system/update' enctype='multipart/form-data' onsubmit='return confirm(&quot;Upgrade firmware and reboot the ESP32-C3?&quot;);'><div class='row'><div><label for='firmware'>Firmware image</label><input id='firmware' name='firmware' type='file' accept='.bin,application/octet-stream' required></div></div><button class='good' type='submit'>Upgrade firmware</button></form></div>");
@@ -1098,90 +1096,3 @@ void handleRelayConfig() {
     if (normal.isEmpty()) normal = "open";
     if (normal == "open") Relay::setNormalState(relay, Relay::NormalState::OPEN);
     else if (normal == "closed") Relay::setNormalState(relay, Relay::NormalState::CLOSED);
-    else {
-      redirect("relays");
-      return;
-    }
-
-    String mode = server.hasArg(prefix + "mode") ? server.arg(prefix + "mode") : "";
-    mode.trim();
-    if (mode.isEmpty()) mode = "latched";
-    if (mode == "latched") Relay::setActivationMode(relay, Relay::ActivationMode::LATCHED);
-    else if (mode == "pulse") Relay::setActivationMode(relay, Relay::ActivationMode::PULSE);
-    else {
-      redirect("relays");
-      return;
-    }
-
-    String pulseText = server.hasArg(prefix + "pulse") ? server.arg(prefix + "pulse") : "";
-    pulseText.trim();
-    uint32_t pulse = defaults[i].pulse;
-    if (!pulseText.isEmpty()) {
-      const long parsed = pulseText.toInt();
-      if (parsed >= 10 && parsed <= 60000) pulse = static_cast<uint32_t>(parsed);
-      else {
-        redirect("relays");
-        return;
-      }
-    }
-    if (!Relay::setPulseMs(relay, pulse)) {
-      redirect("relays");
-      return;
-    }
-  }
-
-  redirect("relays");
-}
-
-void handleNvsFormat() {
-  server.send(200, "text/html; charset=utf-8",
-              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>NVS format requested</h2><p>The ESP32-C3 is erasing NVS and will reboot.</p></body>");
-  delay(300);
-  const esp_err_t eraseResult = nvs_flash_erase_partition("nvs");
-  if (eraseResult == ESP_OK) {
-    nvs_flash_init_partition("nvs");
-  }
-  delay(300);
-  ESP.restart();
-}
-
-void handleReboot() {
-  server.send(200, "text/html; charset=utf-8",
-              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Rebooting</h2><p>The ESP32-C3 is restarting.</p></body>");
-  delay(300);
-  ESP.restart();
-}
-
-} // namespace
-
-void begin() {
-  if (serverStarted) return;
-
-  server.on("/", HTTP_GET, handleRoot);
-  server.on("/wifi/toggle", HTTP_POST, handleToggle);
-  server.on("/wifi/reconnect", HTTP_POST, handleReconnect);
-  server.on("/wifi/save", HTTP_POST, handleWifiSave);
-  server.on("/wifi/scan", HTTP_POST, handleWifiScan);
-  server.on("/wifi/txpower", HTTP_POST, handleTxPower);
-  server.on("/relay/action", HTTP_POST, handleRelayAction);
-  server.on("/relay/config", HTTP_POST, handleRelayConfig);
-  server.on("/diagnostics/toggle", HTTP_POST, handleDiagnosticsToggle);
-  server.on("/network/save", HTTP_POST, handleNetworkSave);
-  server.on("/config/backup", HTTP_GET, []() { sendNvsBackup(); });
-  server.on("/config/restore", HTTP_POST, handleConfigRestoreComplete, handleConfigRestoreUpload);
-  server.on("/nvs/format", HTTP_POST, handleNvsFormat);
-  server.on("/system/update", HTTP_POST, handleFirmwareUpdateComplete, handleFirmwareUpdateUpload);
-  server.on("/system/check-update", HTTP_GET, handleFirmwareUpdateCheck);
-  server.on("/system/update-latest", HTTP_POST, handleFirmwareUpdateLatest);
-  server.on("/system/reboot", HTTP_POST, handleReboot);
-  server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
-  server.begin();
-  serverStarted = true;
-  Serial.println("Web server started on port 80.");
-}
-
-void service() {
-  if (!serverStarted) return;
-  server.handleClient();
-}
-}
