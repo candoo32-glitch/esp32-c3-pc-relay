@@ -59,7 +59,7 @@ String page() {
   html += F("<tr><td>SSID</td><td>"); html += connected ? htmlEscape(WiFi.SSID()) : F("—"); html += F("</td></tr>");
   html += F("<tr><td>IP address</td><td>"); html += connected ? WiFi.localIP().toString() : F("—"); html += F("</td></tr>");
   html += F("<tr><td>Gateway</td><td>"); html += connected ? WiFi.gatewayIP().toString() : F("—"); html += F("</td></tr>");
-  html += F("<tr><td>RSSI</td><td>"); html += connected ? String(WiFi.RSSI()) + F(" dBm") : F("—"); html += F("</td></tr>");
+  html += F("<tr><td>RSSI</td><td>"); if (connected) { html += String(WiFi.RSSI()); html += F(" dBm"); } else { html += F("-"); } html += F("</td></tr>");
   html += F("<tr><td>Channel</td><td>"); html += connected ? String(WiFi.channel()) : F("—"); html += F("</td></tr>");
   html += F("<tr><td>BSSID</td><td>"); html += connected ? htmlEscape(WiFi.BSSIDstr()) : F("—"); html += F("</td></tr>");
   html += F("<tr><td>TX power</td><td>");
