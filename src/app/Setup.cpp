@@ -4,6 +4,7 @@
 #include "../wifi/WiFiControl.h"
 #include "../network/NetConfig.h"
 #include "../storage/NVSControl.h"
+#include "../relay/Relay.h"
 
 namespace Setup {
 void menu() {
@@ -22,14 +23,15 @@ void menu() {
     }
     Serial.println("1. WiFi");
     Serial.println("2. Network");
-    Serial.println("3. NVS");
+    Serial.println("3. Relays");
+    Serial.println("4. NVS");
     if (Console::ansiSupported) Console::color("1;35m");
-    Serial.println("4. Reboot");
+    Serial.println("5. Reboot");
     if (Console::ansiSupported) Console::resetStyle();
     Serial.println("B. Back");
     Serial.println();
 
-    String choice = Console::readMenuChoice("Select: ", "1234B");
+    String choice = Console::readMenuChoice("Select: ", "12345B");
     choice.trim();
     choice.toUpperCase();
 
@@ -38,8 +40,10 @@ void menu() {
     } else if (choice == "2") {
       NetConfig::menu();
     } else if (choice == "3") {
-      NVSControl::menu();
+      Relay::menu();
     } else if (choice == "4") {
+      NVSControl::menu();
+    } else if (choice == "5") {
       Serial.println();
       if (Console::ansiSupported) Console::color("1;35m");
       Serial.println("Rebooting ESP32-C3...");
