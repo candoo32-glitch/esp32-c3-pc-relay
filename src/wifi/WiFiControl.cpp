@@ -11,6 +11,8 @@
 namespace WiFiControl {
 Preferences preferences;
 
+const char* authModeName(wifi_auth_mode_t authMode);
+
 // IDF 6 exposes the actual station failure through WIFI_EVENT_STA_DISCONNECTED.
 // Arduino's wl_status_t alone is not enough to diagnose an association failure.
 static esp_event_handler_instance_t wifiEventHandlerInstance = nullptr;
