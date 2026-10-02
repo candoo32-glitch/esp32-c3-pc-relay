@@ -709,7 +709,7 @@ String page() {
 
     html += F("<div class='card'><h2>Relay</h2><div class='relay-buttons dashboard-relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><button class='relay-button good' name='action' value='activate'>");
     html += htmlEscape(Relay::name(Relay::Id::POWER));
-    html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><button class='relay-button good' name='action' value='activate'>");
+    html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><input type='hidden' name='return' value='dashboard'><button class='relay-button good' name='action' value='activate'>");
     html += htmlEscape(Relay::name(Relay::Id::RESET));
     html += F("</button></form></div><table class='kv'><tr><td>");
     html += htmlEscape(Relay::name(Relay::Id::POWER));
@@ -829,7 +829,7 @@ String page() {
 
   if (tab == "relays") {
     html += F("<div class='card'><h2>Relay control</h2><div class='muted'>Each relay is independently configurable. Either Save relay settings button saves BOTH relays. Blank values use the defaults: Relay 1 / Relay 2, OPEN, LATCHED, 250 ms.</div></div>");
-    html += F("<div class='relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><button class='relay-button good' name='action' value='activate'>");
+    html += F("<div class='relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><input type='hidden' name='return' value='dashboard'><button class='relay-button good' name='action' value='activate'>");
     html += htmlEscape(Relay::name(Relay::Id::POWER));
     html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><button class='relay-button good' name='action' value='activate'>");
     html += htmlEscape(Relay::name(Relay::Id::RESET));
@@ -1062,7 +1062,8 @@ void handleRelayAction() {
   const Relay::Id relay = static_cast<Relay::Id>(id);
   if (server.arg("action") == "activate") Relay::activate(relay);
   else if (server.arg("action") == "deactivate") Relay::deactivate(relay);
-  redirect("relays");
+  const String returnTab = server.hasArg("return") && server.arg("return") == "dashboard" ? "dashboard" : "relays";
+  redirect(returnTab.c_str());
 }
 
 void handleRelayConfig() {
