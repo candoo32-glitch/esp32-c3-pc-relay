@@ -521,6 +521,11 @@ ConnectResult connectWithCredentials(const String& ssid,
     Serial.println("WiFi credentials saved to NVS.");
   }
 
+  // Start mDNS immediately while we know Wi-Fi has a valid address.
+  // This avoids depending on the main loop getting scheduled before the
+  // web server/console becomes active.
+  NetConfig::service();
+
   WiFi.setAutoReconnect(previousAutoReconnect);
   return ConnectResult::SUCCESS;
 }
