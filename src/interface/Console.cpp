@@ -27,11 +27,24 @@ bool connected() {
 }
 
 bool disconnected() {
-  if (sessionLost || !Serial.isConnected()) {
+  if (sessionLost) {
+    return true;
+  }
+
+#if defined(ARDUINO_USB_MODE) && ARDUINO_USB_MODE == 1 && \
+    defined(ARDUINO_USB_CDC_ON_BOOT) && ARDUINO_USB_CDC_ON_BOOT
+  // Native USB CDC has its own bus-reset event. Do not use
+  // Serial.isConnected() as a menu-input gate here: on the ESP32-C3 it can
+  // transiently report false while the host terminal is still open, which
+  // makes nested menus return an empty command and spin indefinitely.
+  return false;
+#else
+  if (!Serial.isConnected()) {
     sessionLost = true;
     return true;
   }
   return false;
+#endif
 }
 
 // Establish a hard RX transaction boundary before a menu is shown.
@@ -50,10 +63,9 @@ void prepareForMenuInput() {
   uint32_t quietSince = millis();
 
   while (true) {
-    if (disconnected()) {
-      return;
-    }
-
+    // This is only an RX framing barrier. Do not treat a transient USB
+    // connection-state report as a command/menu failure; the actual CDC bus
+    // reset handler sets sessionLost when the transport really resets.
     if (Serial.available()) {
       while (Serial.available()) {
         Serial.read();
