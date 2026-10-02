@@ -233,6 +233,14 @@ void serviceDiagnostics() {
   }
 }
 
+void printFailureWordLine(const char* prefix, const char* word, const char* suffix = "") {
+  Serial.print(prefix);
+  if (Console::ansiSupported) Console::color("1;31m");
+  Serial.print(word);
+  if (Console::ansiSupported) Console::resetStyle();
+  Serial.println(suffix);
+}
+
 const char* authModeName(wifi_auth_mode_t authMode) {
   switch (authMode) {
     case WIFI_AUTH_OPEN: return "OPEN";
@@ -330,57 +338,58 @@ ConnectResult connectWithCredentials(const String& ssid,
    */
   wl_status_t status;
 
-  // Use the Arduino-ESP32/ESP-IDF station path directly. Keep the driver
-  // configuration simple: STA mode, normal scan selection, and the default
-  // reconnect behavior. This is the same connection model used by Espressif's
-  // ESP32-C3 Wi-Fi examples.
-  WiFi.setAutoReconnect(true);
-  WiFi.setScanMethod(WIFI_FAST_SCAN);
+  // Connection baseline:
+  //   * do not pin a BSSID
+  //   * do not force a channel
+  //   * scan all channels
+  //   * disable automatic reconnect during this transaction
+  //
+  // The previous implementation locked the scan-selected BSSID/channel.
+  // The hardware is repeatedly reporting AUTH_EXPIRE against that BSSID.
+  // Espressif defines AUTH_EXPIRE as an authentication timeout or a reason
+  // received from the AP. Removing the pin lets the station driver perform
+  // its normal AP selection and gives us a clean test of the standard path.
+  const bool previousAutoReconnect = WiFi.getAutoReconnect();
+  WiFi.setAutoReconnect(false);
+  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  WiFi.setSortMethod(WIFI_CONNECT_AP_BY_SIGNAL);
 
   // Arduino-ESP32 4.0 defaults the minimum STA security to WPA2-PSK.
-  // That default must be explicitly lowered for an OPEN AP. This is required
-  // before WiFi.begin(); otherwise an open test AP can be rejected by the
-  // station scan/selection policy even though the scan reports it correctly.
-  WiFi.setMinSecurity(
-      password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK);
+  // An OPEN AP must explicitly lower that threshold before WiFi.begin().
+  const wifi_auth_mode_t minimumSecurity =
+      password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
+  WiFi.setMinSecurity(minimumSecurity);
   Serial.print("Minimum WiFi security: ");
-  Serial.println(authModeName(password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK));
+  Serial.println(authModeName(minimumSecurity));
 
   if (!NetConfig::apply()) {
-    Serial.println("ERROR: network/IP configuration failed.");
+    printFailureWordLine("ERROR: network/IP configuration ", "failed", ".");
+    WiFi.setAutoReconnect(previousAutoReconnect);
     Console::prepareForMenuInput();
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
 
-  // When a scan selected a concrete BSSID, use that BSSID/channel for this
-  // connection attempt. This is intentionally diagnostic-only: ordinary
-  // saved-credential connections continue to use SSID-based selection.
-  // It lets us distinguish "the AP is visible but normal selection fails"
-  // from an actual association/authentication failure.
   if (requestedTarget != nullptr && requestedTarget->valid) {
     Serial.printf(
-        "Diagnostic connection target: BSSID %02X:%02X:%02X:%02X:%02X:%02X CH %ld\r\n",
+        "Diagnostic scan target: BSSID %02X:%02X:%02X:%02X:%02X:%02X CH %ld RSSI %d dBm\r\n",
         requestedTarget->bssid[0], requestedTarget->bssid[1],
         requestedTarget->bssid[2], requestedTarget->bssid[3],
         requestedTarget->bssid[4], requestedTarget->bssid[5],
-        static_cast<long>(requestedTarget->channel));
-    status = WiFi.begin(
-        ssid.c_str(),
-        password.isEmpty() ? nullptr : password.c_str(),
-        requestedTarget->channel,
-        requestedTarget->bssid,
-        true);
-  } else {
-    status = WiFi.begin(
-        ssid.c_str(),
-        password.isEmpty() ? nullptr : password.c_str());
+        static_cast<long>(requestedTarget->channel),
+        static_cast<int>(requestedTarget->rssi));
+    Serial.println("Connection mode: SSID-based; BSSID/channel pinning DISABLED.");
   }
 
+  status = WiFi.begin(
+      ssid.c_str(),
+      password.isEmpty() ? nullptr : password.c_str());
+
   Serial.print("WiFi.begin() returned status: ");
-  Serial.println(static_cast<int>(status));
+
 
   if (status == WL_CONNECT_FAILED) {
-    Serial.println("WiFi.begin() failed.");
+    printFailureWordLine("WiFi.begin() ", "failed", ".");
+    WiFi.setAutoReconnect(previousAutoReconnect);
     Console::prepareForMenuInput();
     return ConnectResult::CONNECTION_FAILED;
   }
@@ -392,6 +401,7 @@ ConnectResult connectWithCredentials(const String& ssid,
     serviceDiagnostics();
     if (Console::disconnected()) {
       WiFi.disconnect();
+      WiFi.setAutoReconnect(previousAutoReconnect);
       Console::prepareForMenuInput();
       return ConnectResult::SERIAL_DISCONNECTED;
     }
@@ -405,6 +415,7 @@ ConnectResult connectWithCredentials(const String& ssid,
     WiFi.disconnect(false, false);
     delay(100);
     serviceDiagnostics();
+    WiFi.setAutoReconnect(previousAutoReconnect);
     Console::prepareForMenuInput();
     return ConnectResult::TIMEOUT;
   }
@@ -417,6 +428,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   preferences.putString(SSID_KEY, ssid);
   preferences.putString(PASSWORD_KEY, password);
 
+  WiFi.setAutoReconnect(previousAutoReconnect);
   Console::prepareForMenuInput();
   return ConnectResult::SUCCESS;
 }
@@ -481,7 +493,7 @@ void printGridSeparator() {
 
 void printScanHeader() {
   if (Console::ansiSupported) Console::color("1;36m");
-  printScanHeader();
+  Serial.println("| #   | SSID                   | RSSI   | CH | SECURITY  | BSSID             |");
   if (Console::ansiSupported) Console::resetStyle();
 }
 
@@ -615,7 +627,7 @@ void scan() {
   int count = WiFi.scanNetworks();
 
   if (count < 0) {
-    Serial.println("WiFi scan failed.");
+    printFailureWordLine("WiFi scan ", "failed", ".");
     WiFi.scanDelete();
 
     // Keep the initialized STA driver alive. A scan failure is not an
@@ -749,7 +761,7 @@ void scan() {
     } else {
       Serial.println();
       Serial.println("================================");
-      Serial.println("WiFi connection FAILED");
+      printFailureWordLine("WiFi connection ", "FAILED");
       Serial.println("================================");
       Serial.println("Credentials were NOT saved.");
       Serial.println("Previously saved credentials were left unchanged.");
