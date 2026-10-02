@@ -123,36 +123,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   WiFi.setAutoReconnect(false);
   WiFiDiagnostics::beginConnectionAttempt();
 
-  // Diagnostic RF test: use the ESP32-C3's minimum supported Wi-Fi TX
-  // power (2 dBm). This deliberately changes only transmit power so we can
-  // test whether the current maximum-power setting is contributing to the
-  // authentication failure.
-  constexpr int8_t DIAGNOSTIC_TX_POWER_QUARTER_DBM = 8;  // 2 dBm
-  const esp_err_t txPowerResult =
-      esp_wifi_set_max_tx_power(DIAGNOSTIC_TX_POWER_QUARTER_DBM);
-  if (txPowerResult != ESP_OK) {
-    WiFiDiagnostics::printFailure(
-        "TX_POWER_SET", esp_err_to_name(txPowerResult));
-    WiFi.setAutoReconnect(previousAutoReconnect);
-    Console::prepareForMenuInput();
-    return ConnectResult::CONNECTION_FAILED;
-  }
-
-  int8_t appliedTxPower = 0;
-  const esp_err_t txPowerReadResult =
-      esp_wifi_get_max_tx_power(&appliedTxPower);
-  if (txPowerReadResult == ESP_OK) {
-    char txPower[32];
-    snprintf(txPower, sizeof(txPower),
-             "TX_POWER=%d QUARTER_DBM=%.2f dBm",
-             static_cast<int>(appliedTxPower),
-             static_cast<double>(appliedTxPower) * 0.25);
-    WiFiDiagnostics::printText(txPower, "1;35m");
-  } else {
-    WiFiDiagnostics::printFailure(
-        "TX_POWER_GET", esp_err_to_name(txPowerReadResult));
-  }
-
   const wifi_auth_mode_t minimumSecurity =
       password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
   WiFi.setMinSecurity(minimumSecurity);
