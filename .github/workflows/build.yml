@@ -211,7 +211,7 @@ jobs:
               >>"!UPDATE_HELPER!" echo ^)
               >>"!UPDATE_HELPER!" echo echo Flasher updated to build !UPDATE_RUN_NUMBER!.
               >>"!UPDATE_HELPER!" echo echo Starting updated flasher...
-              >>"!UPDATE_HELPER!" echo start "" "!SELF_PATH!"
+              >>"!UPDATE_HELPER!" echo cmd.exe /d /k call "!SELF_PATH!"
               >>"!UPDATE_HELPER!" echo echo The updated flasher was launched.
               >>"!UPDATE_HELPER!" echo echo This helper window will remain open for diagnostics.
               >>"!UPDATE_HELPER!" echo pause
