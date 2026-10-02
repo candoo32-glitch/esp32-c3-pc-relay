@@ -6,6 +6,8 @@ namespace WiFiControl {
 void begin();
 void service();
 bool connect();
+bool isEnabled();
+bool setEnabled(bool enabled);
 bool diagnosticsPreference();
 bool saveDiagnosticsPreference(bool enabled);
 void menu();
