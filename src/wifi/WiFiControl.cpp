@@ -794,7 +794,7 @@ void scan() {
   } else {
     Serial.println();
     Serial.println("================================");
-    Serial.println("WiFi connection FAILED");
+    printFailureWordLine("WiFi connection ", "FAILED");
     Serial.println("================================");
     Serial.println("Credentials were NOT saved.");
     Serial.println("Previously saved credentials were left unchanged.");
@@ -916,7 +916,7 @@ void begin() {
 
   wifiDiagnosticQueue = xQueueCreate(32, sizeof(WiFiDiagnosticRecord));
   if (wifiDiagnosticQueue == nullptr) {
-    Serial.println("WARNING: WiFi diagnostic queue allocation failed.");
+    printFailureWordLine("WARNING: WiFi diagnostic queue allocation ", "failed", ".");
   }
 
   // Use Arduino-ESP32's public WiFi event API so diagnostics follow the
