@@ -7,6 +7,7 @@
 #include <esp_idf_version.h>
 #include <esp_system.h>
 #include <esp_partition.h>
+#include <Update.h>
 #include <esp_wifi.h>
 #include <cstring>
 #include "WebServerControl.h"
@@ -194,6 +195,74 @@ uint8_t* restoreBuffer = nullptr;
 size_t restoreCapacity = 0;
 size_t restoreBytes = 0;
 bool restoreFailed = false;
+
+bool firmwareUpdateFailed = false;
+size_t firmwareUpdateBytes = 0;
+
+void handleFirmwareUpdateUpload() {
+  HTTPUpload& upload = server.upload();
+
+  switch (upload.status) {
+    case UPLOAD_FILE_START:
+      firmwareUpdateFailed = false;
+      firmwareUpdateBytes = 0;
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+        firmwareUpdateFailed = true;
+        Serial.print("Firmware OTA begin failed: ");
+        Serial.println(Update.errorString());
+        break;
+      }
+      Serial.print("Firmware OTA started: ");
+      Serial.println(upload.filename);
+      break;
+
+    case UPLOAD_FILE_WRITE:
+      if (firmwareUpdateFailed) break;
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        firmwareUpdateFailed = true;
+        Serial.print("Firmware OTA write failed: ");
+        Serial.println(Update.errorString());
+      } else {
+        firmwareUpdateBytes += upload.currentSize;
+      }
+      break;
+
+    case UPLOAD_FILE_END:
+      if (firmwareUpdateFailed) break;
+      if (!Update.end(true)) {
+        firmwareUpdateFailed = true;
+        Serial.print("Firmware OTA finalize failed: ");
+        Serial.println(Update.errorString());
+      }
+      break;
+
+    case UPLOAD_FILE_ABORTED:
+      firmwareUpdateFailed = true;
+      Update.abort();
+      Serial.println("Firmware OTA upload aborted.");
+      break;
+
+    default:
+      break;
+  }
+}
+
+void handleFirmwareUpdateComplete() {
+  if (firmwareUpdateFailed || firmwareUpdateBytes == 0) {
+    if (Update.isRunning()) Update.abort();
+    server.send(400, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Firmware upgrade failed</h2><p>The firmware image could not be uploaded or verified. The existing firmware was not replaced.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  Serial.print("Firmware OTA complete: ");
+  Serial.print(firmwareUpdateBytes);
+  Serial.println(" bytes. Rebooting.");
+  server.send(200, "text/html; charset=utf-8",
+              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><meta http-equiv='refresh' content='8;url=/?tab=system'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Firmware upgraded</h2><p>The new firmware was written successfully. The ESP32-C3 is rebooting now.</p></body>");
+  delay(300);
+  ESP.restart();
+}
 
 void handleConfigRestoreUpload() {
   HTTPUpload& upload = server.upload();
@@ -587,6 +656,9 @@ String page() {
     html += F(" MHz</td></tr><tr><td>Uptime</td><td>");
     html += String(uptime);
     html += F(" seconds</td></tr></table></div>");
+    html += F("<div class='card'><h2>Firmware upgrade</h2>");
+    html += F("<div class='warn'>Upload a compatible ESP32-C3 firmware .bin file. The current firmware will be replaced and the device will reboot automatically. NVS configuration is preserved.</div>");
+    html += F("<form method='POST' action='/system/update' enctype='multipart/form-data' onsubmit='return confirm(&quot;Upgrade firmware and reboot the ESP32-C3?&quot;);'><div class='row'><div><label for='firmware'>Firmware image</label><input id='firmware' name='firmware' type='file' accept='.bin,application/octet-stream' required></div></div><button class='good' type='submit'>Upgrade firmware</button></form></div>");
     html += F("<div class='card'><h2>System actions</h2><form method='POST' action='/system/reboot' onsubmit=\"return confirm('Reboot the ESP32-C3?');\"><button class='danger'>Reboot ESP32-C3</button></form></div>");
   }
 
@@ -833,6 +905,7 @@ void begin() {
   server.on("/config/backup", HTTP_GET, []() { sendNvsBackup(); });
   server.on("/config/restore", HTTP_POST, handleConfigRestoreComplete, handleConfigRestoreUpload);
   server.on("/nvs/format", HTTP_POST, handleNvsFormat);
+  server.on("/system/update", HTTP_POST, handleFirmwareUpdateComplete, handleFirmwareUpdateUpload);
   server.on("/system/reboot", HTTP_POST, handleReboot);
   server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
   server.begin();
