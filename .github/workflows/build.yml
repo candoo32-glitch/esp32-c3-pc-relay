@@ -163,19 +163,19 @@ jobs:
 
           if /I "!UPDATE_RUN_STATUS!"=="queued" (
               set /a WAIT_SECONDS+=10
-              echo !ESC![93mWaiting !WAIT_SECONDS!... Newest build !UPDATE_RUN_NUMBER! is queued.
+              <nul set /p "=!ESC![2K!ESC![G!ESC![93mWaiting !WAIT_SECONDS!... Newest build !UPDATE_RUN_NUMBER! is queued."
               timeout /t 10 /nobreak >nul
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
           if /I "!UPDATE_RUN_STATUS!"=="in_progress" (
               set /a WAIT_SECONDS+=10
-              echo !ESC![93mWaiting !WAIT_SECONDS!... Newest build !UPDATE_RUN_NUMBER! is in progress.
+              <nul set /p "=!ESC![2K!ESC![G!ESC![93mWaiting !WAIT_SECONDS!... Newest build !UPDATE_RUN_NUMBER! is in progress."
               timeout /t 10 /nobreak >nul
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
           if /I "!UPDATE_RUN_STATUS!"=="waiting" (
               set /a WAIT_SECONDS+=10
-              echo !ESC![93mWaiting !WAIT_SECONDS!... Newest build !UPDATE_RUN_NUMBER! is waiting.
+              <nul set /p "=!ESC![2K!ESC![G!ESC![93mWaiting !WAIT_SECONDS!... Newest build !UPDATE_RUN_NUMBER! is waiting."
               timeout /t 10 /nobreak >nul
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
