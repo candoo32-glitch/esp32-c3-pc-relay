@@ -18,6 +18,7 @@ void printSettings();
 bool parseIP(const String& text, IPAddress& address);
 bool loadStatic(IPAddress& ip, IPAddress& gateway, IPAddress& subnet, IPAddress& dns1, IPAddress& dns2);
 void configureDHCP();
+bool saveStatic(const String& ip, const String& gateway, const String& subnet, const String& dns1, const String& dns2);
 String currentIP();
 String currentGateway();
 String currentSubnet();
