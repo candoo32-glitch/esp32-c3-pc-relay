@@ -137,9 +137,9 @@ void viewContents() {
   Serial.println("Partition: nvs");
   Serial.println();
   color("1;36m");
-  Serial.println("+-----+--------------+-------------------+-------+--------------------+");
-  Serial.println("| #   | NAMESPACE    | KEY               | TYPE  | VALUE              |");
-  Serial.println("+-----+--------------+-------------------+-------+--------------------+");
+  Serial.println("+-----+----------------+---------------------+---------+----------------------+");
+  Serial.println("| #   | NAMESPACE      | KEY                 | TYPE    | VALUE                |");
+  Serial.println("+-----+----------------+---------------------+---------+----------------------+");
   reset();
 
   nvs_iterator_t iterator = nullptr;
@@ -159,7 +159,7 @@ void viewContents() {
   }
 
   color("1;36m");
-  Serial.println("+-----+--------------+-------------------+-------+--------------------+");
+  Serial.println("+-----+----------------+---------------------+---------+----------------------+");
   reset();
 
   if (count == 0) {
