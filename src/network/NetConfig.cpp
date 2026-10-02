@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <ESPmDNS.h>
 #include "NetConfig.h"
 #include "../interface/Console.h"
 
@@ -14,9 +15,10 @@ constexpr char GATEWAY_KEY[] = "gateway";
 constexpr char SUBNET_KEY[] = "subnet";
 constexpr char DNS1_KEY[] = "dns1";
 constexpr char DNS2_KEY[] = "dns2";
-
-constexpr char HOSTNAME[] = "esp32-c3-relay";
+constexpr char HOSTNAME_KEY[] = "hostname";
+constexpr char DEFAULT_HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
+bool mdnsStarted = false;
 
 Mode mode() {
   return preferences.getUChar(MODE_KEY, static_cast<uint8_t>(Mode::DHCP))
@@ -27,6 +29,56 @@ Mode mode() {
 
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
+  if (!preferences.isKey(HOSTNAME_KEY)) {
+    preferences.putString(HOSTNAME_KEY, DEFAULT_HOSTNAME);
+  }
+}
+
+String hostname() {
+  return preferences.getString(HOSTNAME_KEY, DEFAULT_HOSTNAME);
+}
+
+bool validHostname(const String& value) {
+  if (value.isEmpty() || value.length() > 32) return false;
+  if (value[0] == '-' || value[value.length() - 1] == '-') return false;
+  for (size_t i = 0; i < value.length(); ++i) {
+    const char c = value[i];
+    if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+          (c >= '0' && c <= '9') || c == '-')) return false;
+  }
+  return true;
+}
+
+bool setHostname(const String& value) {
+  String candidate = value;
+  candidate.trim();
+  if (!validHostname(candidate)) return false;
+  return preferences.putString(HOSTNAME_KEY, candidate) == candidate.length() + 1;
+}
+
+void service() {
+  const bool connected = WiFi.status() == WL_CONNECTED;
+  if (!connected) {
+    if (mdnsStarted) {
+      MDNS.end();
+      mdnsStarted = false;
+    }
+    return;
+  }
+
+  if (!mdnsStarted) {
+    const String host = hostname();
+    WiFi.setHostname(host.c_str());
+    if (MDNS.begin(host.c_str())) {
+      MDNS.addService("http", "tcp", 80);
+      mdnsStarted = true;
+      Serial.print("mDNS: http://");
+      Serial.print(host);
+      Serial.println(".local/");
+    } else {
+      Serial.println("mDNS: failed to start.");
+    }
+  }
 }
 
 void printSettings() {
@@ -229,7 +281,7 @@ void menu() {
 }
 
 bool apply() {
-  WiFi.setHostname(HOSTNAME);
+  WiFi.setHostname(hostname().c_str());
 
   if (mode() == Mode::STATIC) {
     IPAddress ip, gateway, subnet, dns1, dns2;
