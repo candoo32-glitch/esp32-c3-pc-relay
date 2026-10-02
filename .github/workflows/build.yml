@@ -114,27 +114,72 @@ jobs:
           set "TARGET_BRANCH=${{ github.head_ref || github.ref_name }}"
           set "LATEST_RUN="
           set "LATEST_RUN_NUMBER="
+          set "LATEST_RUN_STATUS="
+          set "LATEST_RUN_CONCLUSION="
           set "EXPECTED_ARTIFACT_NAME="
 
           echo Target branch: !TARGET_BRANCH!
-          echo Searching GitHub for the newest successful build on this branch...
+          echo Searching GitHub for the newest build on this branch...
           echo.
 
-          rem Use only databaseId here. Older GitHub CLI versions do not expose run number as a gh run list JSON field.
-          for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch "!TARGET_BRANCH!" --status success --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
+          rem Always inspect the newest branch run first. If it is queued or
+          rem running, wait for that exact run instead of falling back to an
+          rem older successful artifact.
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/workflows/build.yml/runs?branch=!TARGET_BRANCH!^&per_page=1" --jq "if (.workflow_runs | length) == 0 then empty else .workflow_runs[0].id end"') do set "LATEST_RUN=%%I"
 
           if not defined LATEST_RUN (
-              echo ERROR: No successful build was found for branch !TARGET_BRANCH!.
+              echo ERROR: No build was found for branch !TARGET_BRANCH!.
               echo.
               pause
               exit /b 1
           )
 
-          rem Get the workflow run number through the GitHub API; this works with older gh CLI releases.
-          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!LATEST_RUN!" --jq ".run_number"') do set "LATEST_RUN_NUMBER=%%I"
+          :WAIT_FOR_BUILD
+          set "LATEST_RUN_NUMBER="
+          set "LATEST_RUN_STATUS="
+          set "LATEST_RUN_CONCLUSION="
+
+          for /f "tokens=1,2,3 delims=|" %%A in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!LATEST_RUN!" --jq ".run_number + \"|\" + .status + \"|\" + (if .conclusion == null then \"\" else .conclusion end)"') do (
+              set "LATEST_RUN_NUMBER=%%A"
+              set "LATEST_RUN_STATUS=%%B"
+              set "LATEST_RUN_CONCLUSION=%%C"
+          )
 
           if not defined LATEST_RUN_NUMBER (
-              echo ERROR: Could not determine the build number for run !LATEST_RUN!.
+              echo ERROR: Could not read build !LATEST_RUN!.
+              echo.
+              pause
+              exit /b 1
+          )
+
+          if /I "!LATEST_RUN_STATUS!"=="queued" (
+              echo Build !LATEST_RUN_NUMBER! is queued. Waiting...
+              timeout /t 10 /nobreak >nul
+              goto WAIT_FOR_BUILD
+          )
+
+          if /I "!LATEST_RUN_STATUS!"=="in_progress" (
+              echo Build !LATEST_RUN_NUMBER! is in progress. Waiting...
+              timeout /t 10 /nobreak >nul
+              goto WAIT_FOR_BUILD
+          )
+
+          if /I "!LATEST_RUN_STATUS!"=="waiting" (
+              echo Build !LATEST_RUN_NUMBER! is waiting. Waiting...
+              timeout /t 10 /nobreak >nul
+              goto WAIT_FOR_BUILD
+          )
+
+          if /I not "!LATEST_RUN_STATUS!"=="completed" (
+              echo ERROR: Build !LATEST_RUN_NUMBER! ended in unexpected status "!LATEST_RUN_STATUS!".
+              echo.
+              pause
+              exit /b 1
+          )
+
+          if /I not "!LATEST_RUN_CONCLUSION!"=="success" (
+              echo ERROR: Newest build !LATEST_RUN_NUMBER! completed with conclusion "!LATEST_RUN_CONCLUSION!".
+              echo The flasher will not fall back to an older build.
               echo.
               pause
               exit /b 1
@@ -145,7 +190,6 @@ jobs:
           echo Selected build number       : !LATEST_RUN_NUMBER!
           echo Expected artifact          : !EXPECTED_ARTIFACT_NAME!
           echo.
-
           set "DOWNLOAD_DIR=%TEMP%\esp32-c3-relay-%RANDOM%%RANDOM%"
           set "EXTRACT_DIR=!DOWNLOAD_DIR!\extracted"
           set "LOCAL_DIR=%~dp0"
