@@ -129,7 +129,7 @@ void serviceDiagnostics() {
 
       case ARDUINO_EVENT_WIFI_STA_CONNECTED:
         Serial.printf(
-            "WIFI | CONNECTED | CH=%u | AUTH=%s | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\n",
+            "WIFI | CONNECTED | CH=%u | AUTH=%s | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\r\n",
             record.channel, authModeName(static_cast<wifi_auth_mode_t>(record.authmode)),
             record.bssid[0], record.bssid[1], record.bssid[2],
             record.bssid[3], record.bssid[4], record.bssid[5]);
@@ -137,7 +137,7 @@ void serviceDiagnostics() {
 
       case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
         Serial.printf(
-            "WIFI | DISCONNECTED | R=%u %s | RSSI=%d | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\n",
+            "WIFI | DISCONNECTED | R=%u %s | RSSI=%d | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\r\n",
             record.reason, wifiDisconnectReasonName(record.reason),
             record.rssi,
             record.bssid[0], record.bssid[1], record.bssid[2],
@@ -146,7 +146,7 @@ void serviceDiagnostics() {
 
       case ARDUINO_EVENT_WIFI_STA_GOT_IP:
         Serial.printf(
-            "WIFI | GOT_IP | IP=%s | GW=%s | MASK=%s\n",
+            "WIFI | GOT_IP | IP=%s | GW=%s | MASK=%s\r\n",
             IPAddress(record.ip).toString().c_str(),
             IPAddress(record.gateway).toString().c_str(),
             IPAddress(record.netmask).toString().c_str());
