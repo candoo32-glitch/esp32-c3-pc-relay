@@ -60,7 +60,7 @@ void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
     case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
       const auto& connected = info.wifi_sta_connected;
       Serial.printf(
-          "WIFI | CONNECTED | CH=%u | AUTH=%s | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\\n",
+          "WIFI | CONNECTED | CH=%u | AUTH=%s | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\n",
           connected.channel, authModeName(connected.authmode),
           connected.bssid[0], connected.bssid[1], connected.bssid[2],
           connected.bssid[3], connected.bssid[4], connected.bssid[5]);
@@ -70,7 +70,7 @@ void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
       const auto& disconnected = info.wifi_sta_disconnected;
       Serial.printf(
-          "WIFI | DISCONNECTED | R=%u %s | RSSI=%d | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\\n",
+          "WIFI | DISCONNECTED | R=%u %s | RSSI=%d | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\n",
           disconnected.reason,
           wifiDisconnectReasonName(disconnected.reason),
           disconnected.rssi,
@@ -83,7 +83,7 @@ void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
     case ARDUINO_EVENT_WIFI_STA_GOT_IP: {
       const auto& gotIp = info.got_ip;
       Serial.printf(
-          "WIFI | GOT_IP | IP=%s | GW=%s | MASK=%s\\n",
+          "WIFI | GOT_IP | IP=%s | GW=%s | MASK=%s\n",
           IPAddress(gotIp.ip_info.ip.addr).toString().c_str(),
           IPAddress(gotIp.ip_info.gw.addr).toString().c_str(),
           IPAddress(gotIp.ip_info.netmask.addr).toString().c_str());
