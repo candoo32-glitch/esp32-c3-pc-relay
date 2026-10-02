@@ -46,40 +46,34 @@ const char* wifiDisconnectReasonName(uint8_t reason) {
 
 // IDF 6 exposes the actual station failure through WIFI_EVENT_STA_DISCONNECTED.
 // Arduino's wl_status_t alone is not enough to diagnose an association failure.
-static WiFiEventId_t wifiStartEventId = 0;
-static WiFiEventId_t wifiConnectedEventId = 0;
-static WiFiEventId_t wifiDisconnectedEventId = 0;
-static WiFiEventId_t wifiGotIpEventId = 0;
-static WiFiEventId_t wifiLostIpEventId = 0;
+static WiFiEventId_t wifiEventId = 0;
 
 void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
-  // Keep each diagnostic event inside a normal 80-column terminal. The
-  // previous single-line records were wide enough to wrap in PuTTY.
+  // Emit each event as one compact record. Keeping the complete record in a
+  // single Serial call prevents multi-line event output from being visually
+  // interleaved with another asynchronous Wi-Fi event.
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_START:
-      Serial.println("WiFi event: STA_START");
+      Serial.println("WIFI | START");
       break;
 
     case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
       const auto& connected = info.wifi_sta_connected;
-      Serial.println("WiFi event: STA_CONNECTED");
       Serial.printf(
-          "  BSSID=%02X:%02X:%02X:%02X:%02X:%02X  CH=%u  AUTH=%s\n",
+          "WIFI | CONNECTED | CH=%u | AUTH=%s | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\\n",
+          connected.channel, authModeName(connected.authmode),
           connected.bssid[0], connected.bssid[1], connected.bssid[2],
-          connected.bssid[3], connected.bssid[4], connected.bssid[5],
-          connected.channel, authModeName(connected.authmode));
+          connected.bssid[3], connected.bssid[4], connected.bssid[5]);
       break;
     }
 
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
       const auto& disconnected = info.wifi_sta_disconnected;
-      const uint8_t reason = disconnected.reason;
-      Serial.println("WiFi event: STA_DISCONNECTED");
       Serial.printf(
-          "  reason=%u (%s)  RSSI=%d dBm\n",
-          reason, wifiDisconnectReasonName(reason), disconnected.rssi);
-      Serial.printf(
-          "  BSSID=%02X:%02X:%02X:%02X:%02X:%02X\n",
+          "WIFI | DISCONNECTED | R=%u %s | RSSI=%d | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\\n",
+          disconnected.reason,
+          wifiDisconnectReasonName(disconnected.reason),
+          disconnected.rssi,
           disconnected.bssid[0], disconnected.bssid[1],
           disconnected.bssid[2], disconnected.bssid[3],
           disconnected.bssid[4], disconnected.bssid[5]);
@@ -88,19 +82,16 @@ void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
 
     case ARDUINO_EVENT_WIFI_STA_GOT_IP: {
       const auto& gotIp = info.got_ip;
-      Serial.println("WiFi event: STA_GOT_IP");
       Serial.printf(
-          "  IP=%s  GW=%s\n",
+          "WIFI | GOT_IP | IP=%s | GW=%s | MASK=%s\\n",
           IPAddress(gotIp.ip_info.ip.addr).toString().c_str(),
-          IPAddress(gotIp.ip_info.gw.addr).toString().c_str());
-      Serial.printf(
-          "  MASK=%s\n",
+          IPAddress(gotIp.ip_info.gw.addr).toString().c_str(),
           IPAddress(gotIp.ip_info.netmask.addr).toString().c_str());
       break;
     }
 
     case ARDUINO_EVENT_WIFI_STA_LOST_IP:
-      Serial.println("WiFi event: STA_LOST_IP");
+      Serial.println("WIFI | LOST_IP");
       break;
 
     default:
@@ -698,11 +689,9 @@ void begin() {
 
   // Use Arduino-ESP32's public WiFi event API so diagnostics follow the
   // same event translation used internally by the STA implementation.
-  wifiStartEventId = WiFi.onEvent(wifiArduinoEventHandler, ARDUINO_EVENT_WIFI_STA_START);
-  wifiConnectedEventId = WiFi.onEvent(wifiArduinoEventHandler, ARDUINO_EVENT_WIFI_STA_CONNECTED);
-  wifiDisconnectedEventId = WiFi.onEvent(wifiArduinoEventHandler, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
-  wifiGotIpEventId = WiFi.onEvent(wifiArduinoEventHandler, ARDUINO_EVENT_WIFI_STA_GOT_IP);
-  wifiLostIpEventId = WiFi.onEvent(wifiArduinoEventHandler, ARDUINO_EVENT_WIFI_STA_LOST_IP);
+  // One callback for all Wi-Fi events. The handler switches on the
+  // event ID, avoiding multiple asynchronous callback registrations.
+  wifiEventId = WiFi.onEvent(wifiArduinoEventHandler);
 
   Serial.println();
   Serial.println("WiFi subsystem starting...");
