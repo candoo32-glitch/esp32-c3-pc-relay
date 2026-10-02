@@ -89,11 +89,7 @@ jobs:
           endlocal & exit /b !FLASH_APP_EXIT!
 
           :FLASH_APP
-          cls
-          echo !VT!1;36m╔══════════════════════════════════════════════════════════════════════════════╗!VT!0m
-          echo !VT!1;36m║              ESP32-C3 PC RELAY - FIRMWARE UTILITY                         ║!VT!0m
-          echo !VT!1;36m╚══════════════════════════════════════════════════════════════════════════════╝!VT!0m
-          echo !VT!90m  Branch:!VT!0m !TARGET_BRANCH!
+          call :UI_RENDER
           echo.
 
           where gh >nul 2>&1
@@ -137,10 +133,23 @@ jobs:
           set "SELF_UPDATE_DIR=%TEMP%\\esp32-c3-flasher-update-%RANDOM%%RANDOM%"
           set "SELF_UPDATE_EXTRACT=!SELF_UPDATE_DIR!\\extracted"
           set "SELF_PATH=%~f0"
+          set "FLASH_LOG=%TEMP%\esp32-c3-relay-flash-%RANDOM%%RANDOM%.log"
+          set "UI_STATUS=Starting"
+          set "UI_DETAIL=Initializing flasher"
+          set "UI_BUILD=-"
+          set "UI_ARTIFACT=-"
+          set "UI_FLASH=Waiting"
+          set "UI_LOG1=Flasher started"
+          set "UI_LOG2=Checking GitHub"
+          set "UI_LOG3="
+          set "UI_LOG4="
           mkdir "!SELF_UPDATE_DIR!" >nul 2>&1
           mkdir "!SELF_UPDATE_EXTRACT!" >nul 2>&1
 
-          echo !VT!36m  STATUS  !VT!0m Checking for a newer flasher...
+          set "UI_STATUS=UPDATE CHECK"
+          set "UI_DETAIL=Checking for a newer flasher..."
+          set "UI_LOG2=Checking GitHub for latest flasher"
+          call :UI_RENDER
           set "UPDATE_RUN="
           set "UPDATE_RUN_NUMBER="
           set "UPDATE_RUN_STATUS="
@@ -164,17 +173,26 @@ jobs:
           for /f "delims=" %%I in ('gh run view "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json conclusion --jq ".conclusion"') do set "UPDATE_RUN_CONCLUSION=%%I"
 
           if /I "!UPDATE_RUN_STATUS!"=="queued" (
+              set "UI_STATUS=UPDATE WAIT"
+              set "UI_DETAIL=Newest build !UPDATE_RUN_NUMBER! is queued"
               set "UI_MESSAGE=Newest build !UPDATE_RUN_NUMBER! is queued. Waiting before flashing..."
+              call :UI_RENDER
               call :UI_WAIT
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
           if /I "!UPDATE_RUN_STATUS!"=="in_progress" (
+              set "UI_STATUS=UPDATE WAIT"
+              set "UI_DETAIL=Newest build !UPDATE_RUN_NUMBER! is building"
               set "UI_MESSAGE=Newest build !UPDATE_RUN_NUMBER! is in progress. Waiting before flashing..."
+              call :UI_RENDER
               call :UI_WAIT
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
           if /I "!UPDATE_RUN_STATUS!"=="waiting" (
+              set "UI_STATUS=UPDATE WAIT"
+              set "UI_DETAIL=Newest build !UPDATE_RUN_NUMBER! is waiting"
               set "UI_MESSAGE=Newest build !UPDATE_RUN_NUMBER! is waiting. Waiting before flashing..."
+              call :UI_RENDER
               call :UI_WAIT
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
@@ -199,8 +217,11 @@ jobs:
               rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
           ) else (
               set "UPDATE_ARTIFACT_NAME=esp32-c3-pc-relay-!TARGET_BRANCH!-build-!UPDATE_RUN_NUMBER!"
-              echo !VT!33m  New flasher available from build !UPDATE_RUN_NUMBER!.!VT!0m
-              echo Downloading updated flasher...
+              set "UI_STATUS=SELF UPDATE"
+              set "UI_DETAIL=Downloading flasher build !UPDATE_RUN_NUMBER!"
+              set "UI_BUILD=!UPDATE_RUN_NUMBER!"
+              set "UI_LOG3=New flasher detected"
+              call :UI_RENDER
 
               gh run download "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!UPDATE_ARTIFACT_NAME!" --dir "!SELF_UPDATE_EXTRACT!" >nul 2>&1
               if errorlevel 1 (
@@ -241,6 +262,10 @@ jobs:
               exit /b 0
           )
 
+          set "UI_STATUS=BUILD SEARCH"
+          set "UI_DETAIL=Searching GitHub for newest firmware build"
+          set "UI_LOG2=Searching for newest firmware"
+          call :UI_RENDER
           set "LATEST_RUN="
           set "LATEST_RUN_NUMBER="
           set "LATEST_RUN_STATUS="
@@ -313,10 +338,12 @@ jobs:
           )
 
           set "EXPECTED_ARTIFACT_NAME=esp32-c3-pc-relay-!TARGET_BRANCH!-build-!LATEST_RUN_NUMBER!"
-          echo Selected GitHub Actions run : !LATEST_RUN!
-          echo Selected build number       : !LATEST_RUN_NUMBER!
-          echo Expected artifact          : !EXPECTED_ARTIFACT_NAME!
-          echo.
+          set "UI_STATUS=BUILD SELECTED"
+          set "UI_DETAIL=Build !LATEST_RUN_NUMBER! selected"
+          set "UI_BUILD=!LATEST_RUN_NUMBER!"
+          set "UI_ARTIFACT=!EXPECTED_ARTIFACT_NAME!"
+          set "UI_LOG3=Build selected"
+          call :UI_RENDER
           set "DOWNLOAD_DIR=%TEMP%\esp32-c3-relay-%RANDOM%%RANDOM%"
           set "EXTRACT_DIR=!DOWNLOAD_DIR!\extracted"
           set "LOCAL_DIR=%~dp0"
@@ -324,7 +351,10 @@ jobs:
           mkdir "!DOWNLOAD_DIR!" >nul 2>&1
           mkdir "!EXTRACT_DIR!" >nul 2>&1
 
-          echo !VT!36m  STATUS  !VT!0m Downloading verified firmware artifact...
+          set "UI_STATUS=DOWNLOAD"
+          set "UI_DETAIL=Downloading verified firmware artifact"
+          set "UI_LOG4=Downloading artifact"
+          call :UI_RENDER
           gh run download "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!EXPECTED_ARTIFACT_NAME!" --dir "!EXTRACT_DIR!" >nul 2>&1
           if errorlevel 1 (
           echo ERROR: GitHub artifact download failed.
@@ -392,6 +422,10 @@ jobs:
               exit /b 1
           )
 
+          set "UI_STATUS=VERIFIED"
+          set "UI_DETAIL=Firmware artifact verified"
+          set "UI_LOG4=Firmware verified"
+          call :UI_RENDER
           echo.
           echo ========================================
           echo !VT!1;32m  ✓ VERIFIED FIRMWARE!VT!0m
@@ -426,14 +460,30 @@ jobs:
               pause
               exit /b 1
           )
+          set "UI_STATUS=READY"
+          set "UI_DETAIL=Local firmware synchronized"
+          set "UI_FLASH=Ready to flash"
+          set "UI_LOG4=Firmware synchronized"
+          call :UI_RENDER
+          echo.
           echo !VT!32m  ✓ Local firmware synchronized with build !ARTIFACT_BUILD_VERSION!.!VT!0m
           echo.
           echo !VT!36m  READY   !VT!0m Verified image ready to flash.
+          set "UI_STATUS=FLASHING"
+          set "UI_DETAIL=Writing factory.bin to ESP32-C3"
+          set "UI_FLASH=Flashing"
+          set "UI_LOG4=Writing firmware to device"
+          call :UI_RENDER
           echo.
           py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 "!LOCAL_FIRMWARE!\factory.bin" >"!FLASH_LOG!" 2>&1
           set "FLASH_EXIT=!ERRORLEVEL!"
           echo.
           if not "!FLASH_EXIT!"=="0" (
+              set "UI_STATUS=FAILED"
+              set "UI_DETAIL=esptool exit code !FLASH_EXIT!"
+              set "UI_FLASH=FAILED"
+              set "UI_LOG4=Flash failed"
+              call :UI_RENDER
               echo !VT!1;31m  ✕ FLASH FAILED!VT!0m
               echo !VT!31m  esptool exit code: !FLASH_EXIT!!VT!0m
               echo !VT!90m  Diagnostic log saved to:%VT!0m
@@ -443,12 +493,37 @@ jobs:
               pause
               exit /b !FLASH_EXIT!
           )
+          set "UI_STATUS=COMPLETE"
+          set "UI_DETAIL=Firmware build !ARTIFACT_BUILD_VERSION! flashed successfully"
+          set "UI_FLASH=SUCCESS"
+          set "UI_LOG4=Flash successful"
+          call :UI_RENDER
           echo !VT!1;32m  ✓ FLASH SUCCESSFUL!VT!0m
           echo !VT!32m  Firmware build !ARTIFACT_BUILD_VERSION! was flashed successfully.!VT!0m
           echo.
           echo !VT!90m  Press any key to close...!VT!0m
           pause
           if exist "!FLASH_LOG!" del /q "!FLASH_LOG!" >nul 2>&1
+          exit /b 0
+
+          :UI_RENDER
+          <nul set /p "=!VT!H!VT!2J"
+          echo !VT!1;36m╔══════════════════════════════════════════════════════════════════════════════╗!VT!0m
+          echo !VT!1;36m║                  ESP32-C3 PC RELAY FLASHER                                ║!VT!0m
+          echo !VT!1;36m╠══════════════════════════════════════════════════════════════════════════════╣!VT!0m
+          echo !VT!90m║!VT!0m BRANCH   !TARGET_BRANCH!
+          echo !VT!90m║!VT!0m STATUS   !UI_STATUS!
+          echo !VT!90m║!VT!0m DETAIL   !UI_DETAIL!
+          echo !VT!90m║!VT!0m BUILD    !UI_BUILD!
+          echo !VT!90m║!VT!0m ARTIFACT !UI_ARTIFACT!
+          echo !VT!90m║!VT!0m FLASH    !UI_FLASH!
+          echo !VT!1;36m╠══════════════════════════════════════════════════════════════════════════════╣!VT!0m
+          echo !VT!90m║!VT!0m ACTIVITY
+          echo !VT!90m║!VT!0m   !UI_LOG1!
+          echo !VT!90m║!VT!0m   !UI_LOG2!
+          echo !VT!90m║!VT!0m   !UI_LOG3!
+          echo !VT!90m║!VT!0m   !UI_LOG4!
+          echo !VT!1;36m╚══════════════════════════════════════════════════════════════════════════════╝!VT!0m
           exit /b 0
 
           :UI_WAIT
