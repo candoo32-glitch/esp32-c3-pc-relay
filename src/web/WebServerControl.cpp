@@ -177,7 +177,7 @@ bool sendNvsBackup() {
 
   uint8_t buffer[4096];
   for (size_t offset = 0; offset < partition->size; offset += sizeof(buffer)) {
-    const size_t length = min(sizeof(buffer), partition->size - offset);
+    const size_t length = std::min(static_cast<size_t>(sizeof(buffer)), static_cast<size_t>(partition->size - offset));
     if (esp_partition_read(partition, offset, buffer, length) != ESP_OK) return false;
     if (client.write(buffer, length) != length) return false;
     client.flush();
