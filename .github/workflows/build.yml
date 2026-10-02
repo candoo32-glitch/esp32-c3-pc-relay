@@ -74,17 +74,20 @@ jobs:
           )
           setlocal EnableExtensions EnableDelayedExpansion
 
+          rem Modern Windows terminal UI: VT sequences provide per-line colors and cursor control.
+          rem No global COLOR command is used, so the whole console never changes color.
+          for /f "delims=" %%E in ('echo prompt $E^| cmd') do set "ESC=%%E"
+          set "VT=!ESC!["
           title ESP32-C3 PC Relay Firmware Flasher
-          color 0B
-          echo.
-          echo ========================================
-          echo   ESP32-C3 PC Relay Firmware Flasher
-          echo ========================================
+          cls
+          echo !VT!1;36m========================================!VT!0m
+          echo !VT!1;36m  ESP32-C3 PC RELAY - FIRMWARE UTILITY!VT!0m
+          echo !VT!1;36m========================================!VT!0m
+          echo !VT!90m  Branch:!VT!0m !TARGET_BRANCH!
           echo.
 
           where gh >nul 2>&1
           if errorlevel 1 (
-              color 0C
           echo ERROR: GitHub CLI ^(gh^) was not found.
               echo Install GitHub CLI before using this flasher.
               echo.
@@ -93,7 +96,6 @@ jobs:
           )
           where py >nul 2>&1
           if errorlevel 1 (
-              color 0C
           echo ERROR: Python launcher ^(py^) was not found.
               echo Install Python for Windows with the py launcher enabled.
               echo.
@@ -110,7 +112,6 @@ jobs:
               for /f "delims=" %%T in ('powershell -NoProfile -Command "$s=Read-Host Token -AsSecureString; $b=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($s); try { $t=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($b); [Environment]::SetEnvironmentVariable('GH_TOKEN',$t,'User'); $t } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }"') do set "GH_TOKEN=%%T"
               echo.
               if not defined GH_TOKEN (
-                  color 0C
           echo ERROR: Token was not saved.
                   echo.
                   pause
@@ -131,7 +132,7 @@ jobs:
           mkdir "!SELF_UPDATE_DIR!" >nul 2>&1
           mkdir "!SELF_UPDATE_EXTRACT!" >nul 2>&1
 
-          echo Checking for a newer flasher...
+          echo !VT!36m  Checking for a newer flasher...!VT!0m
           set "UPDATE_RUN="
           set "UPDATE_RUN_NUMBER="
           set "UPDATE_RUN_STATUS="
@@ -140,7 +141,6 @@ jobs:
           for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch "!TARGET_BRANCH!" --limit 1 --json databaseId --jq ".[0].databaseId"') do set "UPDATE_RUN=%%I"
 
           if not defined UPDATE_RUN (
-              color 0C
           echo ERROR: Could not determine the newest build for flasher update.
               rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
               pause
@@ -156,29 +156,22 @@ jobs:
           for /f "delims=" %%I in ('gh run view "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json conclusion --jq ".conclusion"') do set "UPDATE_RUN_CONCLUSION=%%I"
 
           if /I "!UPDATE_RUN_STATUS!"=="queued" (
-              color 0E
-              echo Newest build !UPDATE_RUN_NUMBER! is queued. Waiting before flashing...
-              timeout /t 10 /nobreak >nul
-              color 0B
+              set "UI_MESSAGE=Newest build !UPDATE_RUN_NUMBER! is queued. Waiting before flashing..."
+              call :UI_WAIT
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
           if /I "!UPDATE_RUN_STATUS!"=="in_progress" (
-              color 0E
-              echo Newest build !UPDATE_RUN_NUMBER! is in progress. Waiting before flashing...
-              timeout /t 10 /nobreak >nul
-              color 0B
+              set "UI_MESSAGE=Newest build !UPDATE_RUN_NUMBER! is in progress. Waiting before flashing..."
+              call :UI_WAIT
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
           if /I "!UPDATE_RUN_STATUS!"=="waiting" (
-              color 0E
-              echo Newest build !UPDATE_RUN_NUMBER! is waiting. Waiting before flashing...
-              timeout /t 10 /nobreak >nul
-              color 0B
+              set "UI_MESSAGE=Newest build !UPDATE_RUN_NUMBER! is waiting. Waiting before flashing..."
+              call :UI_WAIT
               goto WAIT_FOR_FLASHER_UPDATE_RUN
           )
 
           if /I not "!UPDATE_RUN_STATUS!"=="completed" (
-              color 0C
           echo ERROR: Flasher update build !UPDATE_RUN_NUMBER! has unexpected status "!UPDATE_RUN_STATUS!".
               rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
               pause
@@ -186,7 +179,6 @@ jobs:
           )
 
           if /I not "!UPDATE_RUN_CONCLUSION!"=="success" (
-              color 0C
           echo ERROR: Newest build !UPDATE_RUN_NUMBER! completed with conclusion "!UPDATE_RUN_CONCLUSION!".
               echo The flasher will not replace itself with a failed build.
               rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
@@ -199,12 +191,11 @@ jobs:
               rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
           ) else (
               set "UPDATE_ARTIFACT_NAME=esp32-c3-pc-relay-!TARGET_BRANCH!-build-!UPDATE_RUN_NUMBER!"
-              echo New flasher available from build !UPDATE_RUN_NUMBER!.
+              echo !VT!33m  New flasher available from build !UPDATE_RUN_NUMBER!.!VT!0m
               echo Downloading updated flasher...
 
               gh run download "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!UPDATE_ARTIFACT_NAME!" --dir "!SELF_UPDATE_EXTRACT!"
               if errorlevel 1 (
-                  color 0C
           echo ERROR: Could not download the newer flasher artifact.
                   rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
                   pause
@@ -212,7 +203,6 @@ jobs:
               )
 
               if not exist "!SELF_UPDATE_EXTRACT!\\flash.bat" (
-                  color 0C
           echo ERROR: New artifact does not contain flash.bat.
                   rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
                   pause
@@ -235,9 +225,7 @@ jobs:
               >>"!UPDATE_HELPER!" echo echo.
               >>"!UPDATE_HELPER!" echo echo Updated flasher exited with errorlevel %%ERRORLEVEL%%.
               >>"!UPDATE_HELPER!" echo pause
-
-              color 0D
-              echo Updating flash.bat in place...
+              echo !VT!35m  Updating flash.bat in place...!VT!0m
               echo The current flasher will close while the update helper replaces it.
               echo The helper window will remain open so any update error can be read.
               start "ESP32 Flasher Update" "%ComSpec%" /d /c call "!UPDATE_HELPER!"
@@ -252,7 +240,7 @@ jobs:
           set "EXPECTED_ARTIFACT_NAME="
 
           echo Target branch: !TARGET_BRANCH!
-          echo Searching GitHub for the newest build on this branch...
+          echo !VT!36mSearching GitHub for the newest build on this branch...!VT!0m
           echo.
 
           rem Always inspect the newest branch run first. If it is queued or
@@ -261,7 +249,6 @@ jobs:
           for /f "delims=" %%I in ('gh run list --repo candoo32-glitch/esp32-c3-pc-relay --workflow build.yml --branch "!TARGET_BRANCH!" --limit 1 --json databaseId --jq ".[0].databaseId"') do set "LATEST_RUN=%%I"
 
           if not defined LATEST_RUN (
-              color 0C
           echo ERROR: No build was found for branch !TARGET_BRANCH!.
               echo.
               pause
@@ -278,7 +265,6 @@ jobs:
           for /f "delims=" %%I in ('gh run view "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --json conclusion --jq ".conclusion"') do set "LATEST_RUN_CONCLUSION=%%I"
 
           if not defined LATEST_RUN_NUMBER (
-              color 0C
           echo ERROR: Could not read build !LATEST_RUN!.
               echo.
               pause
@@ -286,31 +272,24 @@ jobs:
           )
 
           if /I "!LATEST_RUN_STATUS!"=="queued" (
-              color 0E
-              echo Build !LATEST_RUN_NUMBER! is queued. Waiting...
-              timeout /t 10 /nobreak >nul
-              color 0B
+              set "UI_MESSAGE=Build !LATEST_RUN_NUMBER! is queued. Waiting..."
+              call :UI_WAIT
               goto WAIT_FOR_BUILD
           )
 
           if /I "!LATEST_RUN_STATUS!"=="in_progress" (
-              color 0E
-              echo Build !LATEST_RUN_NUMBER! is in progress. Waiting...
-              timeout /t 10 /nobreak >nul
-              color 0B
+              set "UI_MESSAGE=Build !LATEST_RUN_NUMBER! is in progress. Waiting..."
+              call :UI_WAIT
               goto WAIT_FOR_BUILD
           )
 
           if /I "!LATEST_RUN_STATUS!"=="waiting" (
-              color 0E
-              echo Build !LATEST_RUN_NUMBER! is waiting. Waiting...
-              timeout /t 10 /nobreak >nul
-              color 0B
+              set "UI_MESSAGE=Build !LATEST_RUN_NUMBER! is waiting. Waiting..."
+              call :UI_WAIT
               goto WAIT_FOR_BUILD
           )
 
           if /I not "!LATEST_RUN_STATUS!"=="completed" (
-              color 0C
           echo ERROR: Build !LATEST_RUN_NUMBER! ended in unexpected status "!LATEST_RUN_STATUS!".
               echo.
               pause
@@ -318,7 +297,6 @@ jobs:
           )
 
           if /I not "!LATEST_RUN_CONCLUSION!"=="success" (
-              color 0C
           echo ERROR: Newest build !LATEST_RUN_NUMBER! completed with conclusion "!LATEST_RUN_CONCLUSION!".
               echo The flasher will not fall back to an older build.
               echo.
@@ -338,10 +316,9 @@ jobs:
           mkdir "!DOWNLOAD_DIR!" >nul 2>&1
           mkdir "!EXTRACT_DIR!" >nul 2>&1
 
-          echo Downloading the exact artifact from run !LATEST_RUN!...
+          echo !VT!36mDownloading the exact artifact from run !LATEST_RUN!...!VT!0m
           gh run download "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!EXPECTED_ARTIFACT_NAME!" --dir "!EXTRACT_DIR!"
           if errorlevel 1 (
-              color 0C
           echo ERROR: GitHub artifact download failed.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
               echo.
@@ -350,7 +327,6 @@ jobs:
           )
 
           if not exist "!EXTRACT_DIR!\firmware\factory.bin" (
-              color 0C
           echo ERROR: Extracted artifact does not contain firmware\factory.bin.
               echo.
               dir /s /b "!EXTRACT_DIR!"
@@ -359,7 +335,6 @@ jobs:
               exit /b 1
           )
           if not exist "!EXTRACT_DIR!\BUILD_VERSION.txt" (
-              color 0C
           echo ERROR: BUILD_VERSION.txt is missing from the artifact.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
               echo.
@@ -367,7 +342,6 @@ jobs:
               exit /b 1
           )
           if not exist "!EXTRACT_DIR!\RUN_ID.txt" (
-              color 0C
           echo ERROR: RUN_ID.txt is missing from the artifact.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
               echo.
@@ -375,7 +349,6 @@ jobs:
               exit /b 1
           )
           if not exist "!EXTRACT_DIR!\ARTIFACT_NAME.txt" (
-              color 0C
           echo ERROR: ARTIFACT_NAME.txt is missing from the artifact.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
               echo.
@@ -387,7 +360,6 @@ jobs:
           set /p "ARTIFACT_RUN_ID="<"!EXTRACT_DIR!\RUN_ID.txt"
           set /p "ACTUAL_ARTIFACT_NAME="<"!EXTRACT_DIR!\ARTIFACT_NAME.txt"
           if not "!ACTUAL_ARTIFACT_NAME!"=="!EXPECTED_ARTIFACT_NAME!" (
-              color 0C
           echo ERROR: Artifact name mismatch.
               echo Expected: !EXPECTED_ARTIFACT_NAME!
               echo Artifact : !ACTUAL_ARTIFACT_NAME!
@@ -397,7 +369,6 @@ jobs:
               exit /b 1
           )
           if not "!ARTIFACT_RUN_ID!"=="!LATEST_RUN!" (
-              color 0C
           echo ERROR: Artifact run ID mismatch.
               echo Expected: !LATEST_RUN!
               echo Artifact : !ARTIFACT_RUN_ID!
@@ -407,7 +378,6 @@ jobs:
               exit /b 1
           )
           if not defined ARTIFACT_BUILD_VERSION (
-              color 0C
           echo ERROR: Artifact firmware build version is empty.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
               echo.
@@ -416,9 +386,8 @@ jobs:
           )
 
           echo.
-          color 0A
           echo ========================================
-          echo   VERIFIED FIRMWARE
+          echo !VT!1;32m  VERIFIED FIRMWARE!VT!0m
           echo ========================================
           echo GitHub Actions run : !ARTIFACT_RUN_ID!
           echo Firmware build     : !ARTIFACT_BUILD_VERSION!
@@ -426,14 +395,11 @@ jobs:
           echo Factory image      : 4194304 bytes
           echo ========================================
           echo.
-          color 0B
-
           echo Updating local firmware files...
           if exist "!LOCAL_FIRMWARE!" rmdir /s /q "!LOCAL_FIRMWARE!"
           mkdir "!LOCAL_FIRMWARE!" >nul 2>&1
           xcopy /e /i /y /q "!EXTRACT_DIR!\firmware" "!LOCAL_FIRMWARE!" >nul
           if errorlevel 1 (
-              color 0C
           echo ERROR: Could not update the local firmware directory.
               rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
               echo.
@@ -448,23 +414,21 @@ jobs:
           rmdir /s /q "!DOWNLOAD_DIR!" >nul 2>&1
 
           if not exist "!LOCAL_FIRMWARE!\factory.bin" (
-              color 0C
           echo ERROR: Local factory.bin is missing after synchronization.
               echo.
               pause
               exit /b 1
           )
-          echo Local firmware is synchronized with verified GitHub build !ARTIFACT_BUILD_VERSION!.
+          echo !VT!32m✓ Local firmware synchronized with verified GitHub build !ARTIFACT_BUILD_VERSION!.!VT!0m
           echo.
-          echo The verified image is ready to flash.
+          echo !VT!36mThe verified image is ready to flash.!VT!0m
           echo.
           py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 "!LOCAL_FIRMWARE!\factory.bin"
           set "FLASH_EXIT=!ERRORLEVEL!"
           echo.
           if not "!FLASH_EXIT!"=="0" (
-              color 0C
               echo ========================================
-              echo   FLASH FAILED
+              echo !VT!1;31m  FLASH FAILED!VT!0m
               echo ========================================
               echo.
               echo esptool exited with error code !FLASH_EXIT!.
@@ -473,13 +437,34 @@ jobs:
               pause
               exit /b !FLASH_EXIT!
           )
-          color 0A
           echo ========================================
-          echo   FLASH SUCCESSFUL
+          echo !VT!1;32m  FLASH SUCCESSFUL!VT!0m
           echo ========================================
-          echo Firmware build !ARTIFACT_BUILD_VERSION! was flashed.
+          echo !VT!1;32mFirmware build !ARTIFACT_BUILD_VERSION! was flashed successfully.!VT!0m
           echo.
+          echo !VT!90mPress any key to close...!VT!0m
           pause
+          goto :FLASH_MAIN_END_DONE
+
+          goto :FLASH_MAIN_END
+
+          :UI_WAIT
+          rem Redraw one fixed line for ten seconds while GitHub Actions is being polled.
+          for /l %%S in (1,1,10) do (
+              set /a "UI_POS=%%S %% 4"
+              if !UI_POS!==0 set "UI_BAR=>>>>>>>>>>>>>>>>"
+              if !UI_POS!==1 set "UI_BAR=>>>>>>>>>"
+              if !UI_POS!==2 set "UI_BAR=>>>>>>"
+              if !UI_POS!==3 set "UI_BAR=>>>>"
+              <nul set /p "=!VT!2K!VT!1G  !VT!33m● !UI_MESSAGE!!VT!0m  !VT!90m[!VT!36m!UI_BAR!!VT!90m] !VT!0m"
+              timeout /t 1 /nobreak >nul
+          )
+          echo.
+          exit /b 0
+
+          :FLASH_MAIN_END
+
+          :FLASH_MAIN_END_DONE
           endlocal
           EOF
           cat > dist/README.txt <<'EOF'
