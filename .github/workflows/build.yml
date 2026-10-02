@@ -484,11 +484,11 @@ jobs:
           echo Opening PuTTY with session profile "ESP"...
           where putty.exe >nul 2>&1
           if not errorlevel 1 (
-              start "" putty.exe -load "ESP" -geometry 100x45
+              start "" putty.exe -load "ESP"
           ) else if exist "%ProgramFiles%\PuTTY\putty.exe" (
-              start "" "%ProgramFiles%\PuTTY\putty.exe" -load "ESP" -geometry 100x45
+              start "" "%ProgramFiles%\PuTTY\putty.exe" -load "ESP"
           ) else if exist "%ProgramFiles(x86)%\PuTTY\putty.exe" (
-              start "" "%ProgramFiles(x86)%\PuTTY\putty.exe" -load "ESP" -geometry 100x45
+              start "" "%ProgramFiles(x86)%\PuTTY\putty.exe" -load "ESP"
           ) else (
               echo WARNING: PuTTY was not found. Firmware was flashed successfully.
               echo Install PuTTY or add putty.exe to PATH to open the ESP profile automatically.
