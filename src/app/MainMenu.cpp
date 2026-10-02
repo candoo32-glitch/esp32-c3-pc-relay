@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <esp_chip_info.h>
+#include <esp_idf_version.h>
 #include "MainMenu.h"
 #include "Setup.h"
 #include "../interface/Console.h"
@@ -48,16 +50,57 @@ void showStatus() {
   Serial.println();
   if (Console::ansiSupported) {
     Console::color("1;36m");
-    Serial.println("+=============================+");
-    Serial.println("|        SYSTEM STATUS        |");
-    Serial.println("+=============================+");
+    Serial.println("+==================================================+");
+    Console::color("1;37m");
+    Serial.println("|                  SYSTEM STATUS                   |");
+    Console::color("1;36m");
+    Serial.println("+==================================================+");
+    Console::resetStyle();
+
+    Console::color("1;35m");
+    Serial.println("  FIRMWARE");
+    Console::resetStyle();
+    Serial.print("  Version       : ");
+    Console::println(String(FIRMWARE_BUILD_VERSION), "1;32m");
+    Serial.print("  Build         : ");
+    Console::println(String(__DATE__) + " " + String(__TIME__), "1;33m");
+    Serial.print("  IDF           : ");
+    Console::println(String(ESP_IDF_VERSION_MAJOR) + "." + String(ESP_IDF_VERSION_MINOR) + "." + String(ESP_IDF_VERSION_PATCH), "1;36m");
+    Serial.print("  Arduino core  : ");
+    Console::println(String(ARDUINO_ESP32_RELEASE), "1;36m");
+    Serial.print("  Chip          : ");
+    Console::println("ESP32-C3", "1;36m");
+    Serial.print("  CPU frequency : ");
+    Console::print("  ");
+    Console::color("1;37m");
+    Serial.print(getCpuFrequencyMhz());
+    Console::println(" MHz");
+    Console::resetStyle();
+
+    Console::color("1;35m");
+    Serial.println("  NETWORK");
+    Console::resetStyle();
+    WiFiControl::printStatus();
+    NetConfig::printSettings();
+
+    Console::color("1;36m");
+    Serial.println("+==================================================+");
     Console::resetStyle();
   } else {
     Serial.println("SYSTEM STATUS");
     Serial.println("=============");
+    Serial.println("FIRMWARE");
+    Serial.print("Version: "); Serial.println(FIRMWARE_BUILD_VERSION);
+    Serial.print("Build: "); Serial.println(String(__DATE__) + " " + String(__TIME__));
+    Serial.print("IDF: "); Serial.println(String(ESP_IDF_VERSION_MAJOR) + "." + String(ESP_IDF_VERSION_MINOR) + "." + String(ESP_IDF_VERSION_PATCH));
+    Serial.print("Arduino core: "); Serial.println(ARDUINO_ESP32_RELEASE);
+    Serial.println("Chip: ESP32-C3");
+    Serial.print("CPU frequency: "); Serial.print(getCpuFrequencyMhz()); Serial.println(" MHz");
+    Serial.println();
+    Serial.println("NETWORK");
+    WiFiControl::printStatus();
+    NetConfig::printSettings();
   }
-  WiFiControl::printStatus();
-  NetConfig::printSettings();
 }
 
 void loop() {
