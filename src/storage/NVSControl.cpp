@@ -152,13 +152,14 @@ void viewContents() {
   nvs_iterator_t iterator = nullptr;
   size_t count = 0;
 
-  for (iterator = nvs_entry_find(NVS_PARTITION, nullptr, NVS_TYPE_ANY);
-       iterator != nullptr;
-       iterator = nvs_entry_next(iterator)) {
+  esp_err_t findResult =
+      nvs_entry_find(NVS_PARTITION, nullptr, NVS_TYPE_ANY, &iterator);
+  while (findResult == ESP_OK && iterator != nullptr) {
     nvs_entry_info_t info;
     nvs_entry_info(iterator, &info);
     printEntry(info);
     ++count;
+    findResult = nvs_entry_next(&iterator);
   }
 
   if (iterator != nullptr) {
