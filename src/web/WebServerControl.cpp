@@ -349,6 +349,10 @@ String page() {
     html += NetConfig::currentIP();
     html += F("</td></tr><tr><td>Gateway</td><td class='mono'>");
     html += NetConfig::currentGateway();
+    html += F("</td></tr><tr><td>DNS 1</td><td class='mono'>");
+    html += NetConfig::currentDNS1();
+    html += F("</td></tr><tr><td>DNS 2</td><td class='mono'>");
+    html += NetConfig::currentDNS2();
     html += F("</td></tr></table></div>");
   }
 
