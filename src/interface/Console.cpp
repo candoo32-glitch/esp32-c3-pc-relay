@@ -128,10 +128,12 @@ void detectANSI() {
 String readLine(bool allowEmpty = true);
 
 void begin() {
-  // WiFi startup is intentionally completed before this function is called.
-  // The terminal is an optional management interface, so waiting here cannot
-  // prevent the radio from connecting.
+  // USB is optional. Never block boot waiting for a terminal; the web server
+  // and the rest of the firmware must remain operational when headless.
   resetSession();
+  if (!Serial.isConnected()) {
+    return;
+  }
   waitForConnection();
 
   Serial.println();
