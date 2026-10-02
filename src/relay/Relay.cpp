@@ -182,11 +182,11 @@ void menu() {
         if (Console::disconnected()) return;
         if (!n.isEmpty()) setName(id, n);
         Serial.println("Normal contact: 1=OPEN, 2=CLOSED");
-        String ns = Console::readMenuChoice("Select [Enter=skip]: ", "12");
+        String ns = Console::readMenuChoice("Select: ", "12");
         if (Console::disconnected()) return;
         if (!ns.isEmpty()) setNormalState(id, ns == "2" ? NormalState::CLOSED : NormalState::OPEN);
         Serial.println("Activation: 1=LATCHED, 2=PULSE");
-        String am = Console::readMenuChoice("Select [Enter=skip]: ", "12");
+        String am = Console::readMenuChoice("Select: ", "12");
         if (Console::disconnected()) return;
         if (!am.isEmpty()) setActivationMode(id, am == "2" ? ActivationMode::PULSE : ActivationMode::LATCHED);
         if (activationMode(id) == ActivationMode::PULSE) {
