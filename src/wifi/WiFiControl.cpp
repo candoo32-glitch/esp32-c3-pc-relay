@@ -34,6 +34,14 @@ const char* authModeName(wifi_auth_mode_t authMode) {
   }
 }
 
+void printFailureWordLine(const char* prefix, const char* word, const char* suffix = "") {
+  Serial.print(prefix);
+  if (Console::ansiSupported) Console::color("1;31m");
+  Serial.print(word);
+  if (Console::ansiSupported) Console::resetStyle();
+  Serial.println(suffix);
+}
+
 constexpr char PREF_NAMESPACE[] = "wifi";
 constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
