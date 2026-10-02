@@ -51,7 +51,9 @@ static esp_event_handler_instance_t wifiEventHandlerInstance = nullptr;
 void wifiEventHandler(void*, esp_event_base_t eventBase, int32_t eventId, void* eventData) {
   if (eventBase != WIFI_EVENT) return;
 
-  if (eventId == WIFI_EVENT_STA_START) {\n    Serial.println("WiFi event: STA_START");\n  } else if (eventId == WIFI_EVENT_STA_CONNECTED) {
+  if (eventId == WIFI_EVENT_STA_START) {
+    Serial.println("WiFi event: STA_START");
+  } else if (eventId == WIFI_EVENT_STA_CONNECTED) {
     const auto* event = static_cast<const wifi_event_sta_connected_t*>(eventData);
     Serial.printf(
         "WiFi event: STA_CONNECTED  BSSID %02X:%02X:%02X:%02X:%02X:%02X  CH %u  AUTH %s\n",
