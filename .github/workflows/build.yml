@@ -74,6 +74,8 @@ jobs:
           )
           setlocal EnableExtensions EnableDelayedExpansion
 
+          set "TARGET_BRANCH=${{ github.head_ref || github.ref_name }}"
+
           rem Modern Windows terminal UI: VT sequences provide per-line colors and cursor control.
           rem No global COLOR command is used, so the whole console never changes color.
           for /f "delims=" %%E in ('echo prompt $E^| cmd') do set "ESC=%%E"
@@ -120,8 +122,6 @@ jobs:
               echo GitHub token saved. Future runs will use it automatically.
               echo.
           )
-
-          set "TARGET_BRANCH=${{ github.head_ref || github.ref_name }}"
 
           rem Self-update from the newest successful artifact on this branch.
           rem The downloaded artifact contains the authoritative flash.bat.
