@@ -250,6 +250,18 @@ String readPrompt(const char* prompt) {
 }
 
 String readMenuChoice(const char* prompt, const char* allowed) {
+  // Every menu transition establishes a fresh RX transaction boundary before
+  // printing the next prompt. This is important on native USB CDC: bytes from
+  // the previous transaction can arrive after the child menu returns, and a
+  // delayed CR/LF or terminal byte must never be interpreted as a new command.
+  //
+  // Do this here, rather than relying on individual callers, so every menu in
+  // the firmware gets the same race-free input behavior.
+  prepareForMenuInput();
+  if (disconnected()) {
+    return "";
+  }
+
   // Fixed menus are line transactions. A command is not accepted until the
   // complete CR/LF-terminated record has arrived. This keeps a terminator from
   // becoming input to the next menu state and gives us deterministic framing.
