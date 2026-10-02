@@ -56,12 +56,50 @@ void printEntry(const nvs_entry_info_t& entry, size_t number) {
                               NVS_READONLY, &handle);
   if (openResult != ESP_OK) {
     color("1;31m");
-    Serial.printf("  %-15s %-8s ERROR: %s\n",
+    Serial.printf("| %-3u | %-15.15s | %-20.20s | %-6s | ERROR: %-12.12s |\n",
+                  static_cast<unsigned>(number), entry.namespace_name,
                   entry.key, "OPEN", esp_err_to_name(openResult));
     reset();
     return;
   }
 
+  String value;
+  if (isSensitiveKey(entry.key)) {
+    value = "<hidden>";
+  } else {
+    switch (entry.type) {
+      case NVS_TYPE_U8: { uint8_t v; value = nvs_get_u8(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
+      case NVS_TYPE_I8: { int8_t v; value = nvs_get_i8(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
+      case NVS_TYPE_U16: { uint16_t v; value = nvs_get_u16(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
+      case NVS_TYPE_I16: { int16_t v; value = nvs_get_i16(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
+      case NVS_TYPE_U32: { uint32_t v; value = nvs_get_u32(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
+      case NVS_TYPE_I32: { int32_t v; value = nvs_get_i32(handle, entry.key, &v) == ESP_OK ? String(v) : "<read error>"; break; }
+      case NVS_TYPE_U64: { uint64_t v; value = nvs_get_u64(handle, entry.key, &v) == ESP_OK ? String((unsigned long long)v) : "<read error>"; break; }
+      case NVS_TYPE_I64: { int64_t v; value = nvs_get_i64(handle, entry.key, &v) == ESP_OK ? String((long long)v) : "<read error>"; break; }
+      case NVS_TYPE_STR: {
+        size_t len = 0;
+        if (nvs_get_str(handle, entry.key, nullptr, &len) == ESP_OK && len > 0) {
+          char* buffer = new char[len];
+          if (nvs_get_str(handle, entry.key, buffer, &len) == ESP_OK) value = buffer;
+          else value = "<read error>";
+          delete[] buffer;
+        } else value = "<empty>";
+        break;
+      }
+      case NVS_TYPE_BLOB: {
+        size_t len = 0;
+        value = String("<") + String((unsigned)len) + " bytes>";
+        nvs_get_blob(handle, entry.key, nullptr, &len);
+        value = String("<") + String((unsigned)len) + " bytes>";
+        break;
+      }
+      default: value = "<unsupported>"; break;
+    }
+  }
+
+  nvs_close(handle);
+
+  if (value.length() > 21) value = value.substring(0, 21);
   color("1;36m");
   Serial.printf("| %-3u | ", static_cast<unsigned>(number));
   color("1;37m");
@@ -75,72 +113,9 @@ void printEntry(const nvs_entry_info_t& entry, size_t number) {
   color("1;33m");
   printType(entry.type);
   reset();
-  Serial.print("       | ");
-
-  if (isSensitiveKey(entry.key)) {
-    color("1;31m");
-    Serial.println("<hidden>                 |");
-    reset();
-    nvs_close(handle);
-    return;
-  }
-
-  switch (entry.type) {
-    case NVS_TYPE_U8: {
-      uint8_t v; nvs_get_u8(handle, entry.key, &v); Serial.printf("%u", v); break;
-    }
-    case NVS_TYPE_I8: {
-      int8_t v; nvs_get_i8(handle, entry.key, &v); Serial.printf("%d", v); break;
-    }
-    case NVS_TYPE_U16: {
-      uint16_t v; nvs_get_u16(handle, entry.key, &v); Serial.printf("%u", v); break;
-    }
-    case NVS_TYPE_I16: {
-      int16_t v; nvs_get_i16(handle, entry.key, &v); Serial.printf("%d", v); break;
-    }
-    case NVS_TYPE_U32: {
-      uint32_t v; nvs_get_u32(handle, entry.key, &v); Serial.printf("%lu", static_cast<unsigned long>(v)); break;
-    }
-    case NVS_TYPE_I32: {
-      int32_t v; nvs_get_i32(handle, entry.key, &v); Serial.printf("%ld", static_cast<long>(v)); break;
-    }
-    case NVS_TYPE_U64: {
-      uint64_t v; nvs_get_u64(handle, entry.key, &v); Serial.printf("%llu", static_cast<unsigned long long>(v)); break;
-    }
-    case NVS_TYPE_I64: {
-      int64_t v; nvs_get_i64(handle, entry.key, &v); Serial.printf("%lld", static_cast<long long>(v)); break;
-    }
-    case NVS_TYPE_STR: {
-      size_t len = 0;
-      if (nvs_get_str(handle, entry.key, nullptr, &len) == ESP_OK && len > 0) {
-        char* value = new char[len];
-        if (nvs_get_str(handle, entry.key, value, &len) == ESP_OK) {
-          if (strlen(value) > 21) value[21] = '\0';
-          Serial.printf("%-21s|", value);
-        } else {
-          Serial.print("<read error>           |");
-        }
-        delete[] value;
-      } else {
-        Serial.print("<empty>               |");
-      }
-      break;
-    }
-    case NVS_TYPE_BLOB: {
-      size_t len = 0;
-      if (nvs_get_blob(handle, entry.key, nullptr, &len) == ESP_OK) {
-        Serial.printf("<%u bytes>%*s|", static_cast<unsigned>(len), static_cast<int>(21 - (len < 21 ? String("<" + String(len) + " bytes>").length() : 0)), "");
-      } else {
-        Serial.print("<read error>");
-      }
-      break;
-    }
-    default:
-      Serial.print("<unsupported>         |");
-      break;
-  }
-
-  nvs_close(handle);
+  Serial.print("   ");
+  Serial.printf("| %-21s |\n", value.c_str());
+  reset();
 }
 
 void viewContents() {
