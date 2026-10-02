@@ -236,6 +236,7 @@ jobs:
               >>"!UPDATE_HELPER!" echo echo Updated flasher exited with errorlevel %%ERRORLEVEL%%.
               >>"!UPDATE_HELPER!" echo pause
 
+              color 0D
               echo Updating flash.bat in place...
               echo The current flasher will close while the update helper replaces it.
               echo The helper window will remain open so any update error can be read.
