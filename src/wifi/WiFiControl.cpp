@@ -45,6 +45,8 @@ void printFailureWordLine(const char* prefix, const char* word, const char* suff
 constexpr char PREF_NAMESPACE[] = "wifi";
 constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
+constexpr char TX_POWER_KEY[] = "tx_power";
+constexpr int8_t DEFAULT_TX_POWER_QUARTER_DBM = 80;  // 20 dBm
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 
@@ -79,6 +81,84 @@ enum class ConnectResult : uint8_t {
   NETWORK_CONFIG_FAILED,
   SERIAL_DISCONNECTED
 };
+
+bool applyTxPower(int8_t requestedQuarterDbm, bool persist) {
+  const int clamped = max(8, min(84, static_cast<int>(requestedQuarterDbm)));
+  const esp_err_t result = esp_wifi_set_max_tx_power(static_cast<int8_t>(clamped));
+  if (result != ESP_OK) {
+    Serial.print("WiFi TX power: failed to set (");
+    Serial.print(esp_err_to_name(result));
+    Serial.println(").");
+    return false;
+  }
+
+  int8_t applied = 0;
+  const esp_err_t readResult = esp_wifi_get_max_tx_power(&applied);
+  if (readResult != ESP_OK) {
+    Serial.print("WiFi TX power: set succeeded, readback failed (");
+    Serial.print(esp_err_to_name(readResult));
+    Serial.println(").");
+    return false;
+  }
+
+  if (persist) {
+    preferences.putUChar(TX_POWER_KEY, static_cast<uint8_t>(applied));
+  }
+
+  Serial.print("WiFi TX power: ");
+  Serial.print(static_cast<float>(applied) * 0.25f, 2);
+  Serial.println(" dBm.");
+  return true;
+}
+
+void configureTxPower() {
+  const uint8_t saved = preferences.getUChar(
+      TX_POWER_KEY, static_cast<uint8_t>(DEFAULT_TX_POWER_QUARTER_DBM));
+  const int8_t requested = static_cast<int8_t>(saved);
+
+  if (applyTxPower(requested, false)) return;
+
+  // Fall back to the normal maximum if an invalid/corrupt saved value is
+  // encountered. Do not overwrite the stored setting unless this succeeds.
+  applyTxPower(DEFAULT_TX_POWER_QUARTER_DBM, false);
+}
+
+void configureTxPowerMenu() {
+  int8_t current = DEFAULT_TX_POWER_QUARTER_DBM;
+  if (esp_wifi_get_max_tx_power(&current) != ESP_OK) {
+    current = DEFAULT_TX_POWER_QUARTER_DBM;
+  }
+
+  Serial.println();
+  Serial.println("WiFi TX power");
+  Serial.println("--------------");
+  Serial.print("Current: ");
+  Serial.print(static_cast<float>(current) * 0.25f, 2);
+  Serial.println(" dBm");
+  Serial.println("Range: 2.00 to 20.00 dBm");
+  Serial.println("Enter the desired maximum TX power, or B to cancel.");
+
+  String choice = Console::readLine(false);
+  if (Console::disconnected()) return;
+  choice.trim();
+  choice.toUpperCase();
+  if (choice == "B" || choice.isEmpty()) return;
+
+  const float requestedDbm = choice.toFloat();
+  if (requestedDbm < 2.0f || requestedDbm > 20.0f) {
+    Serial.println("Invalid TX power. Enter a value from 2.00 to 20.00 dBm.");
+    return;
+  }
+
+  const int8_t requestedQuarterDbm = static_cast<int8_t>(
+      lroundf(requestedDbm * 4.0f));
+
+  if (!applyTxPower(requestedQuarterDbm, true)) {
+    Serial.println("TX power was not changed or saved.");
+  } else {
+    Serial.println("TX power saved to NVS and will be restored on boot.");
+  }
+}
 
 const char* connectResultName(ConnectResult result) {
   switch (result) {
@@ -693,11 +773,18 @@ void menu() {
     Serial.println("2. Configure SSID/password");
     Serial.println("3. Show WiFi status");
     Serial.println("4. Connect now");
+    int8_t menuTxPower = DEFAULT_TX_POWER_QUARTER_DBM;
+    if (esp_wifi_get_max_tx_power(&menuTxPower) != ESP_OK) {
+      menuTxPower = DEFAULT_TX_POWER_QUARTER_DBM;
+    }
+    Serial.print("5. TX power: ");
+    Serial.print(static_cast<float>(menuTxPower) * 0.25f, 2);
+    Serial.println(" dBm");
     WiFiDiagnostics::printMenuSetting();
     Serial.println("B. Back");
     Serial.println();
 
-    String choice = Console::readMenuChoice("Select: ", "12345B");
+    String choice = Console::readMenuChoice("Select: ", "123456B");
     choice.trim();
     choice.toUpperCase();
 
@@ -710,6 +797,8 @@ void menu() {
     } else if (choice == "4") {
       connect();
     } else if (choice == "5") {
+      configureTxPowerMenu();
+    } else if (choice == "6") {
       WiFiDiagnostics::toggle();
     } else if (choice == "B") {
       return;
@@ -730,6 +819,7 @@ void begin() {
   WiFi.setHostname(HOSTNAME);
   WiFi.setAutoReconnect(true);
   WiFi.mode(WIFI_STA);
+  configureTxPower();
 
   connect();
 }
