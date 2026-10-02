@@ -570,6 +570,7 @@ void begin() {
 
   WiFi.persistent(false);
   WiFi.setHostname(HOSTNAME);
+  WiFi.setAutoReconnect(false);
   WiFi.mode(WIFI_STA);
 
   connect();
