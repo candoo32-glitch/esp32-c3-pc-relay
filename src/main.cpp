@@ -4,6 +4,7 @@
 #include "network/NetConfig.h"
 #include "wifi/WiFiControl.h"
 #include "app/MainMenu.h"
+#include "web/WebServerControl.h"
 
 #ifndef FW_BUILD_VERSION
 #define FW_BUILD_VERSION 0
@@ -36,6 +37,8 @@ void setup() {
 
   // Only after WiFi has had its chance to connect do we initialize the
   // interactive terminal and ask whether ANSI rendering should be enabled.
+  WebControl::begin();
+
   Console::begin();
 
   Serial.println();
@@ -43,5 +46,6 @@ void setup() {
 }
 
 void loop() {
+  WebControl::service();
   MainMenu::loop();
 }
