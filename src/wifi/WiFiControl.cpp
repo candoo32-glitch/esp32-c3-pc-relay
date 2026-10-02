@@ -127,6 +127,7 @@ ConnectResult connectWithCredentials(const String& ssid,
 
   if (status == WL_CONNECT_FAILED) {
     Serial.println("WiFi.begin() failed.");
+    Console::prepareForMenuInput();
     return ConnectResult::CONNECTION_FAILED;
   }
 
@@ -145,6 +146,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi connection timed out.");
     WiFi.disconnect();
+    Console::prepareForMenuInput();
     return ConnectResult::TIMEOUT;
   }
 
