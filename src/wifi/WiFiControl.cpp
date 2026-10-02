@@ -120,40 +120,109 @@ void serviceDiagnostics() {
     return;
   }
 
+  // Diagnostics are rendered only by the main task, so the individual ANSI
+  // sections below cannot interleave with the Wi-Fi event callback. Plain-text
+  // mode preserves the exact same readable records without escape sequences.
+  auto diagnosticColor = [](const char* code) {
+    if (Console::ansiSupported) {
+      Console::color(code);
+    }
+  };
+
+  auto diagnosticReset = []() {
+    if (Console::ansiSupported) {
+      Console::resetStyle();
+    }
+  };
+
+  auto printPrefix = [&]() {
+    diagnosticColor("1;36m");
+    Serial.print("WIFI");
+    diagnosticReset();
+    Serial.print(" | ");
+  };
+
+  auto printSection = [&](const char* code, const char* text) {
+    diagnosticColor(code);
+    Serial.print(text);
+    diagnosticReset();
+  };
+
   WiFiDiagnosticRecord record;
   while (xQueueReceive(wifiDiagnosticQueue, &record, 0) == pdTRUE) {
     switch (record.event) {
       case ARDUINO_EVENT_WIFI_STA_START:
-        Serial.println("WIFI | START");
+        printPrefix();
+        printSection("1;33m", "START");
+        Serial.print("\r\n");
         break;
 
-      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-        Serial.printf(
-            "WIFI | CONNECTED | CH=%u | AUTH=%s | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\r\n",
-            record.channel, authModeName(static_cast<wifi_auth_mode_t>(record.authmode)),
-            record.bssid[0], record.bssid[1], record.bssid[2],
-            record.bssid[3], record.bssid[4], record.bssid[5]);
-        break;
+      case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
+        const char* auth =
+            authModeName(static_cast<wifi_auth_mode_t>(record.authmode));
 
-      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-        Serial.printf(
-            "WIFI | DISCONNECTED | R=%u %s | RSSI=%d | BSSID=%02X:%02X:%02X:%02X:%02X:%02X\r\n",
-            record.reason, wifiDisconnectReasonName(record.reason),
-            record.rssi,
-            record.bssid[0], record.bssid[1], record.bssid[2],
-            record.bssid[3], record.bssid[4], record.bssid[5]);
+        printPrefix();
+        printSection("1;32m", "CONNECTED");
+        Serial.print(" | CH=");
+        printSection("1;36m", String(record.channel).c_str());
+        Serial.print(" | AUTH=");
+        printSection("1;33m", auth);
+        Serial.print(" | BSSID=");
+        char bssid[18];
+        snprintf(bssid, sizeof(bssid), "%02X:%02X:%02X:%02X:%02X:%02X",
+                 record.bssid[0], record.bssid[1], record.bssid[2],
+                 record.bssid[3], record.bssid[4], record.bssid[5]);
+        printSection("1;35m", bssid);
+        Serial.print("\r\n");
         break;
+      }
 
-      case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-        Serial.printf(
-            "WIFI | GOT_IP | IP=%s | GW=%s | MASK=%s\r\n",
-            IPAddress(record.ip).toString().c_str(),
-            IPAddress(record.gateway).toString().c_str(),
-            IPAddress(record.netmask).toString().c_str());
+      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
+        const char* reason = wifiDisconnectReasonName(record.reason);
+
+        printPrefix();
+        printSection("1;31m", "DISCONNECTED");
+        Serial.print(" | R=");
+        char reasonNumber[4];
+        snprintf(reasonNumber, sizeof(reasonNumber), "%u", record.reason);
+        printSection("1;33m", reasonNumber);
+        Serial.print(" ");
+        printSection("1;31m", reason);
+        Serial.print(" | RSSI=");
+        char rssi[8];
+        snprintf(rssi, sizeof(rssi), "%d", record.rssi);
+        printSection("1;35m", rssi);
+        Serial.print(" | BSSID=");
+        char bssid[18];
+        snprintf(bssid, sizeof(bssid), "%02X:%02X:%02X:%02X:%02X:%02X",
+                 record.bssid[0], record.bssid[1], record.bssid[2],
+                 record.bssid[3], record.bssid[4], record.bssid[5]);
+        printSection("1;34m", bssid);
+        Serial.print("\r\n");
         break;
+      }
+
+      case ARDUINO_EVENT_WIFI_STA_GOT_IP: {
+        const String ip = IPAddress(record.ip).toString();
+        const String gateway = IPAddress(record.gateway).toString();
+        const String netmask = IPAddress(record.netmask).toString();
+
+        printPrefix();
+        printSection("1;32m", "GOT_IP");
+        Serial.print(" | IP=");
+        printSection("1;32m", ip.c_str());
+        Serial.print(" | GW=");
+        printSection("1;36m", gateway.c_str());
+        Serial.print(" | MASK=");
+        printSection("1;33m", netmask.c_str());
+        Serial.print("\r\n");
+        break;
+      }
 
       case ARDUINO_EVENT_WIFI_STA_LOST_IP:
-        Serial.println("WIFI | LOST_IP");
+        printPrefix();
+        printSection("1;31m", "LOST_IP");
+        Serial.print("\r\n");
         break;
 
       default:
