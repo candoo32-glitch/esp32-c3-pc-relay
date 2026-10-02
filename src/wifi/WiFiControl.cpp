@@ -47,6 +47,8 @@ constexpr char PREF_NAMESPACE[] = "wifi";
 constexpr char SSID_KEY[] = "ssid";
 constexpr char PASSWORD_KEY[] = "password";
 constexpr char TX_POWER_KEY[] = "tx_power";
+constexpr char WIFI_ENABLED_KEY[] = "enabled";
+constexpr bool DEFAULT_WIFI_ENABLED = true;
 constexpr int8_t DEFAULT_TX_POWER_QUARTER_DBM = 60;  // 15 dBm; experimentally stable
 constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
@@ -54,6 +56,7 @@ constexpr uint32_t RECONNECT_INTERVAL_MS = 5000;
 
 volatile bool reconnectSuppressed = false;
 volatile bool connectionAttemptActive = false;
+volatile bool wifiEnabled = DEFAULT_WIFI_ENABLED;
 TaskHandle_t reconnectTaskHandle = nullptr;
 
 struct TargetAP {
@@ -246,6 +249,75 @@ void configureTxPowerMenu() {
   }
 }
 
+bool isEnabled() {
+  return wifiEnabled;
+}
+
+bool saveEnabledPreference(bool enabled) {
+  const size_t saved = preferences.putBool(WIFI_ENABLED_KEY, enabled);
+  if (saved != 1) {
+    Serial.println("WiFi enable setting: WARNING - NVS save failed.");
+    return false;
+  }
+  return true;
+}
+
+void applyEnabledState(bool enabled, bool connectIfEnabled) {
+  wifiEnabled = enabled;
+  WiFi.setAutoReconnect(false);
+  reconnectSuppressed = !enabled;
+
+  if (!enabled) {
+    WiFi.disconnect(false, false);
+    delay(50);
+    WiFi.mode(WIFI_OFF);
+    Serial.println("WiFi: OFF.");
+    return;
+  }
+
+  if (!WiFi.mode(WIFI_STA)) {
+    Serial.println("WiFi: failed to start station mode.");
+    return;
+  }
+
+  configureTxPower();
+  WiFi.setAutoReconnect(true);
+  reconnectSuppressed = false;
+
+  if (connectIfEnabled) {
+    connect();
+  }
+}
+
+void configureWiFiEnabled() {
+  wifiEnabled = preferences.getBool(WIFI_ENABLED_KEY, DEFAULT_WIFI_ENABLED);
+  if (!preferences.isKey(WIFI_ENABLED_KEY)) {
+    if (!saveEnabledPreference(DEFAULT_WIFI_ENABLED)) {
+      wifiEnabled = DEFAULT_WIFI_ENABLED;
+    }
+  }
+
+  Serial.print("WiFi boot state: ");
+  Serial.println(wifiEnabled ? "ON" : "OFF");
+}
+
+void configureWiFiEnabledMenu() {
+  const bool newState = !wifiEnabled;
+  if (!saveEnabledPreference(newState)) {
+    if (Console::ansiSupported) Console::color("1;31m");
+    Serial.println("WiFi state was not changed because the NVS save failed.");
+    if (Console::ansiSupported) Console::resetStyle();
+    return;
+  }
+
+  applyEnabledState(newState, newState);
+  if (Console::ansiSupported) Console::color(newState ? "1;32m" : "1;33m");
+  Serial.print("WiFi is now ");
+  Serial.print(newState ? "ON" : "OFF");
+  Serial.println(" and this setting is saved to NVS.");
+  if (Console::ansiSupported) Console::resetStyle();
+}
+
 const char* connectResultName(ConnectResult result) {
   switch (result) {
     case ConnectResult::SUCCESS: return "SUCCESS";
@@ -261,6 +333,11 @@ const char* connectResultName(ConnectResult result) {
 ConnectResult connectWithCredentials(const String& ssid,
                                       const String& password,
                                       const TargetAP* requestedTarget = nullptr) {
+  if (!wifiEnabled) {
+    Serial.println("WiFi is OFF. Enable WiFi before connecting.");
+    return ConnectResult::CONNECTION_FAILED;
+  }
+
   struct ConnectionAttemptGuard {
     ConnectionAttemptGuard() { connectionAttemptActive = true; }
     ~ConnectionAttemptGuard() { connectionAttemptActive = false; }
@@ -478,6 +555,11 @@ void printStatus() {
 }
 
 bool connect() {
+  if (!wifiEnabled) {
+    Serial.println("WiFi is OFF. Enable WiFi before connecting.");
+    return false;
+  }
+
   const String ssid = preferences.getString(SSID_KEY, "");
   const String password = preferences.getString(PASSWORD_KEY, "");
   return connectWithCredentials(ssid, password) == ConnectResult::SUCCESS;
@@ -485,7 +567,7 @@ bool connect() {
 
 void reconnectTask(void*) {
   for (;;) {
-    if (!reconnectSuppressed && !connectionAttemptActive &&
+    if (wifiEnabled && !reconnectSuppressed && !connectionAttemptActive &&
         WiFi.status() != WL_CONNECTED &&
         !preferences.getString(SSID_KEY, "").isEmpty()) {
       esp_wifi_set_ps(WIFI_PS_NONE);
@@ -643,6 +725,10 @@ void printScanGrid(const int* representatives, int uniqueCount) {
 }
 
 void scan() {
+  if (!wifiEnabled) {
+    Serial.println("WiFi is OFF. Enable WiFi before scanning.");
+    return;
+  }
   reconnectSuppressed = true;
   Serial.println();
   Serial.println("WiFi scan");
@@ -849,6 +935,10 @@ void scan() {
 }
 
 void setupCredentials() {
+  if (!wifiEnabled) {
+    Serial.println("WiFi is OFF. Enable WiFi before configuring credentials.");
+    return;
+  }
   reconnectSuppressed = true;
   Serial.println();
   Serial.println("WiFi configuration");
@@ -903,6 +993,10 @@ void menu() {
     Serial.println("2. Configure SSID/password");
     Serial.println("3. Show WiFi status");
     Serial.println("4. Connect now");
+    if (Console::ansiSupported) Console::color(wifiEnabled ? "1;32m" : "1;33m");
+    Serial.print("5. WiFi: ");
+    Serial.println(wifiEnabled ? "ON" : "OFF");
+    if (Console::ansiSupported) Console::resetStyle();
     int8_t menuTxPower = DEFAULT_TX_POWER_QUARTER_DBM;
     if (esp_wifi_get_max_tx_power(&menuTxPower) != ESP_OK) {
       menuTxPower = DEFAULT_TX_POWER_QUARTER_DBM;
@@ -914,7 +1008,7 @@ void menu() {
     Serial.println("B. Back");
     Serial.println();
 
-    String choice = Console::readMenuChoice("Select: ", "123456B");
+    String choice = Console::readMenuChoice("Select: ", "1234567B");
     choice.trim();
     choice.toUpperCase();
 
@@ -927,8 +1021,10 @@ void menu() {
     } else if (choice == "4") {
       connect();
     } else if (choice == "5") {
-      configureTxPowerMenu();
+      configureWiFiEnabledMenu();
     } else if (choice == "6") {
+      configureTxPowerMenu();
+    } else if (choice == "7") {
       WiFiDiagnostics::toggle();
     } else if (choice == "B") {
       return;
@@ -939,6 +1035,7 @@ void menu() {
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
   WiFiDiagnostics::begin();
+  configureWiFiEnabled();
 
   Serial.println();
   Serial.println("WiFi subsystem starting...");
@@ -947,11 +1044,16 @@ void begin() {
   // This matches the ordering used by Espressif's Arduino ESP32 examples.
   WiFi.persistent(false);
   WiFi.setHostname(HOSTNAME);
-  WiFi.setAutoReconnect(true);
-  WiFi.mode(WIFI_STA);
-  configureTxPower();
-
-  connect();
+  if (!wifiEnabled) {
+    WiFi.setAutoReconnect(false);
+    WiFi.mode(WIFI_OFF);
+    Serial.println("WiFi is disabled by the saved NVS setting.");
+  } else {
+    WiFi.setAutoReconnect(true);
+    WiFi.mode(WIFI_STA);
+    configureTxPower();
+    connect();
+  }
   if (reconnectTaskHandle == nullptr) {
     xTaskCreate(
         reconnectTask,
