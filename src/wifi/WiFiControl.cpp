@@ -189,13 +189,29 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
 
-  // Use the normal SSID/password API even when the user selected an AP from
-  // the scan. The scan remains useful for discovery and diagnostics, but the
-  // connection itself must use the standard station association path.
-  (void)requestedTarget;
-  status = WiFi.begin(
-      ssid.c_str(),
-      password.isEmpty() ? nullptr : password.c_str());
+  // When a scan selected a concrete BSSID, use that BSSID/channel for this
+  // connection attempt. This is intentionally diagnostic-only: ordinary
+  // saved-credential connections continue to use SSID-based selection.
+  // It lets us distinguish "the AP is visible but normal selection fails"
+  // from an actual association/authentication failure.
+  if (requestedTarget != nullptr && requestedTarget->valid) {
+    Serial.printf(
+        "Diagnostic connection target: BSSID %02X:%02X:%02X:%02X:%02X:%02X CH %ld\n",
+        requestedTarget->bssid[0], requestedTarget->bssid[1],
+        requestedTarget->bssid[2], requestedTarget->bssid[3],
+        requestedTarget->bssid[4], requestedTarget->bssid[5],
+        static_cast<long>(requestedTarget->channel));
+    status = WiFi.begin(
+        ssid.c_str(),
+        password.isEmpty() ? nullptr : password.c_str(),
+        requestedTarget->channel,
+        requestedTarget->bssid,
+        true);
+  } else {
+    status = WiFi.begin(
+        ssid.c_str(),
+        password.isEmpty() ? nullptr : password.c_str());
+  }
 
   Serial.print("WiFi.begin() returned status: ");
   Serial.println(static_cast<int>(status));
