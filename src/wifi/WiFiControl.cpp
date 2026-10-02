@@ -249,6 +249,9 @@ void configureTxPowerMenu() {
   }
 }
 
+bool saveEnabledPreference(bool enabled);
+void applyEnabledState(bool enabled, bool connectIfEnabled);
+
 bool isEnabled() {
   return wifiEnabled;
 }
