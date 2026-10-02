@@ -46,6 +46,7 @@ void setup() {
 }
 
 void loop() {
+  Relay::service();
   WebControl::service();
   MainMenu::loop();
 }
