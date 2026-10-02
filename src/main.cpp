@@ -28,9 +28,15 @@ void setup() {
   Serial.print("Firmware build: ");
   Serial.println(FIRMWARE_BUILD_VERSION);
 
-  Console::begin();
+  // WiFi startup must not depend on the USB terminal. Run the complete
+  // WiFi initialization and saved-credential connection attempt first, while
+  // the console remains in plain/non-ANSI mode for boot diagnostics.
   NetConfig::begin();
   WiFiControl::begin();
+
+  // Only after WiFi has had its chance to connect do we initialize the
+  // interactive terminal and ask whether ANSI rendering should be enabled.
+  Console::begin();
 
   Serial.println();
   Serial.println("Serial configuration console ready.");
