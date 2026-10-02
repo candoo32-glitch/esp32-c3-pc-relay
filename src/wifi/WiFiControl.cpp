@@ -285,7 +285,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (!NetConfig::apply()) {
     printFailureWordLine("ERROR: network/IP configuration ", "failed", ".");
     WiFi.setAutoReconnect(previousAutoReconnect);
-    Console::prepareForMenuInput();
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
 
@@ -362,7 +361,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (connectResult != ESP_OK) {
     WiFiDiagnostics::printFailure("CONNECT", esp_err_to_name(connectResult));
     WiFi.setAutoReconnect(previousAutoReconnect);
-    Console::prepareForMenuInput();
     return ConnectResult::CONNECTION_FAILED;
   }
 
@@ -379,12 +377,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   while (WiFi.status() != WL_CONNECTED &&
          millis() - startTime < CONNECT_TIMEOUT_MS) {
     WiFiDiagnostics::service();
-    if (Console::disconnected()) {
-      WiFi.disconnect();
-      WiFi.setAutoReconnect(previousAutoReconnect);
-      Console::prepareForMenuInput();
-      return ConnectResult::SERIAL_DISCONNECTED;
-    }
     delay(100);
   }
 
@@ -399,7 +391,6 @@ ConnectResult connectWithCredentials(const String& ssid,
     delay(100);
     WiFiDiagnostics::service();
     WiFi.setAutoReconnect(previousAutoReconnect);
-    Console::prepareForMenuInput();
     return ConnectResult::TIMEOUT;
   }
 
@@ -417,7 +408,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   }
 
   WiFi.setAutoReconnect(previousAutoReconnect);
-  Console::prepareForMenuInput();
   return ConnectResult::SUCCESS;
 }
 
