@@ -128,31 +128,13 @@ void detectANSI() {
 String readLine(bool allowEmpty = true);
 
 void begin() {
+  // The USB terminal is an optional management interface. Never block
+  // firmware startup or WiFi initialization waiting for a host terminal.
+  // PuTTY and other ANSI-capable terminals are the normal console target.
   resetSession();
-  waitForConnection();
-
-  Serial.println();
-  Serial.println("Terminal display mode");
-  Serial.println("---------------------");
-  Serial.println("Use ANSI colors and boxed menus?");
-  Serial.println("Y = ANSI");
-  Serial.println("N = Plain text");
-  Serial.print("Select [Y/N]: ");
-
-  while (!Serial.available()) {
-    delay(10);
-  }
-
-  String choice = readLine();
-  choice.trim();
-  choice.toUpperCase();
-
-  ansiSupported = (choice == "Y" || choice == "YES");
-
-  Serial.println();
-  Serial.print("Terminal mode: ");
-  Serial.println(ansiSupported ? "ANSI" : "plain text");
+  ansiSupported = true;
 }
+
 
 void ansi(const char* sequence) {
   if (ansiSupported) {
