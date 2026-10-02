@@ -87,12 +87,16 @@ void service() {
     WiFi.setHostname(host.c_str());
     if (MDNS.begin(host.c_str())) {
       MDNS.addService("http", "tcp", 80);
+      MDNS.addServiceTxt("http", "tcp", "hostname", host.c_str());
       mdnsStarted = true;
-      Serial.print("mDNS: http://");
+      Serial.print("mDNS: started as http://");
       Serial.print(host);
       Serial.println(".local/");
+      Serial.print("mDNS: IP ");
+      Serial.println(WiFi.localIP());
     } else {
-      Serial.println("mDNS: failed to start.");
+      Serial.print("mDNS: failed to start for hostname ");
+      Serial.println(host);
     }
   }
 }
