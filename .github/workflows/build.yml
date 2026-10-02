@@ -69,7 +69,113 @@ jobs:
           cat > dist/flash.bat <<'EOF'
           @echo off
           setlocal EnableExtensions EnableDelayedExpansion
-          title ESP32-C3 PC Relay Firmware Flasher
+
+          rem Self-update from the newest successful artifact on this branch.
+          rem The downloaded artifact contains the authoritative flash.bat.
+          set "FLASHER_BUILD=${{ github.run_number }}"
+          set "SELF_UPDATE_DIR=%TEMP%\\esp32-c3-flasher-update-%RANDOM%%RANDOM%"
+          set "SELF_UPDATE_EXTRACT=!SELF_UPDATE_DIR!\\extracted"
+          set "SELF_PATH=%~f0"
+          mkdir "!SELF_UPDATE_DIR!" >nul 2>&1
+          mkdir "!SELF_UPDATE_EXTRACT!" >nul 2>&1
+
+          echo Checking for a newer flasher...
+          set "UPDATE_RUN="
+          set "UPDATE_RUN_NUMBER="
+          set "UPDATE_RUN_STATUS="
+          set "UPDATE_RUN_CONCLUSION="
+
+          for /f "delims=" %%I in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/workflows/build.yml/runs?branch=!TARGET_BRANCH!^&per_page=1" --jq "if (.workflow_runs | length) == 0 then empty else .workflow_runs[0].id end"') do set "UPDATE_RUN=%%I"
+
+          if not defined UPDATE_RUN (
+              echo ERROR: Could not determine the newest build for flasher update.
+              rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
+              pause
+              exit /b 1
+          )
+
+          :WAIT_FOR_FLASHER_UPDATE_RUN
+          for /f "tokens=1,2,3 delims=|" %%A in ('gh api "repos/candoo32-glitch/esp32-c3-pc-relay/actions/runs/!UPDATE_RUN!" --jq ".run_number + \"|\" + .status + \"|\" + (if .conclusion == null then \"\" else .conclusion end)"') do (
+              set "UPDATE_RUN_NUMBER=%%A"
+              set "UPDATE_RUN_STATUS=%%B"
+              set "UPDATE_RUN_CONCLUSION=%%C"
+          )
+
+          if /I "!UPDATE_RUN_STATUS!"=="queued" (
+              echo Newest build !UPDATE_RUN_NUMBER! is queued. Waiting before flashing...
+              timeout /t 10 /nobreak >nul
+              goto WAIT_FOR_FLASHER_UPDATE_RUN
+          )
+          if /I "!UPDATE_RUN_STATUS!"=="in_progress" (
+              echo Newest build !UPDATE_RUN_NUMBER! is in progress. Waiting before flashing...
+              timeout /t 10 /nobreak >nul
+              goto WAIT_FOR_FLASHER_UPDATE_RUN
+          )
+          if /I "!UPDATE_RUN_STATUS!"=="waiting" (
+              echo Newest build !UPDATE_RUN_NUMBER! is waiting. Waiting before flashing...
+              timeout /t 10 /nobreak >nul
+              goto WAIT_FOR_FLASHER_UPDATE_RUN
+          )
+
+          if /I not "!UPDATE_RUN_STATUS!"=="completed" (
+              echo ERROR: Flasher update build !UPDATE_RUN_NUMBER! has unexpected status "!UPDATE_RUN_STATUS!".
+              rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
+              pause
+              exit /b 1
+          )
+
+          if /I not "!UPDATE_RUN_CONCLUSION!"=="success" (
+              echo ERROR: Newest build !UPDATE_RUN_NUMBER! completed with conclusion "!UPDATE_RUN_CONCLUSION!".
+              echo The flasher will not replace itself with a failed build.
+              rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
+              pause
+              exit /b 1
+          )
+
+          if "!UPDATE_RUN_NUMBER!"=="!FLASHER_BUILD!" (
+              echo Flasher is already current ^(build !FLASHER_BUILD!^).
+              rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
+          ) else (
+              set "UPDATE_ARTIFACT_NAME=esp32-c3-pc-relay-!TARGET_BRANCH!-build-!UPDATE_RUN_NUMBER!"
+              echo New flasher available from build !UPDATE_RUN_NUMBER!.
+              echo Downloading updated flasher...
+
+              gh run download "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!UPDATE_ARTIFACT_NAME!" --dir "!SELF_UPDATE_EXTRACT!"
+              if errorlevel 1 (
+                  echo ERROR: Could not download the newer flasher artifact.
+                  rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
+                  pause
+                  exit /b 1
+              )
+
+              if not exist "!SELF_UPDATE_EXTRACT!\\flash.bat" (
+                  echo ERROR: New artifact does not contain flash.bat.
+                  rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
+                  pause
+                  exit /b 1
+              )
+
+              set "UPDATE_SCRIPT=!SELF_UPDATE_EXTRACT!\\flash.bat"
+              set "UPDATE_HELPER=!SELF_UPDATE_DIR!\\replace-flasher.cmd"
+              >"!UPDATE_HELPER!" echo @echo off
+              >>"!UPDATE_HELPER!" echo timeout /t 1 /nobreak ^>nul
+              >>"!UPDATE_HELPER!" echo copy /y "!UPDATE_SCRIPT!" "!SELF_PATH!" ^>nul
+              >>"!UPDATE_HELPER!" echo if errorlevel 1 ^(
+              >>"!UPDATE_HELPER!" echo     echo ERROR: Could not replace the running flasher.
+              >>"!UPDATE_HELPER!" echo     pause
+              >>"!UPDATE_HELPER!" echo     exit /b 1
+              >>"!UPDATE_HELPER!" echo ^)
+              >>"!UPDATE_HELPER!" echo echo Flasher updated to build !UPDATE_RUN_NUMBER!.
+              >>"!UPDATE_HELPER!" echo start "" "!SELF_PATH!"
+              >>"!UPDATE_HELPER!" echo rmdir /s /q "!SELF_UPDATE_DIR!" ^>nul 2^>^&1
+
+              echo Updating flash.bat in place...
+              start "" /min cmd /c ""!UPDATE_HELPER!""
+              endlocal
+              exit /b 0
+          )
+
+                    title ESP32-C3 PC Relay Firmware Flasher
           echo.
           echo ========================================
           echo   ESP32-C3 PC Relay Firmware Flasher
