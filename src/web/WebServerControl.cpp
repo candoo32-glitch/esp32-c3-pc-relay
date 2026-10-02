@@ -454,7 +454,7 @@ void handleFirmwareUpdateLatest() {
   }
 
   server.send(200, "text/html; charset=utf-8",
-              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Firmware upgraded</h2><p>The new firmware was downloaded and installed successfully. The ESP32-C3 will reboot now.</p>");
+              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Firmware upgraded</h2><p>The new firmware was downloaded and installed successfully. The ESP32-C3 will reboot now.</p><p><a href='/?tab=dashboard' style='color:#7eb6ff'>Return to Dashboard</a></p>");
   delay(300);
   ESP.restart();
 }
