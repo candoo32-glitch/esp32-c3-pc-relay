@@ -332,8 +332,6 @@ ConnectResult connectWithCredentials(const String& ssid,
   if (setConfigResult != ESP_OK) {
     WiFiDiagnostics::printFailure("SET_CONFIG", esp_err_to_name(setConfigResult));
     WiFi.setAutoReconnect(previousAutoReconnect);
-    reconnectSuppressed = false;
-    connectionAttemptActive = false;
     Console::prepareForMenuInput();
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
@@ -465,6 +463,11 @@ bool connect() {
   const String ssid = preferences.getString(SSID_KEY, "");
   const String password = preferences.getString(PASSWORD_KEY, "");
   return connectWithCredentials(ssid, password) == ConnectResult::SUCCESS;
+}
+
+void service() {
+  // Reserved for asynchronous WiFi maintenance. Connection attempts
+  // currently service diagnostics directly while they are active.
 }
 
 // Terminal table geometry.
