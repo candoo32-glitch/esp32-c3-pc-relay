@@ -345,7 +345,6 @@ void printFailure(const char* label, const char* errorName) {
 
 
 void begin() {
-  preferences.begin(PREF_NAMESPACE, false);
   diagnosticsEnabled = WiFiControl::diagnosticsPreference();
 
   wifiDiagnosticQueue = xQueueCreate(32, sizeof(WiFiDiagnosticRecord));
