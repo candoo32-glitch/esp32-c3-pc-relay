@@ -293,7 +293,7 @@ String page() {
 
     html += F("<div class='card'><h2>Wi-Fi credentials</h2><div class='muted'>Credentials are saved only after a successful connection. SSID is limited to 32 characters and password to 63.</div>");
     html += F("<form method='POST' action='/wifi/save'><div class='row'><div><label for='ssid'>SSID</label><input id='ssid' name='ssid' maxlength='32' required value='");
-    if (connected) html += htmlEscape(WiFi.SSID());
+    html += htmlEscape(WiFiControl::savedSSID());
     html += F("'></div><div><label for='password'>Password</label><input id='password' name='password' type='password' maxlength='63' autocomplete='new-password'><div class='help'>Leave empty only for an open network.</div></div></div><button class='good'>Test and save credentials</button></form></div>");
 
     html += F("<div class='card'><h2>Nearby networks</h2><form method='POST' action='/wifi/scan'><button class='secondary'>Scan now</button></form>");
