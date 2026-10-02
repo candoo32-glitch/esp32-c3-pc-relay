@@ -242,6 +242,47 @@ void printFailureWordLine(const char* prefix, const char* word, const char* suff
   Serial.println(suffix);
 }
 
+void printDiagnosticLine(const char* label, const char* value,
+                          const char* labelColor = "1;36m",
+                          const char* valueColor = "1;37m") {
+  if (!diagnosticsEnabled) return;
+
+  if (Console::ansiSupported) Console::color("1;36m");
+  Serial.print("WIFI | ");
+  if (Console::ansiSupported) Console::color(labelColor);
+  Serial.print(label);
+  if (Console::ansiSupported) Console::resetStyle();
+  Serial.print("=");
+  if (Console::ansiSupported) Console::color(valueColor);
+  Serial.print(value);
+  if (Console::ansiSupported) Console::resetStyle();
+  Serial.print("\r\n");
+}
+
+void printDiagnosticText(const char* text, const char* textColor = "1;37m") {
+  if (!diagnosticsEnabled) return;
+
+  if (Console::ansiSupported) Console::color("1;36m");
+  Serial.print("WIFI | ");
+  if (Console::ansiSupported) Console::color(textColor);
+  Serial.print(text);
+  if (Console::ansiSupported) Console::resetStyle();
+  Serial.print("\r\n");
+}
+
+void printDiagnosticFailure(const char* label, const char* errorName) {
+  if (!diagnosticsEnabled) return;
+
+  if (Console::ansiSupported) Console::color("1;36m");
+  Serial.print("WIFI | ");
+  if (Console::ansiSupported) Console::color("1;31m");
+  Serial.print(label);
+  Serial.print("=");
+  Serial.print(errorName);
+  if (Console::ansiSupported) Console::resetStyle();
+  Serial.print("\r\n");
+}
+
 const char* authModeName(wifi_auth_mode_t authMode) {
   switch (authMode) {
     case WIFI_AUTH_OPEN: return "OPEN";
@@ -327,15 +368,9 @@ ConnectResult connectWithCredentials(const String& ssid,
   Serial.println(ssid);
 
   /*
-   * Use the standard Arduino-ESP32 station connection path.
-   *
-   * In particular, do NOT pin a scanned connection to a BSSID/channel here.
-   * The ESP32-C3 may be behind a mesh, multiple APs, or an AP that changes
-   * its association path. The documented WiFi.begin(ssid, password) path
-   * lets the IDF station driver perform its normal AP selection and roaming.
-   *
-   * No raw wifi_config_t is constructed or modified here.
-   * No esp_wifi_* connection calls are required.
+   * Use the public ESP-IDF station API directly for this diagnostic
+   * connection attempt. Do not pin a scanned connection to a BSSID/channel;
+   * let the IDF station driver perform normal AP selection and roaming.
    */
   // Connection baseline:
   //   * bypass Arduino's STA::connect() configuration wrapper
@@ -354,11 +389,11 @@ ConnectResult connectWithCredentials(const String& ssid,
       password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
   WiFi.setMinSecurity(minimumSecurity);
 
-  Serial.print("Minimum WiFi security: ");
-  Serial.println(authModeName(minimumSecurity));
-  Serial.println("Connection path: raw ESP-IDF station configuration.");
-  Serial.println("BSSID/channel pinning: DISABLED.");
-  Serial.println("WiFi modem sleep: DISABLED for diagnostic attempt.");
+  printDiagnosticLine("MIN_SECURITY", authModeName(minimumSecurity),
+                       "1;33m", "1;33m");
+  printDiagnosticText("PATH=RAW ESP-IDF STATION CONFIGURATION.", "1;37m");
+  printDiagnosticText("BSSID_CHANNEL_PINNING=DISABLED.", "1;37m");
+  printDiagnosticText("MODEM_SLEEP=DISABLED FOR DIAGNOSTIC ATTEMPT.", "1;37m");
 
   if (!NetConfig::apply()) {
     printFailureWordLine("ERROR: network/IP configuration ", "failed", ".");
@@ -367,14 +402,16 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
 
-  if (requestedTarget != nullptr && requestedTarget->valid) {
-    Serial.printf(
-        "Diagnostic scan target: BSSID %02X:%02X:%02X:%02X:%02X:%02X CH %ld RSSI %d dBm\r\n",
-        requestedTarget->bssid[0], requestedTarget->bssid[1],
-        requestedTarget->bssid[2], requestedTarget->bssid[3],
-        requestedTarget->bssid[4], requestedTarget->bssid[5],
-        static_cast<long>(requestedTarget->channel),
-        static_cast<int>(requestedTarget->rssi));
+  if (requestedTarget != nullptr && requestedTarget->valid && diagnosticsEnabled) {
+    char target[96];
+    snprintf(target, sizeof(target),
+             "BSSID=%02X:%02X:%02X:%02X:%02X:%02X CH=%ld RSSI=%d dBm",
+             requestedTarget->bssid[0], requestedTarget->bssid[1],
+             requestedTarget->bssid[2], requestedTarget->bssid[3],
+             requestedTarget->bssid[4], requestedTarget->bssid[5],
+             static_cast<long>(requestedTarget->channel),
+             static_cast<int>(requestedTarget->rssi));
+    printDiagnosticText(target, "1;35m");
   }
 
   wifi_config_t stationConfig = {};
@@ -401,8 +438,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   const esp_err_t setConfigResult =
       esp_wifi_set_config(WIFI_IF_STA, &stationConfig);
   if (setConfigResult != ESP_OK) {
-    printFailureWordLine("esp_wifi_set_config() ", "FAILED", ": ");
-    Serial.println(esp_err_to_name(setConfigResult));
+    printDiagnosticFailure("SET_CONFIG", esp_err_to_name(setConfigResult));
     WiFi.setAutoReconnect(previousAutoReconnect);
     Console::prepareForMenuInput();
     return ConnectResult::NETWORK_CONFIG_FAILED;
@@ -412,33 +448,38 @@ ConnectResult connectWithCredentials(const String& ssid,
   const esp_err_t getConfigResult =
       esp_wifi_get_config(WIFI_IF_STA, &committedConfig);
   if (getConfigResult == ESP_OK) {
-    Serial.printf(
-        "Committed station config: channel=%u bssid_set=%u authmode=%u pmf_required=%u\r\n",
-        static_cast<unsigned>(committedConfig.sta.channel),
-        static_cast<unsigned>(committedConfig.sta.bssid_set),
-        static_cast<unsigned>(committedConfig.sta.threshold.authmode),
-        static_cast<unsigned>(committedConfig.sta.pmf_cfg.required));
+    char configSummary[128];
+    snprintf(configSummary, sizeof(configSummary),
+             "CH=%u BSSID_SET=%u AUTHMODE=%u PMF_REQUIRED=%u",
+             static_cast<unsigned>(committedConfig.sta.channel),
+             static_cast<unsigned>(committedConfig.sta.bssid_set),
+             static_cast<unsigned>(committedConfig.sta.threshold.authmode),
+             static_cast<unsigned>(committedConfig.sta.pmf_cfg.required));
+    printDiagnosticText(configSummary, "1;36m");
+  } else {
+    printDiagnosticFailure("GET_CONFIG", esp_err_to_name(getConfigResult));
   }
 
   const esp_err_t powerSaveResult = esp_wifi_set_ps(WIFI_PS_NONE);
   if (powerSaveResult != ESP_OK) {
-    printFailureWordLine("WARNING: WiFi power-save disable ", "failed", ": ");
-    Serial.println(esp_err_to_name(powerSaveResult));
+    printDiagnosticFailure("POWER_SAVE_DISABLE", esp_err_to_name(powerSaveResult));
   }
 
   const esp_err_t connectResult = esp_wifi_connect();
   if (connectResult != ESP_OK) {
-    printFailureWordLine("esp_wifi_connect() ", "FAILED", ": ");
-    Serial.println(esp_err_to_name(connectResult));
+    printDiagnosticFailure("CONNECT", esp_err_to_name(connectResult));
     WiFi.setAutoReconnect(previousAutoReconnect);
     Console::prepareForMenuInput();
     return ConnectResult::CONNECTION_FAILED;
   }
 
-  Serial.print("esp_wifi_connect() returned: ");
-  Serial.println(esp_err_to_name(connectResult));
-  Serial.print("Initial WiFi status: ");
-  Serial.println(static_cast<int>(WiFi.status()));
+  printDiagnosticLine("CONNECT_RETURN", esp_err_to_name(connectResult),
+                       "1;36m", connectResult == ESP_OK ? "1;32m" : "1;31m");
+  char initialStatus[16];
+  snprintf(initialStatus, sizeof(initialStatus), "%d",
+           static_cast<int>(WiFi.status()));
+  printDiagnosticLine("INITIAL_STATUS", initialStatus,
+                       "1;36m", "1;33m");
 
   const uint32_t startTime = millis();
 
