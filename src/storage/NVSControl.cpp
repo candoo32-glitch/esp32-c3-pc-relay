@@ -92,26 +92,40 @@ void printEntry(const nvs_entry_info_t& entry, size_t number) {
     value = String("ERROR: ") + esp_err_to_name(openResult);
   }
 
-  constexpr size_t VALUE_WIDTH = 21;
+  constexpr size_t VALUE_WIDTH = 20;
   if (value.length() > VALUE_WIDTH) value = value.substring(0, VALUE_WIDTH);
 
+  // Keep the entire table at exactly 78 columns for standard 80-column
+  // terminals. Every field, including TYPE, has a fixed width.
   color("1;36m");
   Serial.printf("| %-3u | ", static_cast<unsigned>(number));
   color("1;37m");
-  Serial.printf("%-15.15s", entry.namespace_name);
+  Serial.printf("%-14.14s", entry.namespace_name);
   color("1;36m");
   Serial.print(" | ");
   color("1;35m");
-  Serial.printf("%-20.20s", entry.key);
+  Serial.printf("%-19.19s", entry.key);
   color("1;36m");
   Serial.print(" | ");
   color("1;33m");
   printType(entry.type);
-  // TYPE is eight characters wide, including the separating space.
+  const size_t typeLength = strlen(
+      entry.type == NVS_TYPE_STR ? "STRING" :
+      entry.type == NVS_TYPE_BLOB ? "BLOB" :
+      entry.type == NVS_TYPE_U8 ? "U8" :
+      entry.type == NVS_TYPE_I8 ? "I8" :
+      entry.type == NVS_TYPE_U16 ? "U16" :
+      entry.type == NVS_TYPE_I16 ? "I16" :
+      entry.type == NVS_TYPE_U32 ? "U32" :
+      entry.type == NVS_TYPE_I32 ? "I32" :
+      entry.type == NVS_TYPE_U64 ? "U64" :
+      entry.type == NVS_TYPE_I64 ? "I64" : "UNKNOWN");
+  for (size_t i = typeLength; i < 7; ++i) Serial.print(' ');
+  color("1;36m");
   Serial.print(" | ");
   if (isSensitiveKey(entry.key)) color("1;31m");
   else color("1;37m");
-  Serial.printf("%-21s", value.c_str());
+  Serial.printf("%-20s", value.c_str());
   color("1;36m");
   Serial.println(" |");
   reset();
@@ -123,12 +137,8 @@ void viewContents() {
   Serial.println("Partition: nvs");
   Serial.println();
   color("1;36m");
-  Serial.println("+-----+-----------------+----------------------+---------+-----------------------+");
-  Serial.println("| #   | NAMESPACE       | KEY                  | TYPE    | VALUE                 |");
-  Serial.println("+-----+-----------------+----------------------+---------+-----------------------+");
-  reset();
-
-  nvs_iterator_t iterator = nullptr;
+  Serial.println("  Serial.println("| #   | NAMESPACE       | KEY                  | TYPE    | VALUE                 |");
+  Serial.println("  nvs_iterator_t iterator = nullptr;
   size_t count = 0;
 
   esp_err_t findResult =
@@ -145,10 +155,7 @@ void viewContents() {
   }
 
   color("1;36m");
-  Serial.println("+-----+-----------------+----------------------+---------+-----------------------+");
-  reset();
-
-  if (count == 0) {
+  Serial.println("  if (count == 0) {
     color("1;33m");
     Serial.println("  NVS is empty.");
     reset();
