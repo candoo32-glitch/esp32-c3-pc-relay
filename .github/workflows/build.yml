@@ -433,20 +433,15 @@ jobs:
           set "FLASH_EXIT=!ERRORLEVEL!"
           echo.
           if not "!FLASH_EXIT!"=="0" (
-              echo ========================================
-              echo !VT!1;31m  FLASH FAILED!VT!0m
-              echo ========================================
+              echo !VT!1;31m  ✕ FLASH FAILED!VT!0m
+              echo !VT!31m  esptool exit code: !FLASH_EXIT!!VT!0m
+              echo !VT!90m  Diagnostic log saved to:%VT!0m
+              echo   !FLASH_LOG!
               echo.
-              echo esptool exited with error code !FLASH_EXIT!.
-              echo The complete esptool output is shown above.
-              echo.
+              echo !VT!90m  Press any key to return...!VT!0m
               pause
               exit /b !FLASH_EXIT!
           )
-          echo ========================================
-          echo !VT!1;32m  FLASH SUCCESSFUL!VT!0m
-          echo ========================================
-          echo.
           echo !VT!1;32m  ✓ FLASH SUCCESSFUL!VT!0m
           echo !VT!32m  Firmware build !ARTIFACT_BUILD_VERSION! was flashed successfully.!VT!0m
           echo.
