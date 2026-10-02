@@ -214,7 +214,7 @@ String page() {
   html += F("input[type=number]{appearance:textfield}.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:10px 0}.help{font-size:12px;color:#888;margin-top:4px}");
   html += F("button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 0 0;color:white;background:#315f93;cursor:pointer}.danger{background:#7b3030}.good{background:#286a39}.secondary{background:#454545}");
   html += F(".status{display:inline-block;padding:5px 9px;border-radius:20px;background:#292929}.mono{font-family:ui-monospace,SFMono-Regular,monospace}.notice{padding:11px 13px;border:1px solid #555;border-radius:8px;background:#252525;margin:12px 0}");
-  html += F("</style></head><body>");
+  html += F(".relay-buttons{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.relay-buttons form{margin:0}.relay-button{min-width:160px;font-size:1.05rem;font-weight:700;padding:12px 18px}</style></head><body>");
 
   html += F("<h1>ESP32-C3 PC Relay</h1><div class='muted'>Headless control and configuration</div>");
 
@@ -256,9 +256,17 @@ String page() {
     html += String(getCpuFrequencyMhz());
     html += F(" MHz</td></tr></table></div></div>");
 
-    html += F("<div class='card'><h2>Relay</h2><table class='kv'><tr><td>POWER relay</td><td>");
+    html += F("<div class='card'><h2>Relay</h2><div class='relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><button class='relay-button good' name='action' value='activate'>");
+    html += htmlEscape(Relay::name(Relay::Id::POWER));
+    html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><button class='relay-button good' name='action' value='activate'>");
+    html += htmlEscape(Relay::name(Relay::Id::RESET));
+    html += F("</button></form></div><table class='kv'><tr><td>");
+    html += htmlEscape(Relay::name(Relay::Id::POWER));
+    html += F("</td><td>");
     html += Relay::powerOn() ? F("<span class='ok'>ON</span>") : F("OFF");
-    html += F(" &nbsp; GPIO5</td></tr><tr><td>RESET relay</td><td>");
+    html += F(" &nbsp; GPIO5</td></tr><tr><td>");
+    html += htmlEscape(Relay::name(Relay::Id::RESET));
+    html += F("</td><td>");
     html += Relay::resetOn() ? F("<span class='ok'>ON</span>") : F("OFF");
     html += F(" &nbsp; GPIO6</td></tr></table></div>");
   }
@@ -357,7 +365,11 @@ String page() {
   }
 
   if (tab == "relays") {
-    html += F("<div class='card'><h2>Relay control</h2><div class='muted'>Each relay is independently configurable. Default behavior is normally OPEN and closes when activated.</div></div>");
+    html += F("<div class='card'><h2>Relay control</h2><div class='muted'>Each relay is independently configurable. Default behavior is normally OPEN and closes when activated.</div></div>");    html += F("<div class='relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><button class='relay-button good' name='action' value='activate'>");
+    html += htmlEscape(Relay::name(Relay::Id::POWER));
+    html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><button class='relay-button good' name='action' value='activate'>");
+    html += htmlEscape(Relay::name(Relay::Id::RESET));
+    html += F("</button></form></div>");
     for (uint8_t i = 0; i < 2; ++i) {
       const Relay::Id id = static_cast<Relay::Id>(i);
       html += F("<div class='card'><h2>");
