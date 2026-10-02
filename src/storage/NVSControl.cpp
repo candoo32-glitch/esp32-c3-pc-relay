@@ -49,7 +49,7 @@ bool isSensitiveKey(const char* key) {
          strcasecmp(key, "token") == 0;
 }
 
-void printEntry(const nvs_entry_info_t& entry) {
+void printEntry(const nvs_entry_info_t& entry, size_t number) {
   nvs_handle_t handle = 0;
   const esp_err_t openResult =
       nvs_open_from_partition(NVS_PARTITION, entry.namespace_name,
@@ -63,19 +63,23 @@ void printEntry(const nvs_entry_info_t& entry) {
   }
 
   color("1;36m");
-  Serial.print("  ");
+  Serial.printf("| %-3u | ", static_cast<unsigned>(number));
   color("1;37m");
-  Serial.printf("%-15s ", entry.namespace_name);
+  Serial.printf("%-15.15s", entry.namespace_name);
+  reset();
+  Serial.print(" | ");
   color("1;35m");
-  Serial.printf("%-22s ", entry.key);
+  Serial.printf("%-20.20s", entry.key);
+  reset();
+  Serial.print(" | ");
   color("1;33m");
   printType(entry.type);
-  Serial.print("  ");
   reset();
+  Serial.print("       | ");
 
   if (isSensitiveKey(entry.key)) {
     color("1;31m");
-    Serial.println("<hidden>");
+    Serial.println("<hidden>                 |");
     reset();
     nvs_close(handle);
     return;
@@ -111,31 +115,31 @@ void printEntry(const nvs_entry_info_t& entry) {
       if (nvs_get_str(handle, entry.key, nullptr, &len) == ESP_OK && len > 0) {
         char* value = new char[len];
         if (nvs_get_str(handle, entry.key, value, &len) == ESP_OK) {
-          Serial.print(value);
+          if (strlen(value) > 21) value[21] = '\0';
+          Serial.printf("%-21s|", value);
         } else {
-          Serial.print("<read error>");
+          Serial.print("<read error>           |");
         }
         delete[] value;
       } else {
-        Serial.print("<empty>");
+        Serial.print("<empty>               |");
       }
       break;
     }
     case NVS_TYPE_BLOB: {
       size_t len = 0;
       if (nvs_get_blob(handle, entry.key, nullptr, &len) == ESP_OK) {
-        Serial.printf("<%u bytes>", static_cast<unsigned>(len));
+        Serial.printf("<%u bytes>%*s|", static_cast<unsigned>(len), static_cast<int>(21 - (len < 21 ? String("<" + String(len) + " bytes>").length() : 0)), "");
       } else {
         Serial.print("<read error>");
       }
       break;
     }
     default:
-      Serial.print("<unsupported>");
+      Serial.print("<unsupported>         |");
       break;
   }
 
-  Serial.println();
   nvs_close(handle);
 }
 
@@ -145,9 +149,10 @@ void viewContents() {
   Serial.println("Partition: nvs");
   Serial.println();
   color("1;36m");
-  Serial.println("  NAMESPACE       KEY                    TYPE  VALUE");
+  Serial.println("+-----+-----------------+----------------------+--------+-----------------------+");
+  Serial.println("| #   | NAMESPACE       | KEY                  | TYPE   | VALUE                 |");
+  Serial.println("+-----+-----------------+----------------------+--------+-----------------------+");
   reset();
-  Serial.println("  ---------------------------------------------------------------");
 
   nvs_iterator_t iterator = nullptr;
   size_t count = 0;
@@ -157,14 +162,17 @@ void viewContents() {
   while (findResult == ESP_OK && iterator != nullptr) {
     nvs_entry_info_t info;
     nvs_entry_info(iterator, &info);
-    printEntry(info);
-    ++count;
+    printEntry(info, ++count);
     findResult = nvs_entry_next(&iterator);
   }
 
   if (iterator != nullptr) {
     nvs_release_iterator(iterator);
   }
+
+  color("1;36m");
+  Serial.println("+-----+-----------------+----------------------+--------+-----------------------+");
+  reset();
 
   if (count == 0) {
     color("1;33m");
