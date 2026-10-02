@@ -12,9 +12,6 @@
 namespace WiFiDiagnostics {
 
 namespace {
-constexpr char PREF_NAMESPACE[] = "wifi";
-constexpr char DIAGNOSTICS_KEY[] = "diagnostics";
-Preferences preferences;
 bool diagnosticsEnabled = true;
 WiFiEventId_t wifiEventId = 0;
 QueueHandle_t wifiDiagnosticQueue = nullptr;
@@ -349,7 +346,7 @@ void printFailure(const char* label, const char* errorName) {
 
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
-  diagnosticsEnabled = preferences.getBool(DIAGNOSTICS_KEY, true);
+  diagnosticsEnabled = WiFiControl::diagnosticsPreference();
 
   wifiDiagnosticQueue = xQueueCreate(32, sizeof(WiFiDiagnosticRecord));
   if (wifiDiagnosticQueue == nullptr) {
@@ -383,7 +380,7 @@ void printMenuSetting() {
 
 void toggle() {
   diagnosticsEnabled = !diagnosticsEnabled;
-  preferences.putBool(DIAGNOSTICS_KEY, diagnosticsEnabled);
+  WiFiControl::saveDiagnosticsPreference(diagnosticsEnabled);
 
   if (Console::ansiSupported) {
     Console::color(diagnosticsEnabled ? "1;32m" : "1;31m");
