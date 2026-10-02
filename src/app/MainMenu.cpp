@@ -71,10 +71,10 @@ void showStatus() {
     Serial.print("  Chip          : ");
     Console::color("1;36m"); Serial.println("ESP32-C3"); Console::resetStyle();
     Serial.print("  CPU frequency : ");
-    Console::print("  ");
+    Serial.print("  ");
     Console::color("1;37m");
     Serial.print(getCpuFrequencyMhz());
-    Console::println(" MHz");
+    Serial.println(" MHz");
     Console::resetStyle();
 
     Console::color("1;35m");
