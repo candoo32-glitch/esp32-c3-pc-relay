@@ -68,6 +68,11 @@ jobs:
 
           cat > dist/flash.bat <<'EOF'
           @echo off
+          if not defined ESP32_FLASHER_CONSOLE (
+          set "ESP32_FLASHER_CONSOLE=1"
+          start "ESP32-C3 PC Relay Firmware Flasher" "%ComSpec%" /d /k call "%~f0" %*
+          exit /b 0
+          )
           setlocal EnableExtensions EnableDelayedExpansion
 
           title ESP32-C3 PC Relay Firmware Flasher
