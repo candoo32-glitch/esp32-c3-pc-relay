@@ -18,6 +18,10 @@ Preferences preferences;
 bool diagnosticsEnabled = true;
 WiFiEventId_t wifiEventId = 0;
 QueueHandle_t wifiDiagnosticQueue = nullptr;
+volatile uint32_t activeAttempt = 0;
+volatile uint32_t attemptStartMs = 0;
+volatile uint32_t eventSequence = 0;
+volatile uint32_t droppedEvents = 0;
 
 struct WiFiDiagnosticRecord {
   uint32_t event = 0;
@@ -184,7 +188,7 @@ void service() {
   WiFiDiagnosticRecord record;
   while (xQueueReceive(wifiDiagnosticQueue, &record, 0) == pdTRUE) {
     switch (record.event) {
-      case ARDUINO_EVENT_WIFI_STA_START:
+      case ARDUINO_EVENT_WIFI_STA_START: {
         printPrefix();
         char eventMeta[64];
         snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
@@ -196,6 +200,7 @@ void service() {
         printSection("1;33m", "START");
         Serial.print("\r\n");
         break;
+      }
 
       case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
         const char* auth =
@@ -280,7 +285,7 @@ void service() {
         break;
       }
 
-      case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+      case ARDUINO_EVENT_WIFI_STA_LOST_IP: {
         printPrefix();
         char eventMeta[64];
         snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
