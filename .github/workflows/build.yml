@@ -548,3 +548,11 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Upload OTA firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-c3-pc-relay-${{ github.head_ref || github.ref_name }}-ota-${{ github.run_number }}
+          path: dist/firmware/firmware.bin
+          if-no-files-found: error
+          retention-days: 30
