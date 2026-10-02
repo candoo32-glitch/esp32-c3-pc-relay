@@ -10,6 +10,8 @@ bool isEnabled();
 bool setEnabled(bool enabled);
 bool diagnosticsPreference();
 bool saveDiagnosticsPreference(bool enabled);
+bool configureCredentials(const String& ssid, const String& password);
+bool setTxPowerDbm(float dbm);
 void menu();
 void printStatus();
 const char* authModeName(wifi_auth_mode_t authMode);
