@@ -88,13 +88,23 @@ jobs:
           endlocal & exit /b !FLASH_APP_EXIT!
 
           :FLASH_APP
-          cls
-          echo !VT!1;36m╔══════════════════════════════════════════════════════════════════════════════╗!VT!0m
-          echo !VT!1;36m║              ESP32-C3 PC RELAY - FIRMWARE UTILITY                         ║!VT!0m
-          echo !VT!1;36m╚══════════════════════════════════════════════════════════════════════════════╝!VT!0m
-          echo !VT!90m  Branch:!VT!0m !TARGET_BRANCH!
-          echo.
-
+          call :UI_INIT
+          call :UI_FIELD 5 "Branch" "!TARGET_BRANCH!"
+          call :UI_STATUS "Starting flasher..."
+          call :UI_LOG "Flasher started."
+          call :UI_FIELD 6 "Build" "checking..."
+          call :UI_FIELD 11 "Artifact" "waiting..."
+          call :UI_FIELD 12 "Firmware" "waiting..."
+          call :UI_FIELD 13 "Run ID" "waiting..."
+          call :UI_FIELD 14 "Integrity" "pending"
+          call :UI_FIELD 15 "Image" "pending"
+          call :UI_FIELD 18 "Device" "ESP32-C3"
+          call :UI_FIELD 19 "Stage" "Starting"
+          call :UI_PROGRESS 0 "Initializing"
+          call :UI_FIELD 21 "Detail" "Ready"
+          call :UI_LOG "Dashboard initialized."
+          call :UI_STATUS "Checking prerequisites..."
+          call :UI_LOG "Checking GitHub CLI and Python."
           where gh >nul 2>&1
           if errorlevel 1 (
           echo ERROR: GitHub CLI ^(gh^) was not found.
@@ -139,7 +149,7 @@ jobs:
           mkdir "!SELF_UPDATE_DIR!" >nul 2>&1
           mkdir "!SELF_UPDATE_EXTRACT!" >nul 2>&1
 
-          echo !VT!36m  STATUS  !VT!0m Checking for a newer flasher...
+          call :UI_STATUS "Checking for a newer flasher..."
           set "UPDATE_RUN="
           set "UPDATE_RUN_NUMBER="
           set "UPDATE_RUN_STATUS="
@@ -198,8 +208,8 @@ jobs:
               rmdir /s /q "!SELF_UPDATE_DIR!" >nul 2>&1
           ) else (
               set "UPDATE_ARTIFACT_NAME=esp32-c3-pc-relay-!TARGET_BRANCH!-build-!UPDATE_RUN_NUMBER!"
-              echo !VT!33m  New flasher available from build !UPDATE_RUN_NUMBER!.!VT!0m
-              echo Downloading updated flasher...
+              call :UI_STATUS "New flasher available from build !UPDATE_RUN_NUMBER!."
+              call :UI_LOG "Downloading updated flasher artifact."
 
               gh run download "!UPDATE_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!UPDATE_ARTIFACT_NAME!" --dir "!SELF_UPDATE_EXTRACT!" >nul 2>&1
               if errorlevel 1 (
@@ -232,9 +242,9 @@ jobs:
               >>"!UPDATE_HELPER!" echo echo.
               >>"!UPDATE_HELPER!" echo echo Updated flasher exited with errorlevel %%ERRORLEVEL%%.
               >>"!UPDATE_HELPER!" echo pause
-              echo !VT!35m  Updating flash.bat in place...!VT!0m
-              echo The current flasher will close while the update helper replaces it.
-              echo The helper window will remain open so any update error can be read.
+              call :UI_STATUS "Updating flash.bat in place..."
+              call :UI_LOG "Current flasher will close for the in-place update."
+              call :UI_LOG "Update helper will report any replacement error."
               start "ESP32 Flasher Update" "%ComSpec%" /d /c call "!UPDATE_HELPER!"
               endlocal
               exit /b 0
@@ -246,8 +256,8 @@ jobs:
           set "LATEST_RUN_CONCLUSION="
           set "EXPECTED_ARTIFACT_NAME="
 
-          echo Target branch: !TARGET_BRANCH!
-          echo !VT!36m  STATUS  !VT!0m Searching GitHub for the newest build...
+          call :UI_FIELD 5 "Branch" "!TARGET_BRANCH!"
+          call :UI_STATUS "Searching GitHub for the newest build..."
           echo.
 
           rem Always inspect the newest branch run first. If it is queued or
@@ -312,9 +322,9 @@ jobs:
           )
 
           set "EXPECTED_ARTIFACT_NAME=esp32-c3-pc-relay-!TARGET_BRANCH!-build-!LATEST_RUN_NUMBER!"
-          echo Selected GitHub Actions run : !LATEST_RUN!
-          echo Selected build number       : !LATEST_RUN_NUMBER!
-          echo Expected artifact          : !EXPECTED_ARTIFACT_NAME!
+          call :UI_FIELD 13 "Run ID" "!LATEST_RUN!"
+          call :UI_FIELD 6 "Build" "!LATEST_RUN_NUMBER!"
+          call :UI_FIELD 11 "Artifact" "!EXPECTED_ARTIFACT_NAME!"
           echo.
           set "DOWNLOAD_DIR=%TEMP%\esp32-c3-relay-%RANDOM%%RANDOM%"
           set "EXTRACT_DIR=!DOWNLOAD_DIR!\extracted"
@@ -323,7 +333,7 @@ jobs:
           mkdir "!DOWNLOAD_DIR!" >nul 2>&1
           mkdir "!EXTRACT_DIR!" >nul 2>&1
 
-          echo !VT!36m  STATUS  !VT!0m Downloading verified firmware artifact...
+          call :UI_STATUS "Downloading verified firmware artifact..."
           gh run download "!LATEST_RUN!" --repo candoo32-glitch/esp32-c3-pc-relay --name "!EXPECTED_ARTIFACT_NAME!" --dir "!EXTRACT_DIR!" >nul 2>&1
           if errorlevel 1 (
           echo ERROR: GitHub artifact download failed.
@@ -393,15 +403,15 @@ jobs:
 
           echo.
           echo ========================================
-          echo !VT!1;32m  ✓ VERIFIED FIRMWARE!VT!0m
+          call :UI_STATUS "Firmware artifact verified."
           echo ========================================
-          echo GitHub Actions run : !ARTIFACT_RUN_ID!
-          echo Firmware build     : !ARTIFACT_BUILD_VERSION!
-          echo Artifact name      : !ACTUAL_ARTIFACT_NAME!
-          echo Factory image      : 4194304 bytes
+          call :UI_FIELD 13 "Run ID" "!ARTIFACT_RUN_ID!"
+          call :UI_FIELD 12 "Firmware" "!ARTIFACT_BUILD_VERSION!"
+          call :UI_FIELD 11 "Artifact" "!ACTUAL_ARTIFACT_NAME!"
+          call :UI_FIELD 15 "Image" "factory.bin (4 MB)"
           echo ========================================
           echo.
-          echo Updating local firmware files...
+          call :UI_STATUS "Synchronizing local firmware..."
           if exist "!LOCAL_FIRMWARE!" rmdir /s /q "!LOCAL_FIRMWARE!"
           mkdir "!LOCAL_FIRMWARE!" >nul 2>&1
           xcopy /e /i /y /q "!EXTRACT_DIR!\firmware" "!LOCAL_FIRMWARE!" >nul 2>&1
@@ -425,43 +435,120 @@ jobs:
               pause
               exit /b 1
           )
-          echo !VT!32m  ✓ Local firmware synchronized with build !ARTIFACT_BUILD_VERSION!.!VT!0m
+          call :UI_STATUS "Local firmware synchronized with build !ARTIFACT_BUILD_VERSION!."
           echo.
-          echo !VT!36m  READY   !VT!0m Verified image ready to flash.
+          call :UI_STATUS "Verified image ready to flash."
           echo.
+          call :UI_FIELD 19 "Stage" "Programming flash"
+          call :UI_PROGRESS 75 "Writing factory.bin to ESP32-C3"
           py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 "!LOCAL_FIRMWARE!\factory.bin" >"!FLASH_LOG!" 2>&1
           set "FLASH_EXIT=!ERRORLEVEL!"
           echo.
           if not "!FLASH_EXIT!"=="0" (
-              echo !VT!1;31m  ✕ FLASH FAILED!VT!0m
-              echo !VT!31m  esptool exit code: !FLASH_EXIT!!VT!0m
-              echo !VT!90m  Diagnostic log saved to:%VT!0m
-              echo   !FLASH_LOG!
+                  call :UI_STATUS "FLASH FAILED"
+              call :UI_FIELD 19 "Stage" "FAILED (exit !FLASH_EXIT!)"
+              call :UI_FIELD 21 "Detail" "Diagnostic log saved to:"
+              call :UI_FIELD 22 "Log" "!FLASH_LOG!"
               echo.
               echo !VT!90m  Press any key to return...!VT!0m
               pause
               exit /b !FLASH_EXIT!
           )
-          echo !VT!1;32m  ✓ FLASH SUCCESSFUL!VT!0m
-          echo !VT!32m  Firmware build !ARTIFACT_BUILD_VERSION! was flashed successfully.!VT!0m
+          call :UI_PROGRESS 100 "Programming complete"
+          call :UI_FIELD 19 "Stage" "Complete"
+          call :UI_STATUS "FLASH SUCCESSFUL"
+          call :UI_FIELD 21 "Detail" "Firmware build !ARTIFACT_BUILD_VERSION! flashed successfully."
           echo.
-          echo !VT!90m  Press any key to close...!VT!0m
+          call :UI_FIELD 31 "Action" "Press any key to close..."
           pause
           if exist "!FLASH_LOG!" del /q "!FLASH_LOG!" >nul 2>&1
           exit /b 0
 
+          :UI_INIT
+          mode con: cols=100 lines=34 >nul 2>&1
+          <nul set /p "=!VT!2J!VT!H"
+          echo !VT!1;36m+==================================================================================================+!VT!0m
+          echo !VT!1;36m^|                         ESP32-C3 PC RELAY  -  FIRMWARE FLASHER                         ^|!VT!0m
+          echo !VT!1;36m+==================================================================================================+!VT!0m
+          echo !VT!1;37m^| REPOSITORY                                                                                       ^|!VT!0m
+          echo !VT!36m^| +------------------------------------------------------------------------------------------------+ ^|!VT!0m
+          echo !VT!36m^| ^| Branch      !VT!0mchecking...                                                                    !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| ^| Build       !VT!0mchecking...                                                                    !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| ^| Status      !VT!0mstarting...                                                                    !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| +------------------------------------------------------------------------------------------------+ ^|!VT!0m
+          echo !VT!1;37m^| ARTIFACT                                                                                         ^|!VT!0m
+          echo !VT!36m^| +------------------------------------------------------------------------------------------------+ ^|!VT!0m
+          echo !VT!36m^| ^| Artifact    !VT!0mwaiting...                                                                     !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| ^| Firmware    !VT!0mwaiting...                                                                     !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| ^| Run ID      !VT!0mwaiting...                                                                     !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| ^| Integrity   !VT!0mpending                                                                      !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| ^| Image       !VT!0mpending                                                                      !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| +------------------------------------------------------------------------------------------------+ ^|!VT!0m
+          echo !VT!1;37m^| FLASH STATUS                                                                                     ^|!VT!0m
+          echo !VT!36m^| +------------------------------------------------------------------------------------------------+ ^|!VT!0m
+          echo !VT!36m^| ^| Device      !VT!0mESP32-C3                                                                       !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| ^| Stage       !VT!0mStarting                                                                        !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| ^| Progress    !VT!0m[░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]   0%                         !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| ^| Detail      !VT!0midle                                                                            !VT!36m^| ^|!VT!0m
+          echo !VT!36m^| +------------------------------------------------------------------------------------------------+ ^|!VT!0m
+          echo !VT!1;37m^| ACTIVITY LOG                                                                                     ^|!VT!0m
+          echo !VT!36m^| +------------------------------------------------------------------------------------------------+ ^|!VT!0m
+          echo !VT!36m^| ^|                                                                                                  ^| ^|!VT!0m
+          echo !VT!36m^| ^|                                                                                                  ^| ^|!VT!0m
+          echo !VT!36m^| ^|                                                                                                  ^| ^|!VT!0m
+          echo !VT!36m^| ^|                                                                                                  ^| ^|!VT!0m
+          echo !VT!36m^| +------------------------------------------------------------------------------------------------+ ^|!VT!0m
+          echo !VT!1;36m+==================================================================================================+!VT!0m
+          echo !VT!1;37m^| READY                                                                                               ^|!VT!0m
+          echo !VT!1;36m+==================================================================================================+!VT!0m
+          exit /b 0
+
+          :UI_FIELD
+          <nul set /p "=!VT!%~1;1H!VT!2K!VT!36m^| ^| %~2      !VT!0m%~3!VT!36m                                                                      ^| ^|!VT!0m"
+          exit /b 0
+
+          :UI_STATUS
+          <nul set /p "=!VT!7;1H!VT!2K!VT!36m^| ^| Status      !VT!0m!VT!96m● %~1!VT!36m                                                                      ^| ^|!VT!0m"
+          call :UI_LOG "%~1"
+          exit /b 0
+
+          :UI_PROGRESS
+          set "UI_PCT=%~1"
+          set "UI_DETAIL=%~2"
+          set "UI_FILLED="
+          set /a "UI_N=UI_PCT/2"
+          for /l %%P in (1,1,50) do if %%P LEQ !UI_N! set "UI_FILLED=!UI_FILLED!#"
+          for /l %%P in (1,1,50) do if %%P GTR !UI_N! set "UI_FILLED=!UI_FILLED!."
+          <nul set /p "=!VT!20;1H!VT!2K!VT!36m^| ^| Progress    !VT!0m[!VT!92m!UI_FILLED!!VT!36m] !UI_PCT!%%                                                                    !VT!36m^| ^|!VT!0m"
+          <nul set /p "=!VT!21;1H!VT!2K!VT!36m^| ^| Detail      !VT!0m!UI_DETAIL!                                                                      !VT!36m^| ^|!VT!0m"
+          exit /b 0
+
+          :UI_LOG
+          set "UI_L4=!UI_L3!"
+          set "UI_L3=!UI_L2!"
+          set "UI_L2=!UI_L1!"
+          set "UI_L1=%~1"
+          <nul set /p "=!VT!25;1H!VT!2K!VT!36m^| ^| !VT!0m!UI_L4!                                                                      !VT!36m^| ^|!VT!0m"
+          <nul set /p "=!VT!26;1H!VT!2K!VT!36m^| ^| !VT!0m!UI_L3!                                                                      !VT!36m^| ^|!VT!0m"
+          <nul set /p "=!VT!27;1H!VT!2K!VT!36m^| ^| !VT!0m!UI_L2!                                                                      !VT!36m^| ^|!VT!0m"
+          <nul set /p "=!VT!28;1H!VT!2K!VT!36m^| ^| !VT!0m!UI_L1!                                                                      !VT!36m^| ^|!VT!0m"
+          exit /b 0
+
           :UI_WAIT
-          rem Fixed status line. The alternate screen buffer prevents scrollback.
           for /l %%S in (1,1,10) do (
               set /a "UI_POS=%%S %% 4"
-              if !UI_POS!==0 set "UI_BAR=████████████████"
-              if !UI_POS!==1 set "UI_BAR=██████████"
-              if !UI_POS!==2 set "UI_BAR=██████"
-              if !UI_POS!==3 set "UI_BAR=██"
-              <nul set /p "=!VT!8;1H!VT!2K  !VT!93m● !UI_MESSAGE!!VT!0m  !VT!90m[!VT!36m!UI_BAR!!VT!90m] !VT!0m"
+              if !UI_POS!==0 set "UI_BAR=>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+              if !UI_POS!==1 set "UI_BAR=>>>>>>>>>>>>>>>>>>>>>>>>>........................."
+              if !UI_POS!==2 set "UI_BAR=>>>>>>>>>>........................................"
+              if !UI_POS!==3 set "UI_BAR=>>................................................"
+              <nul set /p "=!VT!19;1H!VT!2K!VT!36m^| ^| Stage       !VT!0mWaiting                                                                        !VT!36m^| ^|!VT!0m"
+              <nul set /p "=!VT!20;1H!VT!2K!VT!36m^| ^| Progress    !VT!0m[!VT!93m!UI_BAR!!VT!36m]       !VT!36m^| ^|!VT!0m"
+              <nul set /p "=!VT!21;1H!VT!2K!VT!36m^| ^| Detail      !VT!0m!UI_MESSAGE!                                                                      !VT!36m^| ^|!VT!0m"
               timeout /t 1 /nobreak >nul
           )
           exit /b 0
+
+          :FLASH_MAIN_END
 
           :FLASH_MAIN_END
 
