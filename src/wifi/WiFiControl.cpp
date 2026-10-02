@@ -50,7 +50,6 @@ constexpr char TX_POWER_KEY[] = "tx_power";
 constexpr char WIFI_ENABLED_KEY[] = "enabled";
 constexpr bool DEFAULT_WIFI_ENABLED = true;
 constexpr int8_t DEFAULT_TX_POWER_QUARTER_DBM = 60;  // 15 dBm; experimentally stable
-constexpr char HOSTNAME[] = "esp32-c3-relay";
 constexpr uint32_t CONNECT_TIMEOUT_MS = 15000;
 constexpr uint32_t RECONNECT_INTERVAL_MS = 5000;
 
@@ -1080,7 +1079,7 @@ void begin() {
   // Initialize the station configuration before starting the Wi-Fi interface.
   // This matches the ordering used by Espressif's Arduino ESP32 examples.
   WiFi.persistent(false);
-  WiFi.setHostname(HOSTNAME);
+  WiFi.setHostname(NetConfig::hostname().c_str());
   if (!wifiEnabled) {
     WiFi.setAutoReconnect(false);
     WiFi.mode(WIFI_OFF);
