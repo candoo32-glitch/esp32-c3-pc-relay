@@ -9,280 +9,10 @@
 #include "WiFiControl.h"
 #include "../interface/Console.h"
 #include "../network/NetConfig.h"
+#include "WiFiDiagnostics.h"
 
 namespace WiFiControl {
 Preferences preferences;
-static bool diagnosticsEnabled = true;
-
-const char* authModeName(wifi_auth_mode_t authMode);
-
-const char* wifiDisconnectReasonName(uint8_t reason) {
-  switch (reason) {
-    case WIFI_REASON_UNSPECIFIED: return "UNSPECIFIED";
-    case WIFI_REASON_AUTH_EXPIRE: return "AUTH_EXPIRE";
-    case WIFI_REASON_AUTH_LEAVE: return "AUTH_LEAVE";
-    case WIFI_REASON_ASSOC_TOOMANY: return "ASSOC_TOOMANY";
-    case WIFI_REASON_ASSOC_LEAVE: return "ASSOC_LEAVE";
-    case WIFI_REASON_ASSOC_NOT_AUTHED: return "ASSOC_NOT_AUTHED";
-    case WIFI_REASON_DISASSOC_PWRCAP_BAD: return "DISASSOC_PWRCAP_BAD";
-    case WIFI_REASON_DISASSOC_SUPCHAN_BAD: return "DISASSOC_SUPCHAN_BAD";
-    case WIFI_REASON_IE_INVALID: return "IE_INVALID";
-    case WIFI_REASON_MIC_FAILURE: return "MIC_FAILURE";
-    case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT: return "4WAY_HANDSHAKE_TIMEOUT";
-    case WIFI_REASON_GROUP_KEY_UPDATE_TIMEOUT: return "GROUP_KEY_UPDATE_TIMEOUT";
-    case WIFI_REASON_IE_IN_4WAY_DIFFERS: return "IE_IN_4WAY_DIFFERS";
-    case WIFI_REASON_GROUP_CIPHER_INVALID: return "GROUP_CIPHER_INVALID";
-    case WIFI_REASON_PAIRWISE_CIPHER_INVALID: return "PAIRWISE_CIPHER_INVALID";
-    case WIFI_REASON_AKMP_INVALID: return "AKMP_INVALID";
-    case WIFI_REASON_UNSUPP_RSN_IE_VERSION: return "UNSUPP_RSN_IE_VERSION";
-    case WIFI_REASON_INVALID_RSN_IE_CAP: return "INVALID_RSN_IE_CAP";
-    case WIFI_REASON_802_1X_AUTH_FAILED: return "802_1X_AUTH_FAILED";
-    case WIFI_REASON_CIPHER_SUITE_REJECTED: return "CIPHER_SUITE_REJECTED";
-    case WIFI_REASON_BEACON_TIMEOUT: return "BEACON_TIMEOUT";
-    case WIFI_REASON_NO_AP_FOUND: return "NO_AP_FOUND";
-    case WIFI_REASON_AUTH_FAIL: return "AUTH_FAIL";
-    case WIFI_REASON_ASSOC_FAIL: return "ASSOC_FAIL";
-    case WIFI_REASON_HANDSHAKE_TIMEOUT: return "HANDSHAKE_TIMEOUT";
-    case WIFI_REASON_CONNECTION_FAIL: return "CONNECTION_FAIL";
-    default: return "UNKNOWN";
-  }
-}
-
-// IDF 6 exposes the actual station failure through WIFI_EVENT_STA_DISCONNECTED.
-// Arduino's wl_status_t alone is not enough to diagnose an association failure.
-static WiFiEventId_t wifiEventId = 0;
-static QueueHandle_t wifiDiagnosticQueue = nullptr;
-
-struct WiFiDiagnosticRecord {
-  uint32_t event = 0;
-  uint8_t reason = 0;
-  int8_t rssi = -128;
-  uint8_t bssid[6] = {0, 0, 0, 0, 0, 0};
-  uint8_t channel = 0;
-  uint8_t authmode = WIFI_AUTH_OPEN;
-  uint32_t ip = 0;
-  uint32_t gateway = 0;
-  uint32_t netmask = 0;
-};
-
-void wifiArduinoEventHandler(WiFiEvent_t event, WiFiEventInfo_t info) {
-  // Wi-Fi event callbacks execute on a separate FreeRTOS task. Never write
-  // terminal output here: even thread-safe Serial calls can interleave with
-  // the main task's menu/connection output at character/line boundaries.
-  // Copy the event into a fixed-size queue and let the main task render it.
-  // When diagnostics are disabled, do not queue events at all.
-  if (!diagnosticsEnabled || wifiDiagnosticQueue == nullptr) {
-    return;
-  }
-
-  WiFiDiagnosticRecord record;
-  record.event = static_cast<uint32_t>(event);
-
-  switch (event) {
-    case ARDUINO_EVENT_WIFI_STA_START:
-      break;
-
-    case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
-      const auto& connected = info.wifi_sta_connected;
-      record.channel = connected.channel;
-      record.authmode = connected.authmode;
-      memcpy(record.bssid, connected.bssid, 6);
-      break;
-    }
-
-    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
-      const auto& disconnected = info.wifi_sta_disconnected;
-      record.reason = disconnected.reason;
-      record.rssi = disconnected.rssi;
-      memcpy(record.bssid, disconnected.bssid, 6);
-      break;
-    }
-
-    case ARDUINO_EVENT_WIFI_STA_GOT_IP: {
-      const auto& gotIp = info.got_ip;
-      record.ip = gotIp.ip_info.ip.addr;
-      record.gateway = gotIp.ip_info.gw.addr;
-      record.netmask = gotIp.ip_info.netmask.addr;
-      break;
-    }
-
-    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
-      break;
-
-    default:
-      return;
-  }
-
-  // This is a callback task, not an ISR. A zero-timeout send guarantees the
-  // Wi-Fi event task can never block on terminal I/O or a full queue.
-  xQueueSend(wifiDiagnosticQueue, &record, 0);
-}
-
-void serviceDiagnostics() {
-  if (!diagnosticsEnabled || wifiDiagnosticQueue == nullptr) {
-    return;
-  }
-
-  // Diagnostics are rendered only by the main task, so the individual ANSI
-  // sections below cannot interleave with the Wi-Fi event callback. Plain-text
-  // mode preserves the exact same readable records without escape sequences.
-  auto diagnosticColor = [](const char* code) {
-    if (Console::ansiSupported) {
-      Console::color(code);
-    }
-  };
-
-  auto diagnosticReset = []() {
-    if (Console::ansiSupported) {
-      Console::resetStyle();
-    }
-  };
-
-  auto printPrefix = [&]() {
-    diagnosticColor("1;36m");
-    Serial.print("WIFI");
-    diagnosticReset();
-    Serial.print(" | ");
-  };
-
-  auto printSection = [&](const char* code, const char* text) {
-    diagnosticColor(code);
-    Serial.print(text);
-    diagnosticReset();
-  };
-
-  WiFiDiagnosticRecord record;
-  while (xQueueReceive(wifiDiagnosticQueue, &record, 0) == pdTRUE) {
-    switch (record.event) {
-      case ARDUINO_EVENT_WIFI_STA_START:
-        printPrefix();
-        printSection("1;33m", "START");
-        Serial.print("\r\n");
-        break;
-
-      case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
-        const char* auth =
-            authModeName(static_cast<wifi_auth_mode_t>(record.authmode));
-
-        printPrefix();
-        printSection("1;32m", "CONNECTED");
-        Serial.print(" | CH=");
-        printSection("1;36m", String(record.channel).c_str());
-        Serial.print(" | AUTH=");
-        printSection("1;33m", auth);
-        Serial.print(" | BSSID=");
-        char bssid[18];
-        snprintf(bssid, sizeof(bssid), "%02X:%02X:%02X:%02X:%02X:%02X",
-                 record.bssid[0], record.bssid[1], record.bssid[2],
-                 record.bssid[3], record.bssid[4], record.bssid[5]);
-        printSection("1;35m", bssid);
-        Serial.print("\r\n");
-        break;
-      }
-
-      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
-        const char* reason = wifiDisconnectReasonName(record.reason);
-
-        printPrefix();
-        printSection("1;31m", "DISCONNECTED");
-        Serial.print(" | R=");
-        char reasonNumber[4];
-        snprintf(reasonNumber, sizeof(reasonNumber), "%u", record.reason);
-        printSection("1;33m", reasonNumber);
-        Serial.print(" ");
-        printSection("1;31m", reason);
-        Serial.print(" | RSSI=");
-        char rssi[8];
-        snprintf(rssi, sizeof(rssi), "%d", record.rssi);
-        printSection("1;35m", rssi);
-        Serial.print(" | BSSID=");
-        char bssid[18];
-        snprintf(bssid, sizeof(bssid), "%02X:%02X:%02X:%02X:%02X:%02X",
-                 record.bssid[0], record.bssid[1], record.bssid[2],
-                 record.bssid[3], record.bssid[4], record.bssid[5]);
-        printSection("1;34m", bssid);
-        Serial.print("\r\n");
-        break;
-      }
-
-      case ARDUINO_EVENT_WIFI_STA_GOT_IP: {
-        const String ip = IPAddress(record.ip).toString();
-        const String gateway = IPAddress(record.gateway).toString();
-        const String netmask = IPAddress(record.netmask).toString();
-
-        printPrefix();
-        printSection("1;32m", "GOT_IP");
-        Serial.print(" | IP=");
-        printSection("1;32m", ip.c_str());
-        Serial.print(" | GW=");
-        printSection("1;36m", gateway.c_str());
-        Serial.print(" | MASK=");
-        printSection("1;33m", netmask.c_str());
-        Serial.print("\r\n");
-        break;
-      }
-
-      case ARDUINO_EVENT_WIFI_STA_LOST_IP:
-        printPrefix();
-        printSection("1;31m", "LOST_IP");
-        Serial.print("\r\n");
-        break;
-
-      default:
-        break;
-    }
-  }
-}
-
-void printFailureWordLine(const char* prefix, const char* word, const char* suffix = "") {
-  Serial.print(prefix);
-  if (Console::ansiSupported) Console::color("1;31m");
-  Serial.print(word);
-  if (Console::ansiSupported) Console::resetStyle();
-  Serial.println(suffix);
-}
-
-void printDiagnosticLine(const char* label, const char* value,
-                          const char* labelColor = "1;36m",
-                          const char* valueColor = "1;37m") {
-  if (!diagnosticsEnabled) return;
-
-  if (Console::ansiSupported) Console::color("1;36m");
-  Serial.print("WIFI | ");
-  if (Console::ansiSupported) Console::color(labelColor);
-  Serial.print(label);
-  if (Console::ansiSupported) Console::resetStyle();
-  Serial.print("=");
-  if (Console::ansiSupported) Console::color(valueColor);
-  Serial.print(value);
-  if (Console::ansiSupported) Console::resetStyle();
-  Serial.print("\r\n");
-}
-
-void printDiagnosticText(const char* text, const char* textColor = "1;37m") {
-  if (!diagnosticsEnabled) return;
-
-  if (Console::ansiSupported) Console::color("1;36m");
-  Serial.print("WIFI | ");
-  if (Console::ansiSupported) Console::color(textColor);
-  Serial.print(text);
-  if (Console::ansiSupported) Console::resetStyle();
-  Serial.print("\r\n");
-}
-
-void printDiagnosticFailure(const char* label, const char* errorName) {
-  if (!diagnosticsEnabled) return;
-
-  if (Console::ansiSupported) Console::color("1;36m");
-  Serial.print("WIFI | ");
-  if (Console::ansiSupported) Console::color("1;31m");
-  Serial.print(label);
-  Serial.print("=");
-  Serial.print(errorName);
-  if (Console::ansiSupported) Console::resetStyle();
-  Serial.print("\r\n");
-}
-
 const char* authModeName(wifi_auth_mode_t authMode) {
   switch (authMode) {
     case WIFI_AUTH_OPEN: return "OPEN";
@@ -389,11 +119,11 @@ ConnectResult connectWithCredentials(const String& ssid,
       password.isEmpty() ? WIFI_AUTH_OPEN : WIFI_AUTH_WPA2_PSK;
   WiFi.setMinSecurity(minimumSecurity);
 
-  printDiagnosticLine("MIN_SECURITY", authModeName(minimumSecurity),
+  WiFiDiagnostics::printLine("MIN_SECURITY", authModeName(minimumSecurity),
                        "1;33m", "1;33m");
-  printDiagnosticText("PATH=RAW ESP-IDF STATION CONFIGURATION.", "1;37m");
-  printDiagnosticText("BSSID_CHANNEL_PINNING=DISABLED.", "1;37m");
-  printDiagnosticText("MODEM_SLEEP=DISABLED FOR DIAGNOSTIC ATTEMPT.", "1;37m");
+  WiFiDiagnostics::printText("PATH=RAW ESP-IDF STATION CONFIGURATION.", "1;37m");
+  WiFiDiagnostics::printText("BSSID_CHANNEL_PINNING=DISABLED.", "1;37m");
+  WiFiDiagnostics::printText("MODEM_SLEEP=DISABLED FOR DIAGNOSTIC ATTEMPT.", "1;37m");
 
   if (!NetConfig::apply()) {
     printFailureWordLine("ERROR: network/IP configuration ", "failed", ".");
@@ -402,7 +132,7 @@ ConnectResult connectWithCredentials(const String& ssid,
     return ConnectResult::NETWORK_CONFIG_FAILED;
   }
 
-  if (requestedTarget != nullptr && requestedTarget->valid && diagnosticsEnabled) {
+  if (requestedTarget != nullptr && requestedTarget->valid && WiFiDiagnostics::enabled()) {
     char target[96];
     snprintf(target, sizeof(target),
              "BSSID=%02X:%02X:%02X:%02X:%02X:%02X CH=%ld RSSI=%d dBm",
@@ -411,7 +141,7 @@ ConnectResult connectWithCredentials(const String& ssid,
              requestedTarget->bssid[4], requestedTarget->bssid[5],
              static_cast<long>(requestedTarget->channel),
              static_cast<int>(requestedTarget->rssi));
-    printDiagnosticText(target, "1;35m");
+    WiFiDiagnostics::printText(target, "1;35m");
   }
 
   wifi_config_t stationConfig = {};
@@ -438,7 +168,7 @@ ConnectResult connectWithCredentials(const String& ssid,
   const esp_err_t setConfigResult =
       esp_wifi_set_config(WIFI_IF_STA, &stationConfig);
   if (setConfigResult != ESP_OK) {
-    printDiagnosticFailure("SET_CONFIG", esp_err_to_name(setConfigResult));
+    WiFiDiagnostics::printFailure("SET_CONFIG", esp_err_to_name(setConfigResult));
     WiFi.setAutoReconnect(previousAutoReconnect);
     Console::prepareForMenuInput();
     return ConnectResult::NETWORK_CONFIG_FAILED;
@@ -455,37 +185,37 @@ ConnectResult connectWithCredentials(const String& ssid,
              static_cast<unsigned>(committedConfig.sta.bssid_set),
              static_cast<unsigned>(committedConfig.sta.threshold.authmode),
              static_cast<unsigned>(committedConfig.sta.pmf_cfg.required));
-    printDiagnosticText(configSummary, "1;36m");
+    WiFiDiagnostics::printText(configSummary, "1;36m");
   } else {
-    printDiagnosticFailure("GET_CONFIG", esp_err_to_name(getConfigResult));
+    WiFiDiagnostics::printFailure("GET_CONFIG", esp_err_to_name(getConfigResult));
   }
 
   const esp_err_t powerSaveResult = esp_wifi_set_ps(WIFI_PS_NONE);
   if (powerSaveResult != ESP_OK) {
-    printDiagnosticFailure("POWER_SAVE_DISABLE", esp_err_to_name(powerSaveResult));
+    WiFiDiagnostics::printFailure("POWER_SAVE_DISABLE", esp_err_to_name(powerSaveResult));
   }
 
   const esp_err_t connectResult = esp_wifi_connect();
   if (connectResult != ESP_OK) {
-    printDiagnosticFailure("CONNECT", esp_err_to_name(connectResult));
+    WiFiDiagnostics::printFailure("CONNECT", esp_err_to_name(connectResult));
     WiFi.setAutoReconnect(previousAutoReconnect);
     Console::prepareForMenuInput();
     return ConnectResult::CONNECTION_FAILED;
   }
 
-  printDiagnosticLine("CONNECT_RETURN", esp_err_to_name(connectResult),
+  WiFiDiagnostics::printLine("CONNECT_RETURN", esp_err_to_name(connectResult),
                        "1;36m", connectResult == ESP_OK ? "1;32m" : "1;31m");
   char initialStatus[16];
   snprintf(initialStatus, sizeof(initialStatus), "%d",
            static_cast<int>(WiFi.status()));
-  printDiagnosticLine("INITIAL_STATUS", initialStatus,
+  WiFiDiagnostics::printLine("INITIAL_STATUS", initialStatus,
                        "1;36m", "1;33m");
 
   const uint32_t startTime = millis();
 
   while (WiFi.status() != WL_CONNECTED &&
          millis() - startTime < CONNECT_TIMEOUT_MS) {
-    serviceDiagnostics();
+    WiFiDiagnostics::service();
     if (Console::disconnected()) {
       WiFi.disconnect();
       WiFi.setAutoReconnect(previousAutoReconnect);
@@ -500,17 +230,17 @@ ConnectResult connectWithCredentials(const String& ssid,
     char finalStatus[16];
     snprintf(finalStatus, sizeof(finalStatus), "%d",
              static_cast<int>(WiFi.status()));
-    printDiagnosticLine("FINAL_STATUS", finalStatus,
+    WiFiDiagnostics::printLine("FINAL_STATUS", finalStatus,
                          "1;36m", "1;31m");
     WiFi.disconnect(false, false);
     delay(100);
-    serviceDiagnostics();
+    WiFiDiagnostics::service();
     WiFi.setAutoReconnect(previousAutoReconnect);
     Console::prepareForMenuInput();
     return ConnectResult::TIMEOUT;
   }
 
-  serviceDiagnostics();
+  WiFiDiagnostics::service();
   Serial.println("WiFi connected.");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
@@ -925,41 +655,9 @@ void setupCredentials() {
   }
 }
 
-void printDiagnosticsSetting() {
-  if (Console::ansiSupported) {
-    Console::color(diagnosticsEnabled ? "1;32m" : "1;31m");
-  }
-  Serial.print("5. Diagnostics: ");
-  Serial.println(diagnosticsEnabled ? "ON" : "OFF");
-  if (Console::ansiSupported) {
-    Console::resetStyle();
-  }
-}
-
-void toggleDiagnostics() {
-  diagnosticsEnabled = !diagnosticsEnabled;
-  preferences.putBool(DIAGNOSTICS_KEY, diagnosticsEnabled);
-
-  if (Console::ansiSupported) {
-    Console::color(diagnosticsEnabled ? "1;32m" : "1;31m");
-  }
-  Serial.print("WiFi diagnostics: ");
-  Serial.println(diagnosticsEnabled ? "ON" : "OFF");
-  if (Console::ansiSupported) {
-    Console::resetStyle();
-  }
-
-  // Discard any queued events at the toggle boundary so changing the setting
-  // never causes stale diagnostics to appear under the new state.
-  if (wifiDiagnosticQueue != nullptr) {
-    WiFiDiagnosticRecord record;
-    while (xQueueReceive(wifiDiagnosticQueue, &record, 0) == pdTRUE) {}
-  }
-}
-
 void menu() {
   while (true) {
-    serviceDiagnostics();
+    WiFiDiagnostics::service();
     Serial.println();
     if (Console::ansiSupported) {
       Console::color("1;33m");
@@ -976,7 +674,7 @@ void menu() {
     Serial.println("2. Configure SSID/password");
     Serial.println("3. Show WiFi status");
     Serial.println("4. Connect now");
-    printDiagnosticsSetting();
+    WiFiDiagnostics::printMenuSetting();
     Serial.println("B. Back");
     Serial.println();
 
@@ -993,7 +691,7 @@ void menu() {
     } else if (choice == "4") {
       connect();
     } else if (choice == "5") {
-      toggleDiagnostics();
+      WiFiDiagnostics::toggle();
     } else if (choice == "B") {
       return;
     }
@@ -1002,18 +700,7 @@ void menu() {
 
 void begin() {
   preferences.begin(PREF_NAMESPACE, false);
-  diagnosticsEnabled = preferences.getBool(DIAGNOSTICS_KEY, true);
-
-  wifiDiagnosticQueue = xQueueCreate(32, sizeof(WiFiDiagnosticRecord));
-  if (wifiDiagnosticQueue == nullptr) {
-    printFailureWordLine("WARNING: WiFi diagnostic queue allocation ", "failed", ".");
-  }
-
-  // Use Arduino-ESP32's public WiFi event API so diagnostics follow the
-  // same event translation used internally by the STA implementation.
-  // One callback for all Wi-Fi events. The handler switches on the
-  // event ID, avoiding multiple asynchronous callback registrations.
-  wifiEventId = WiFi.onEvent(wifiArduinoEventHandler);
+  WiFiDiagnostics::begin();
 
   Serial.println();
   Serial.println("WiFi subsystem starting...");
