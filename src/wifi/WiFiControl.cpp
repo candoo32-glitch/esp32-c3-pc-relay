@@ -587,7 +587,7 @@ void scan() {
     Serial.println("Testing credentials...");
     Serial.println("Credentials will be saved only if the connection succeeds.");
 
-    if (connectWithCredentials(ssid, password, &selectedTarget) == ConnectResult::SUCCESS) {
+    if (connectWithCredentials(ssid, password) == ConnectResult::SUCCESS) {
       Serial.println();
       Serial.println("================================");
       Serial.println("WiFi connection SUCCESSFUL");
@@ -620,7 +620,7 @@ void scan() {
   Serial.println("Testing open-network credentials...");
   Serial.println("Credentials will be saved only if the connection succeeds.");
 
-  if (connectWithCredentials(ssid, "", &selectedTarget) == ConnectResult::SUCCESS) {
+  if (connectWithCredentials(ssid, "") == ConnectResult::SUCCESS) {
     Serial.println();
     Serial.println("================================");
     Serial.println("WiFi connection SUCCESSFUL");
