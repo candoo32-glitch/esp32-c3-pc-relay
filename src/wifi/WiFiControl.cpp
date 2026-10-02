@@ -419,6 +419,14 @@ ConnectResult connectWithCredentials(const String& ssid,
   return ConnectResult::SUCCESS;
 }
 
+bool diagnosticsPreference() {
+  return preferences.getBool("diagnostics", true);
+}
+
+bool saveDiagnosticsPreference(bool enabled) {
+  return preferences.putBool("diagnostics", enabled) == 1;
+}
+
 void printStatus() {
   Serial.println();
   Serial.println("WiFi status");
