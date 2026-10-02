@@ -23,10 +23,13 @@ void menu() {
     Serial.println("1. WiFi");
     Serial.println("2. Network");
     Serial.println("3. NVS");
+    if (Console::ansiSupported) Console::color("1;35m");
+    Serial.println("4. Reboot");
+    if (Console::ansiSupported) Console::resetStyle();
     Serial.println("B. Back");
     Serial.println();
 
-    String choice = Console::readMenuChoice("Select: ", "123B");
+    String choice = Console::readMenuChoice("Select: ", "1234B");
     choice.trim();
     choice.toUpperCase();
 
@@ -36,6 +39,13 @@ void menu() {
       NetConfig::menu();
     } else if (choice == "3") {
       NVSControl::menu();
+    } else if (choice == "4") {
+      Serial.println();
+      if (Console::ansiSupported) Console::color("1;35m");
+      Serial.println("Rebooting ESP32-C3...");
+      if (Console::ansiSupported) Console::resetStyle();
+      delay(250);
+      ESP.restart();
     } else if (choice == "B") {
       return;
     }
