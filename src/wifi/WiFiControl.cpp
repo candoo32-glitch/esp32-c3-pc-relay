@@ -529,6 +529,11 @@ void printStatus() {
   Serial.println("WiFi status");
   Serial.println("-----------");
 
+  Serial.print("WiFi power: ");
+  if (Console::ansiSupported) Console::color(wifiEnabled ? "1;32m" : "1;33m");
+  Serial.println(wifiEnabled ? "ON" : "OFF");
+  if (Console::ansiSupported) Console::resetStyle();
+
   Serial.print("State: ");
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("CONNECTED");
