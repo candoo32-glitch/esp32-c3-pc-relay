@@ -111,6 +111,29 @@ String currentDNS2() {
   return preferences.getString(DNS2_KEY, "8.8.8.8");
 }
 
+bool saveStatic(const String& ip, const String& gateway, const String& subnet,
+                 const String& dns1, const String& dns2) {
+  IPAddress testIP, testGateway, testSubnet, testDNS1, testDNS2;
+  if (!parseIP(ip, testIP) || !parseIP(gateway, testGateway) ||
+      !parseIP(subnet, testSubnet) || !parseIP(dns1, testDNS1) ||
+      !parseIP(dns2, testDNS2)) {
+    return false;
+  }
+
+  if (ip.length() > 15 || gateway.length() > 15 || subnet.length() > 15 ||
+      dns1.length() > 15 || dns2.length() > 15) {
+    return false;
+  }
+
+  preferences.putString(IP_KEY, ip);
+  preferences.putString(GATEWAY_KEY, gateway);
+  preferences.putString(SUBNET_KEY, subnet);
+  preferences.putString(DNS1_KEY, dns1);
+  preferences.putString(DNS2_KEY, dns2);
+  preferences.putUChar(MODE_KEY, static_cast<uint8_t>(Mode::STATIC));
+  return true;
+}
+
 void configureStatic() {
   Serial.println();
   Serial.println("Manual / static IPv4 configuration");
