@@ -793,9 +793,6 @@ void handleRoot() {
   file.close();
 }
 
- {
-  server.send(200, "text/html; charset=utf-8", page());
-}
 
 void handleToggle() {
   const bool enable = !WiFiControl::isEnabled();
