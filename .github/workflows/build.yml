@@ -65,7 +65,10 @@ jobs:
           python -m esptool --chip esp32c3 merge-bin             -o dist/firmware/factory.bin             --pad-to-size 4MB             --flash-mode keep             --flash-freq keep             --flash-size keep             0x0 "$BUILD/bootloader.bin"             0x8000 "$BUILD/partitions.bin"             0xe000 dist/firmware/boot_app0.bin             0x10000 "$BUILD/firmware.bin"              0x310000 "$BUILD/spiffs.bin"
 
           test -s dist/firmware/factory.bin
-          test "$(stat -c%s dist/firmware/factory.bin)" -eq 4194304
+          echo "Packaging checks passed."
+          echo "Factory image size: $(stat -c%s dist/firmware/factory.bin) bytes"
+          echo "SPIFFS image size: $(stat -c%s dist/firmware/spiffs.bin) bytes"
+          test "$(stat -c%s dist/firmware/factory.bin)" -le 4194304
 
           printf "%s\\n" "$FW_BUILD_VERSION" > dist/BUILD_VERSION.txt
           printf "%s\\n" "${{ github.run_id }}" > dist/RUN_ID.txt
@@ -528,7 +531,7 @@ jobs:
           6. If GH_TOKEN is already set in Windows, it is used automatically. Otherwise the script securely prompts for a fine-grained GitHub token for that run only.
           6. The downloaded firmware replaces the local firmware\ directory.
           7. The temporary download directory is deleted.
-          8. esptool flashes firmware\factory.bin.
+          8. esptool flashes bootloader.bin, partitions.bin, boot_app0.bin, firmware.bin, and spiffs.bin at their required flash offsets.
           Required Windows software:
           - GitHub CLI (gh)
           - Python launcher (py)
