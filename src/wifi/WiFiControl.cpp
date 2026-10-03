@@ -588,6 +588,10 @@ bool configureCredentials(const String& ssid, const String& password) {
   return ok;
 }
 
+bool configureSavedCredentials(const String& ssid) {
+  return configureCredentials(ssid, preferences.getString(PASSWORD_KEY, ""));
+}
+
 bool setTxPowerDbm(float dbm) {
   if (dbm < 2.0f || dbm > 18.0f) return false;
   const float quarter = dbm * 4.0f;
