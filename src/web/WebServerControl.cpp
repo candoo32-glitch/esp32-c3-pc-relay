@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <WebServer.h>
+#include <FS.h>
+#include <SPIFFS.h>
 #include <WiFi.h>
 #include <Preferences.h>
 #include <nvs.h>
@@ -644,7 +646,7 @@ String nvsTable() {
   return html;
 }
 
-String page() {
+String legacyPage() {
   const String tab = tabName();
   const bool enabled = WiFiControl::isEnabled();
   const bool connected = enabled && WiFi.status() == WL_CONNECTED;
@@ -935,6 +937,53 @@ String page() {
   return html;
 }
 
+String page() {
+  static bool webTemplateLoaded = false;
+  static String webTemplate;
+  if (!webTemplateLoaded) {
+    webTemplateLoaded = true;
+    if (SPIFFS.exists("/index.html")) {
+      File file = SPIFFS.open("/index.html", FILE_READ);
+      if (file) {
+        webTemplate.reserve(file.size() + 256);
+        while (file.available()) webTemplate += static_cast<char>(file.read());
+        file.close();
+      }
+    }
+  }
+  if (webTemplate.isEmpty()) return legacyPage();
+
+  const String tab = tabName();
+  const String legacy = legacyPage();
+  const String floatStart = "<div class='relay-float'>";
+  const String floatEnd = "</div></div>";
+  const int floatPos = legacy.indexOf(floatStart);
+  const int floatEndPos = floatPos >= 0 ? legacy.indexOf(floatEnd, floatPos) : -1;
+  const String footerMarker = "<div class='muted'>Page status:";
+  const int contentStart = floatEndPos >= 0 ? floatEndPos + floatEnd.length() : -1;
+  const int contentEnd = legacy.indexOf(footerMarker);
+
+  if (floatPos < 0 || floatEndPos < 0 || contentStart < 0 || contentEnd < contentStart) {
+    return legacyPage();
+  }
+
+  String relayFloat = legacy.substring(floatPos, floatEndPos + floatEnd.length());
+  String content = legacy.substring(contentStart, contentEnd);
+  String html = webTemplate;
+
+  html.replace("{{TAB_DASHBOARD}}", tab == "dashboard" ? "active" : "");
+  html.replace("{{TAB_WIFI}}", tab == "wifi" ? "active" : "");
+  html.replace("{{TAB_NETWORK}}", tab == "network" ? "active" : "");
+  html.replace("{{TAB_DIAGNOSTICS}}", tab == "diagnostics" ? "active" : "");
+  html.replace("{{TAB_RELAYS}}", tab == "relays" ? "active" : "");
+  html.replace("{{TAB_STORAGE}}", tab == "storage" ? "active" : "");
+  html.replace("{{TAB_SYSTEM}}", tab == "system" ? "active" : "");
+  html.replace("{{RELAY_FLOAT}}", relayFloat);
+  html.replace("{{CONTENT}}", content);
+  html.replace("{{PAGE_STATUS}}", statusText());
+  return html;
+}
+
 void handleRoot() {
   server.send(200, "text/html; charset=utf-8", page());
 }
@@ -1162,6 +1211,12 @@ void handleReboot() {
 
 void begin() {
   if (serverStarted) return;
+
+  if (!SPIFFS.begin(false)) {
+    Serial.println("Web UI filesystem mount failed; using built-in C++ UI fallback.");
+  } else {
+    Serial.println("Web UI filesystem mounted.");
+  }
 
   server.on("/", HTTP_GET, handleRoot);
   server.on("/wifi/toggle", HTTP_POST, handleToggle);
