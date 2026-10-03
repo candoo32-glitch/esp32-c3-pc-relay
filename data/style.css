@@ -25,3 +25,4 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
 .relay-float form{margin:0}.relay-button{min-width:132px;font-size:1.05rem;font-weight:700;padding:12px 18px}.relay-float .relay-button{min-width:132px;margin:0}
 .firmware-update-actions{display:flex;justify-content:center;align-items:center;gap:24px;flex-wrap:wrap;margin-top:8px}.firmware-update-actions form{margin:0}
 @media(max-width:700px){body{padding:10px}.relay-float{position:static;margin:10px 0 14px}.relay-float-buttons{justify-content:center}.relay-float .relay-button{min-width:0;flex:1}}
+.password-field{display:flex;gap:8px;align-items:stretch}.password-field input{flex:1}.password-toggle{margin:0;white-space:nowrap}
