@@ -665,7 +665,7 @@ String page() {
   html += F("input[type=number]{appearance:textfield}.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:10px 0}.help{font-size:12px;color:#888;margin-top:4px}");
   html += F("button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 0 0;color:white;background:#315f93;cursor:pointer}.danger{background:#7b3030}.good{background:#286a39}.secondary{background:#454545}");
   html += F(".status{display:inline-block;padding:5px 9px;border-radius:20px;background:#292929}.mono{font-family:ui-monospace,SFMono-Regular,monospace}.notice{padding:11px 13px;border:1px solid #555;border-radius:8px;background:#252525;margin:12px 0}");
-  html += F(".relay-buttons{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.relay-buttons form{margin:0}.relay-button{min-width:160px;font-size:1.05rem;font-weight:700;padding:12px 18px}.dashboard-relay-buttons{justify-content:center;gap:32px}.dashboard-relay-buttons form{margin:0}.firmware-update-actions{display:flex;justify-content:center;align-items:center;gap:24px;flex-wrap:wrap;margin-top:8px}.firmware-update-actions form{margin:0}</style></head><body>");
+  html += F(".relay-buttons{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.relay-buttons form{margin:0}.relay-button{min-width:160px;font-size:1.05rem;font-weight:700;padding:12px 18px}.relay-float{position:fixed;right:18px;bottom:18px;z-index:1000;background:rgba(28,28,28,.96);border:1px solid #555;border-radius:12px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.45);backdrop-filter:blur(8px)}.relay-float-title{font-size:12px;color:#aaa;margin:0 0 6px;text-align:center}.relay-float-buttons{display:flex;gap:8px}.relay-float form{margin:0}.relay-float .relay-button{min-width:132px;margin:0}.firmware-update-actions{display:flex;justify-content:center;align-items:center;gap:24px;flex-wrap:wrap;margin-top:8px}.firmware-update-actions form{margin:0}</style></head><body>");
 
   html += F("<h1>ESP32-C3 PC Relay</h1><div class='muted'>Headless control and configuration</div>");
 
@@ -682,6 +682,18 @@ String page() {
     html += F("</a>");
   }
   html += F("</nav>");
+
+  // Persistent relay controls: available from every web page without leaving the current tab.
+  html += F("<div class='relay-float'><div class='relay-float-title'>Relay control</div><div class='relay-float-buttons'>");
+  html += F("<form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><input type='hidden' name='return' value='");
+  html += tab;
+  html += F("'><button class='relay-button good' name='action' value='activate'>");
+  html += htmlEscape(Relay::name(Relay::Id::POWER));
+  html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><input type='hidden' name='return' value='");
+  html += tab;
+  html += F("'><button class='relay-button good' name='action' value='activate'>");
+  html += htmlEscape(Relay::name(Relay::Id::RESET));
+  html += F("</button></form></div></div>");
 
   if (tab == "dashboard") {
     html += F("<div class='grid'><div class='card'><h2>Wi-Fi</h2><table class='kv'>");
@@ -707,11 +719,7 @@ String page() {
     html += String(getCpuFrequencyMhz());
     html += F(" MHz</td></tr></table></div></div>");
 
-    html += F("<div class='card'><h2>Relay</h2><div class='relay-buttons dashboard-relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><button class='relay-button good' name='action' value='activate'>");
-    html += htmlEscape(Relay::name(Relay::Id::POWER));
-    html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><input type='hidden' name='return' value='dashboard'><button class='relay-button good' name='action' value='activate'>");
-    html += htmlEscape(Relay::name(Relay::Id::RESET));
-    html += F("</button></form></div><table class='kv'><tr><td>");
+    html += F("<div class='card'><h2>Relay</h2><table class='kv'><tr><td>");
     html += htmlEscape(Relay::name(Relay::Id::POWER));
     html += F("</td><td>");
     html += Relay::powerOn() ? F("<span class='ok'>ON</span>") : F("OFF");
@@ -829,11 +837,7 @@ String page() {
 
   if (tab == "relays") {
     html += F("<div class='card'><h2>Relay control</h2><div class='muted'>Each relay is independently configurable. Either Save relay settings button saves BOTH relays. Blank values use the defaults: Relay 1 / Relay 2, OPEN, LATCHED, 250 ms.</div></div>");
-    html += F("<div class='relay-buttons'><form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><input type='hidden' name='return' value='dashboard'><button class='relay-button good' name='action' value='activate'>");
-    html += htmlEscape(Relay::name(Relay::Id::POWER));
-    html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><button class='relay-button good' name='action' value='activate'>");
-    html += htmlEscape(Relay::name(Relay::Id::RESET));
-    html += F("</button></form></div>");
+    html += F("");
 
     html += F("<form method='POST' action='/relay/config'>");
     for (uint8_t i = 0; i < 2; ++i) {
@@ -1061,7 +1065,11 @@ void handleRelayAction() {
   const Relay::Id relay = static_cast<Relay::Id>(id);
   if (server.arg("action") == "activate") Relay::activate(relay);
   else if (server.arg("action") == "deactivate") Relay::deactivate(relay);
-  const String returnTab = server.hasArg("return") && server.arg("return") == "dashboard" ? "dashboard" : "relays";
+  String returnTab = server.hasArg("return") ? server.arg("return") : "relays";
+  if (returnTab != "dashboard" && returnTab != "wifi" && returnTab != "network" &&
+      returnTab != "diagnostics" && returnTab != "relays" && returnTab != "storage" && returnTab != "system") {
+    returnTab = "relays";
+  }
   redirect(returnTab.c_str());
 }
 
