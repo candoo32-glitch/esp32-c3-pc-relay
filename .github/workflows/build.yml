@@ -49,9 +49,9 @@ jobs:
           test -s "$BUILD/firmware.elf"
           test -s "$BUILD/partitions.bin"
           test -s "$BUILD/bootloader.bin"
-          # PlatformIO 55.3 names the SPIFFS build target littlefs.bin even when
-          # board_build.filesystem = spiffs. The firmware still mounts SPIFFS.
-          FS_IMAGE="$BUILD/littlefs.bin"
+          # The project uses SPIFFS. PlatformIO generates the filesystem image
+          # as spiffs.bin for this environment.
+          FS_IMAGE="$BUILD/spiffs.bin"
           test -s "$FS_IMAGE"
 
           cp "$BUILD/firmware.bin" dist/firmware/firmware.bin
