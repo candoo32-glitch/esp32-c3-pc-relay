@@ -307,173 +307,185 @@ void handleFirmwareUpdateCheck() {
 }
 
 
-String latestReleaseAssetUrl(const String& json, const String& filenameSuffix) {
+String releaseAssetBuild(const String& url, const String& suffix) {
+  const int suffixPos = url.lastIndexOf(suffix);
+  if (suffixPos < 0) return "";
+
+  int end = suffixPos;
+  int start = end - 1;
+  while (start >= 0 && isDigit(url[start])) --start;
+  ++start;
+  if (start >= end) return "";
+  return url.substring(start, end);
+}
+
+String latestReleaseAssetUrl(const String& json, const String& suffix, long& version) {
+  String bestUrl;
+  long bestVersion = -1;
   int pos = 0;
+
   while ((pos = json.indexOf("\"browser_download_url\"", pos)) >= 0) {
     int valueStart = json.indexOf('"', pos + 23);
-    if (valueStart < 0) return "";
+    if (valueStart < 0) break;
     ++valueStart;
+
     int valueEnd = valueStart;
     while (valueEnd < static_cast<int>(json.length())) {
       if (json[valueEnd] == '"' && json[valueEnd - 1] != '\\') break;
       ++valueEnd;
     }
-    if (valueEnd <= valueStart) return "";
+    if (valueEnd <= valueStart) break;
+
     const String url = json.substring(valueStart, valueEnd);
-    if (url.endsWith(filenameSuffix)) return url;
-    pos = valueEnd + 1;
-  }
-  return "";
-}
-
-String latestReleaseFirmwareUrl(const String& json) {
-  int pos = 0;
-  while ((pos = json.indexOf("\"browser_download_url\"", pos)) >= 0) {
-    int valueStart = json.indexOf('"', pos + 23);
-    if (valueStart < 0) return "";
-    ++valueStart;
-    int valueEnd = valueStart;
-    while (valueEnd < static_cast<int>(json.length())) {
-      if (json[valueEnd] == '"' && json[valueEnd - 1] != '\\') break;
-      ++valueEnd;
-    }
-    if (valueEnd <= valueStart) return "";
-    const String url = json.substring(valueStart, valueEnd);
-    if (url.endsWith(".bin") && !url.endsWith("-spiffs.bin")) return url;
-    pos = valueEnd + 1;
-  }
-  return "";
-}
-
-String latestReleaseSpiffsUrl(const String& json) {
-  return latestReleaseAssetUrl(json, "-spiffs.bin");
-}
-
-bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* description) {
-  const int contentLength = download.getSize();
-  if (contentLength <= 0) {
-    Serial.print("OTA ");
-    Serial.print(description);
-    Serial.println(" download did not provide a valid image size.");
-    return false;
-  }
-
-  if (!Update.begin(static_cast<size_t>(contentLength), command)) {
-    Serial.print("OTA ");
-    Serial.print(description);
-    Serial.print(" begin failed: ");
-    Serial.println(Update.errorString());
-    return false;
-  }
-
-  WiFiClient* stream = download.getStreamPtr();
-  uint8_t* buffer = static_cast<uint8_t*>(malloc(4096));
-  if (buffer == nullptr) {
-    Update.abort();
-    Serial.print("OTA ");
-    Serial.print(description);
-    Serial.println(" failed: insufficient RAM for download buffer.");
-    return false;
-  }
-
-  size_t totalWritten = 0;
-  bool failed = false;
-  uint32_t lastYield = millis();
-
-  while (download.connected() && totalWritten < static_cast<size_t>(contentLength)) {
-    const size_t available = stream->available();
-    if (available == 0) {
-      delay(1);
-      if (millis() - lastYield > 10000) {
-        failed = true;
-        break;
+    const bool isFirmware = suffix == ".bin" && !url.endsWith("-spiffs.bin");
+    const bool isMatch = suffix == "-spiffs.bin" ? url.endsWith(suffix) : isFirmware;
+    if (isMatch) {
+      const String buildText = releaseAssetBuild(url, suffix);
+      const long build = buildText.toInt();
+      if (!buildText.isEmpty() && build > bestVersion) {
+        bestVersion = build;
+        bestUrl = url;
       }
-      continue;
     }
-
-    const size_t toRead = min(available, static_cast<size_t>(4096));
-    const int readBytes = stream->readBytes(buffer, toRead);
-    if (readBytes <= 0 ||
-        Update.write(buffer, static_cast<size_t>(readBytes)) != static_cast<size_t>(readBytes)) {
-      failed = true;
-      break;
-    }
-
-    totalWritten += static_cast<size_t>(readBytes);
-    lastYield = millis();
-    yield();
+    pos = valueEnd + 1;
   }
 
-  const bool finished =
-      !failed &&
-      totalWritten == static_cast<size_t>(contentLength) &&
-      Update.end(true);
+  version = bestVersion;
+  return bestUrl;
+}
 
-  free(buffer);
+String webInterfaceBuild() {
+  if (!SPIFFS.exists("/web_version.txt")) return "0";
+  File file = SPIFFS.open("/web_version.txt", FILE_READ);
+  if (!file) return "0";
+  const String value = file.readStringUntil('\n');
+  file.close();
+  return value.length() > 0 ? value : "0";
+}
 
-  if (!finished) {
-    Serial.print("OTA ");
-    Serial.print(description);
-    Serial.print(" failed: ");
-    Serial.println(Update.errorString());
-    Update.abort();
+String firmwareReleaseUrl(const String& json, long& version) {
+  return latestReleaseAssetUrl(json, ".bin", version);
+}
+
+String webReleaseUrl(const String& json, long& version) {
+  return latestReleaseAssetUrl(json, "-spiffs.bin", version);
+}
+
+String updatePage(const String& title, const String& body) {
+  String html = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>";
+  html += htmlEscape(title);
+  html += F("</h2><p>");
+  html += body;
+  html += F("</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body></html>");
+  return html;
+}
+
+bool fetchReleaseCatalog(String& json) {
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  const char* apiUrl = "https://api.github.com/repos/candoo32-glitch/esp32-c3-pc-relay/releases?per_page=100";
+  if (!http.begin(client, apiUrl)) return false;
+
+  http.setTimeout(15000);
+  http.addHeader("User-Agent", "ESP32-C3-PC-Relay");
+  const int responseCode = http.GET();
+  if (responseCode != HTTP_CODE_OK) {
+    http.end();
     return false;
   }
 
-  Serial.print("OTA ");
-  Serial.print(description);
-  Serial.print(" complete: ");
-  Serial.print(totalWritten);
-  Serial.println(" bytes.");
-  return true;
+  json = http.getString();
+  http.end();
+  return !json.isEmpty();
+}
+
+void handleFirmwareUpdateCheck() {
+  if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
+    server.send(503, "text/html; charset=utf-8",
+                updatePage("Update check unavailable", "The ESP32-C3 is not connected to Wi-Fi."));
+    return;
+  }
+
+  String json;
+  if (!fetchReleaseCatalog(json)) {
+    server.send(502, "text/html; charset=utf-8",
+                updatePage("Update check failed", "Could not retrieve the GitHub release catalog."));
+    return;
+  }
+
+  const long currentFirmware = firmwareBuild().toInt();
+  const long currentWeb = webInterfaceBuild().toInt();
+  long latestFirmware = -1;
+  long latestWeb = -1;
+  const String firmwareUrl = firmwareReleaseUrl(json, latestFirmware);
+  const String webUrl = webReleaseUrl(json, latestWeb);
+  const bool firmwareAvailable = !firmwareUrl.isEmpty() && latestFirmware > currentFirmware;
+  const bool webAvailable = !webUrl.isEmpty() && latestWeb > currentWeb;
+
+  String html = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update check</h2>";
+
+  if (!firmwareAvailable && !webAvailable) {
+    html += F("<p>Firmware and web interface are up to date.</p>");
+  } else {
+    if (firmwareAvailable) {
+      html += F("<p><b>Firmware update available:</b> ");
+      html += String(currentFirmware);
+      html += F(" → ");
+      html += String(latestFirmware);
+      html += F("</p>");
+    } else {
+      html += F("<p>Firmware is up to date (");
+      html += String(currentFirmware);
+      html += F(").</p>");
+    }
+
+    if (webAvailable) {
+      html += F("<p><b>Web interface update available:</b> ");
+      html += String(currentWeb);
+      html += F(" → ");
+      html += String(latestWeb);
+      html += F("</p>");
+    } else {
+      html += F("<p>Web interface is up to date (");
+      html += String(currentWeb);
+      html += F(").</p>");
+    }
+
+    html += F("<p>Download and install will update only the component or components that are newer.</p>");
+  }
+
+  html += F("<p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body></html>");
+  server.send(200, "text/html; charset=utf-8", html);
 }
 
 void handleFirmwareUpdateLatest() {
   if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
     server.send(503, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update unavailable</h2><p>The ESP32-C3 is not connected to Wi-Fi.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+                updatePage("Update unavailable", "The ESP32-C3 is not connected to Wi-Fi."));
     return;
   }
 
-  WiFiClientSecure client;
-  client.setInsecure();
-  HTTPClient http;
-  const char* apiUrl = "https://api.github.com/repos/candoo32-glitch/esp32-c3-pc-relay/releases/latest";
-
-  if (!http.begin(client, apiUrl)) {
+  String json;
+  if (!fetchReleaseCatalog(json)) {
     server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not connect to GitHub.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+                updatePage("Update failed", "Could not retrieve the GitHub release catalog."));
     return;
   }
 
-  http.setTimeout(10000);
-  http.addHeader("User-Agent", "ESP32-C3-PC-Relay");
-  const int apiStatus = http.GET();
-  if (apiStatus != HTTP_CODE_OK) {
-    http.end();
-    server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not retrieve the latest GitHub release.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
+  const long currentFirmware = firmwareBuild().toInt();
+  const long currentWeb = webInterfaceBuild().toInt();
+  long latestFirmware = -1;
+  long latestWeb = -1;
+  const String firmwareUrl = firmwareReleaseUrl(json, latestFirmware);
+  const String webUrl = webReleaseUrl(json, latestWeb);
+  const bool installFirmware = !firmwareUrl.isEmpty() && latestFirmware > currentFirmware;
+  const bool installWeb = !webUrl.isEmpty() && latestWeb > currentWeb;
 
-  const String json = http.getString();
-  http.end();
-
-  const String tag = jsonStringField(json, "tag_name");
-  const String latestBuild = latestReleaseBuild(tag);
-  const long currentNumber = firmwareBuild().toInt();
-  const long latestNumber = latestBuild.toInt();
-  if (tag.isEmpty() || latestBuild.isEmpty() || latestNumber <= currentNumber) {
+  if (!installFirmware && !installWeb) {
     server.send(200, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>No update installed</h2><p>The latest release is not newer than the firmware currently installed.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
-
-  const String firmwareUrl = latestReleaseFirmwareUrl(json);
-  const String spiffsUrl = latestReleaseSpiffsUrl(json);
-  if (firmwareUrl.isEmpty() || spiffsUrl.isEmpty()) {
-    server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The latest release is missing the matching firmware or SPIFFS web interface image.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+                updatePage("No update installed", "Firmware and web interface are already up to date."));
     return;
   }
 
@@ -484,56 +496,65 @@ void handleFirmwareUpdateLatest() {
   download.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   download.addHeader("User-Agent", "ESP32-C3-PC-Relay");
 
-  if (!download.begin(downloadClient, firmwareUrl)) {
-    server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not connect to the firmware download.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
+  if (installFirmware) {
+    if (!download.begin(downloadClient, firmwareUrl)) {
+      server.send(502, "text/html; charset=utf-8",
+                  updatePage("Update failed", "Could not connect to the firmware download."));
+      return;
+    }
 
-  const int firmwareStatus = download.GET();
-  if (firmwareStatus != HTTP_CODE_OK) {
+    const int status = download.GET();
+    if (status != HTTP_CODE_OK) {
+      download.end();
+      server.send(502, "text/html; charset=utf-8",
+                  updatePage("Update failed", String("GitHub firmware download returned HTTP ") + String(status) + "."));
+      return;
+    }
+
+    const bool finished = downloadAndWriteUpdate(download, U_FLASH, "firmware");
     download.end();
-    String message = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>GitHub firmware download returned HTTP ";
-    message += String(firmwareStatus);
-    message += F(".</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    server.send(502, "text/html; charset=utf-8", message);
-    return;
+    if (!finished) {
+      server.send(500, "text/html; charset=utf-8",
+                  updatePage("Update failed", "The firmware image could not be downloaded or installed."));
+      return;
+    }
   }
 
-  const bool firmwareFinished = downloadAndWriteUpdate(download, U_FLASH, "firmware");
-  download.end();
-  if (!firmwareFinished) {
-    server.send(500, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The firmware image could not be downloaded or installed. The existing firmware remains the active boot image.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
+  if (installWeb) {
+    SPIFFS.end();
 
-  SPIFFS.end();
+    if (!download.begin(downloadClient, webUrl)) {
+      server.send(502, "text/html; charset=utf-8",
+                  updatePage("Update failed", "Could not connect to the SPIFFS web interface download."));
+      return;
+    }
 
-  if (!download.begin(downloadClient, spiffsUrl)) {
-    server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not connect to the SPIFFS web interface download.</p><p>The new firmware is staged, but the device will not reboot until the matching web interface is installed.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
+    const int status = download.GET();
+    if (status != HTTP_CODE_OK) {
+      download.end();
+      server.send(502, "text/html; charset=utf-8",
+                  updatePage("Update failed", String("GitHub SPIFFS download returned HTTP ") + String(status) + "."));
+      return;
+    }
 
-  const int spiffsStatus = download.GET();
-  if (spiffsStatus != HTTP_CODE_OK) {
+    const bool finished = downloadAndWriteUpdate(download, U_SPIFFS, "SPIFFS web interface");
     download.end();
-    server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>GitHub SPIFFS download returned HTTP ");
-    return;
+    if (!finished) {
+      server.send(500, "text/html; charset=utf-8",
+                  updatePage("Update failed", "The SPIFFS web interface could not be installed."));
+      return;
+    }
   }
 
-  const bool spiffsFinished = downloadAndWriteUpdate(download, U_SPIFFS, "SPIFFS web interface");
-  download.end();
-  if (!spiffsFinished) {
-    server.send(500, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The SPIFFS web interface could not be installed. The new firmware is staged but the device will not reboot.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
+  String installed;
+  if (installFirmware) installed = "firmware";
+  if (installWeb) {
+    if (!installed.isEmpty()) installed += " and ";
+    installed += "web interface";
   }
 
   server.send(200, "text/html; charset=utf-8",
-              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Firmware and web interface upgraded</h2><p>The new firmware and matching SPIFFS web interface were installed successfully. The ESP32-C3 will reboot now.</p><p><a href='/?tab=dashboard' style='color:#7eb6ff'>Return to Dashboard</a></p></body>");
+              updatePage("Update installed", "The " + installed + " update was installed successfully. The ESP32-C3 will reboot now."));
   delay(300);
   ESP.restart();
 }
