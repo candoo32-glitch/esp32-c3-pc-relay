@@ -887,22 +887,34 @@ void handlePageState() {
   server.send(200, "application/json; charset=utf-8", json);
 }
 
-void handleRoot() {
-  if (!SPIFFS.exists("/index.html")) {
-    server.send(500, "text/plain; charset=utf-8",
-                "Web UI filesystem is unavailable.");
+void handleStaticAsset(const char* path, const char* contentType) {
+  if (!SPIFFS.exists(path)) {
+    server.send(404, "text/plain; charset=utf-8", "Web UI asset not found.");
     return;
   }
-  File file = SPIFFS.open("/index.html", FILE_READ);
+
+  File file = SPIFFS.open(path, FILE_READ);
   if (!file) {
     server.send(500, "text/plain; charset=utf-8",
-                "Web UI could not be opened.");
+                "Web UI asset could not be opened.");
     return;
   }
-  server.streamFile(file, "text/html; charset=utf-8");
+
+  server.streamFile(file, contentType);
   file.close();
 }
 
+void handleRoot() {
+  handleStaticAsset("/index.html", "text/html; charset=utf-8");
+}
+
+void handleStyleCss() {
+  handleStaticAsset("/style.css", "text/css; charset=utf-8");
+}
+
+void handleAppJs() {
+  handleStaticAsset("/app.js", "application/javascript; charset=utf-8");
+}
 
 void handleToggle() {
   const bool enable = !WiFiControl::isEnabled();
@@ -1135,6 +1147,8 @@ void begin() {
   }
 
   server.on("/", HTTP_GET, handleRoot);
+  server.on("/style.css", HTTP_GET, handleStyleCss);
+  server.on("/app.js", HTTP_GET, handleAppJs);
   server.on("/api/state", HTTP_GET, handlePageState);
   server.on("/wifi/toggle", HTTP_POST, handleToggle);
   server.on("/wifi/reconnect", HTTP_POST, handleReconnect);
