@@ -719,7 +719,7 @@ String page() {
     html += String(getCpuFrequencyMhz());
     html += F(" MHz</td></tr></table></div></div>");
 
-    html += F("<div class='card'><h2>Relay</h2><table class='kv'><tr><td>");
+    html += F("<div class='card'><h2>Relay status</h2><table class='kv'><tr><td>");
     html += htmlEscape(Relay::name(Relay::Id::POWER));
     html += F("</td><td>");
     html += Relay::powerOn() ? F("<span class='ok'>ON</span>") : F("OFF");
