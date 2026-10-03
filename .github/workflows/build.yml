@@ -37,6 +37,9 @@ jobs:
       - name: Build ESP32-C3 firmware
         run: pio run -v
 
+      - name: Build web filesystem
+        run: pio run -t buildfs
+
       - name: Package firmware
         run: |
           mkdir -p dist/firmware
@@ -46,18 +49,20 @@ jobs:
           test -s "$BUILD/firmware.elf"
           test -s "$BUILD/partitions.bin"
           test -s "$BUILD/bootloader.bin"
+          test -s "$BUILD/spiffs.bin"
 
           cp "$BUILD/firmware.bin" dist/firmware/firmware.bin
           cp "$BUILD/firmware.elf" dist/firmware/firmware.elf
           cp "$BUILD/partitions.bin" dist/firmware/partitions.bin
           cp "$BUILD/bootloader.bin" dist/firmware/bootloader.bin
+          cp "$BUILD/spiffs.bin" dist/firmware/spiffs.bin
 
           echo "Downloading boot_app0.bin"
           curl -fsSL -o dist/firmware/boot_app0.bin             https://github.com/espressif/arduino-esp32/raw/refs/heads/master/tools/partitions/boot_app0.bin
 
           test -s dist/firmware/boot_app0.bin
 
-          python -m esptool --chip esp32c3 merge-bin             -o dist/firmware/factory.bin             --pad-to-size 4MB             --flash-mode keep             --flash-freq keep             --flash-size keep             0x0 "$BUILD/bootloader.bin"             0x8000 "$BUILD/partitions.bin"             0xe000 dist/firmware/boot_app0.bin             0x10000 "$BUILD/firmware.bin"
+          python -m esptool --chip esp32c3 merge-bin             -o dist/firmware/factory.bin             --pad-to-size 4MB             --flash-mode keep             --flash-freq keep             --flash-size keep             0x0 "$BUILD/bootloader.bin"             0x8000 "$BUILD/partitions.bin"             0xe000 dist/firmware/boot_app0.bin             0x10000 "$BUILD/firmware.bin"              0x310000 "$BUILD/spiffs.bin"
 
           test -s dist/firmware/factory.bin
           test "$(stat -c%s dist/firmware/factory.bin)" -eq 4194304
@@ -460,7 +465,7 @@ jobs:
           echo.
           echo The verified image is ready to flash.
           echo.
-          py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 "!LOCAL_FIRMWARE!\bootloader.bin" 0x8000 "!LOCAL_FIRMWARE!\partitions.bin" 0xe000 "!LOCAL_FIRMWARE!\boot_app0.bin" 0x10000 "!LOCAL_FIRMWARE!\firmware.bin"
+          py -m esptool --chip esp32c3 --port-filter vid=0x303A --port-filter pid=0x1001 --after hard-reset write-flash 0x0 "!LOCAL_FIRMWARE!\bootloader.bin" 0x8000 "!LOCAL_FIRMWARE!\partitions.bin" 0xe000 "!LOCAL_FIRMWARE!\boot_app0.bin" 0x10000 "!LOCAL_FIRMWARE!\firmware.bin" 0x310000 "!LOCAL_FIRMWARE!\spiffs.bin"
           set "FLASH_EXIT=!ERRORLEVEL!"
           echo.
           if not "!FLASH_EXIT!"=="0" (
@@ -510,6 +515,7 @@ jobs:
                   bootloader.bin
                   partitions.bin
                   boot_app0.bin
+                  spiffs.bin
                   firmware.elf
               README.txt
               SHA256SUMS.txt
@@ -531,7 +537,7 @@ jobs:
           On first run, flash.bat securely prompts for the token and saves it as the Windows user environment variable GH_TOKEN. Future runs use that saved value automatically. Remove GH_TOKEN from Windows user environment variables to require a new token.
           EOF
 
-          sha256sum             dist/firmware/factory.bin             dist/firmware/firmware.bin             dist/firmware/firmware.elf             dist/firmware/bootloader.bin             dist/firmware/partitions.bin             dist/firmware/boot_app0.bin             dist/flash.bat             dist/README.txt             > dist/SHA256SUMS.txt
+          sha256sum             dist/firmware/factory.bin             dist/firmware/firmware.bin             dist/firmware/firmware.elf             dist/firmware/bootloader.bin             dist/firmware/partitions.bin             dist/firmware/boot_app0.bin             dist/firmware/spiffs.bin             dist/flash.bat             dist/README.txt             > dist/SHA256SUMS.txt
 
           test -s dist/flash.bat
           test -s dist/README.txt
