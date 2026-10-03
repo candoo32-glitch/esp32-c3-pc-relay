@@ -646,345 +646,154 @@ String nvsTable() {
   return html;
 }
 
-String legacyPage() {
-  const String tab = tabName();
-  const bool enabled = WiFiControl::isEnabled();
-  const bool connected = enabled && WiFi.status() == WL_CONNECTED;
-  const uint32_t uptime = millis() / 1000UL;
-
-  String html;
-  html.reserve(18000);
-
-  html += F("<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>");
-  html += F("<title>ESP32-C3 PC Relay</title><style>");
-  html += F("*{box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:#111;color:#eee;margin:0;padding:16px;max-width:1100px;margin:auto}");
-  html += F("h1{font-size:25px;margin:0 0 4px}h2{font-size:18px;margin:0 0 14px}h3{font-size:15px;margin:20px 0 8px}.muted{color:#999}.ok{color:#62d477}.warn{color:#e5bd58}.bad{color:#ff7070}");
-  html += F(".tabs{display:flex;gap:6px;overflow:auto;margin:18px 0 12px;padding-bottom:2px}.tabs a{color:#bbb;text-decoration:none;padding:10px 13px;border:1px solid #383838;border-radius:8px;white-space:nowrap;background:#191919}.tabs a.active{color:#fff;background:#303030;border-color:#666}");
-  html += F(".card{background:#1c1c1c;border:1px solid #414141;border-radius:10px;padding:16px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}");
-  html += F("table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 7px;border-bottom:1px solid #333;vertical-align:middle}th{color:#bbb;font-weight:600}td:first-child{color:#aaa}");
-  html += F(".table-wrap{overflow:auto}.kv td:first-child{width:38%}");
-  html += F("label{display:block;color:#bbb;font-size:13px;margin:0 0 5px}input,select{width:100%;font:inherit;color:#eee;background:#111;border:1px solid #555;border-radius:7px;padding:10px}input:focus,select:focus{outline:2px solid #507eb7;border-color:#507eb7}");
-  html += F("input[type=number]{appearance:textfield}.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:10px 0}.help{font-size:12px;color:#888;margin-top:4px}");
-  html += F("button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 0 0;color:white;background:#315f93;cursor:pointer}.danger{background:#7b3030}.good{background:#286a39}.secondary{background:#454545}");
-  html += F(".status{display:inline-block;padding:5px 9px;border-radius:20px;background:#292929}.mono{font-family:ui-monospace,SFMono-Regular,monospace}.notice{padding:11px 13px;border:1px solid #555;border-radius:8px;background:#252525;margin:12px 0}");
-  html += F(".relay-buttons{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.relay-buttons form{margin:0}.relay-button{min-width:160px;font-size:1.05rem;font-weight:700;padding:12px 18px}.relay-float{position:fixed;right:18px;bottom:18px;z-index:1000;background:rgba(28,28,28,.96);border:1px solid #555;border-radius:12px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.45);backdrop-filter:blur(8px)}.relay-float-title{font-size:12px;color:#aaa;margin:0 0 6px;text-align:center}.relay-float-buttons{display:flex;gap:8px}.relay-float form{margin:0}.relay-float .relay-button{min-width:132px;margin:0}.firmware-update-actions{display:flex;justify-content:center;align-items:center;gap:24px;flex-wrap:wrap;margin-top:8px}.firmware-update-actions form{margin:0}</style></head><body>");
-
-  html += F("<h1>ESP32-C3 PC Relay</h1><div class='muted'>Headless control and configuration</div>");
-
-  html += F("<nav class='tabs'>");
-  const char* names[] = {"dashboard","wifi","network","diagnostics","relays","storage","system"};
-  const char* labels[] = {"Dashboard","Wi-Fi","Network","Diagnostics","Relays","Storage","System"};
-  for (size_t i = 0; i < 7; ++i) {
-    html += F("<a href='/?tab=");
-    html += names[i];
-    html += F("' class='");
-    if (tab == names[i]) html += F("active");
-    html += F("'>");
-    html += labels[i];
-    html += F("</a>");
-  }
-  html += F("</nav>");
-
-  // Persistent relay controls: available from every web page without leaving the current tab.
-  html += F("<div class='relay-float'><div class='relay-float-title'>Relay control</div><div class='relay-float-buttons'>");
-  html += F("<form method='POST' action='/relay/action'><input type='hidden' name='id' value='0'><input type='hidden' name='return' value='");
-  html += tab;
-  html += F("'><button class='relay-button good' name='action' value='activate'>");
-  html += htmlEscape(Relay::name(Relay::Id::POWER));
-  html += F("</button></form><form method='POST' action='/relay/action'><input type='hidden' name='id' value='1'><input type='hidden' name='return' value='");
-  html += tab;
-  html += F("'><button class='relay-button good' name='action' value='activate'>");
-  html += htmlEscape(Relay::name(Relay::Id::RESET));
-  html += F("</button></form></div></div>");
-
-  if (tab == "dashboard") {
-    html += F("<div class='grid'><div class='card'><h2>Wi-Fi</h2><table class='kv'>");
-    html += F("<tr><td>Status</td><td class='");
-    html += connected ? F("ok'>CONNECTED") : (enabled ? F("warn'>DISCONNECTED") : F("muted'>OFF"));
-    html += F("</td></tr><tr><td>SSID</td><td>");
-    html += connected ? htmlEscape(WiFi.SSID()) : F("-");
-    html += F("</td></tr><tr><td>IP address</td><td class='mono'>");
-    html += connected ? WiFi.localIP().toString() : F("-");
-    html += F("</td></tr><tr><td>RSSI</td><td>");
-    if (connected) { html += String(WiFi.RSSI()); html += F(" dBm"); } else html += F("-");
-    html += F("</td></tr><tr><td>Channel</td><td>");
-    html += connected ? String(WiFi.channel()) : F("-");
-    html += F("</td></tr></table></div>");
-
-    html += F("<div class='card'><h2>System</h2><table class='kv'><tr><td>Uptime</td><td>");
-    html += String(uptime);
-    html += F(" seconds</td></tr><tr><td>Firmware build</td><td>");
-    html += firmwareBuild();
-    html += F("</td></tr><tr><td>ESP-IDF</td><td>");
-    html += esp_get_idf_version();
-    html += F("</td></tr><tr><td>CPU</td><td>");
-    html += String(getCpuFrequencyMhz());
-    html += F(" MHz</td></tr></table></div></div>");
-
-    html += F("<div class='card'><h2>Relay status</h2><table class='kv'><tr><td>");
-    html += htmlEscape(Relay::name(Relay::Id::POWER));
-    html += F("</td><td>");
-    html += Relay::powerOn() ? F("<span class='ok'>ON</span>") : F("OFF");
-    html += F(" &nbsp; GPIO5</td></tr><tr><td>");
-    html += htmlEscape(Relay::name(Relay::Id::RESET));
-    html += F("</td><td>");
-    html += Relay::resetOn() ? F("<span class='ok'>ON</span>") : F("OFF");
-    html += F(" &nbsp; GPIO6</td></tr></table></div>");
-  }
-
-  if (tab == "wifi") {
-    html += F("<div class='card'><h2>Wi-Fi</h2><div class='status'>");
-    html += statusText();
-    html += F("</div><table class='kv'><tr><td>SSID</td><td>");
-    html += connected ? htmlEscape(WiFi.SSID()) : F("-");
-    html += F("</td></tr><tr><td>IP address</td><td class='mono'>");
-    html += connected ? WiFi.localIP().toString() : F("-");
-    html += F("</td></tr><tr><td>Gateway</td><td class='mono'>");
-    html += connected ? WiFi.gatewayIP().toString() : F("-");
-    html += F("</td></tr><tr><td>Subnet</td><td class='mono'>");
-    html += connected ? WiFi.subnetMask().toString() : F("-");
-    html += F("</td></tr><tr><td>DNS</td><td class='mono'>");
-    html += connected ? WiFi.dnsIP().toString() : F("-");
-    html += F("</td></tr><tr><td>RSSI</td><td>");
-    if (connected) { html += String(WiFi.RSSI()); html += F(" dBm"); } else html += F("-");
-    html += F("</td></tr><tr><td>Channel</td><td>");
-    html += connected ? String(WiFi.channel()) : F("-");
-    html += F("</td></tr><tr><td>BSSID</td><td class='mono'>");
-    html += connected ? htmlEscape(WiFi.BSSIDstr()) : F("-");
-    html += F("</td></tr><tr><td>TX power</td><td>");
-    html += txPowerText();
-    html += F("</td></tr></table>");
-    html += F("<form method='POST' action='/wifi/toggle'><button class='");
-    html += enabled ? F("danger'>Turn Wi-Fi OFF") : F("good'>Turn Wi-Fi ON");
-    html += F("</button></form>");
-    if (enabled) html += F("<form method='POST' action='/wifi/reconnect'><button>Reconnect now</button></form>");
-    html += F("</div>");
-
-    html += F("<div class='card'><h2>Wi-Fi credentials</h2><div class='muted'>Credentials are saved only after a successful connection. SSID is limited to 32 characters and password to 63.</div>");
-    html += F("<form method='POST' action='/wifi/save'><div class='row'><div><label for='ssid'>SSID</label><input id='ssid' name='ssid' maxlength='32' required value='");
-    html += htmlEscape(WiFiControl::savedSSID());
-    html += F("'></div><div><label for='password'>Password</label><input id='password' name='password' type='password' maxlength='63' autocomplete='new-password'><div class='help'>Leave empty only for an open network.</div></div></div><button class='good'>Test and save credentials</button></form></div>");
-
-    html += F("<div class='card'><h2>Nearby networks</h2><form method='POST' action='/wifi/scan'><button class='secondary'>Scan now</button></form>");
-    html += F("<div class='help'>A scan temporarily pauses normal Wi-Fi connection activity while results are collected.</div></div>");
-
-    html += F("<div class='card'><h2>TX power</h2><form method='POST' action='/wifi/txpower'><div class='row'><div><label for='txpower'>Power (dBm)</label><input id='txpower' name='dbm' type='number' min='2' max='18' step='0.25' value='");
-    int8_t txPower = 60;
-    if (esp_wifi_get_max_tx_power(&txPower) != ESP_OK) txPower = 60;
-    html += String(static_cast<float>(txPower) * 0.25f, 2);
-    html += F("'><div class='help'>Allowed: 2.00–18.00 dBm in 0.25 dBm increments.</div></div></div><button>Save TX power</button></form></div>");
-  }
-
-  if (tab == "network") {
-    const bool isStatic = NetConfig::mode() == NetConfig::Mode::STATIC;
-    html += F("<div class='card'><h2>Network configuration</h2><form method='POST' action='/network/save'>");
-    html += F("<div class='row'><div><label for='hostname'>Host name</label><input id='hostname' name='hostname' maxlength='32' pattern='[A-Za-z0-9-]+' value='");
-    html += htmlEscape(NetConfig::hostname());
-    html += F("'><div class='help'>Letters, numbers, and hyphens; 1–32 characters.</div></div><div><label for='mode'>Address mode</label><select id='mode' name='mode'><option value='dhcp'");
-    if (!isStatic) html += F(" selected");
-    html += F(">DHCP</option><option value='static'");
-    if (isStatic) html += F(" selected");
-    html += F(">Manual / Static IPv4</option></select></div></div>");
-    const String formIP = isStatic ? NetConfig::savedIP() : NetConfig::currentIP();
-    const String formGateway = isStatic ? NetConfig::savedGateway() : NetConfig::currentGateway();
-    const String formSubnet = isStatic ? NetConfig::savedSubnet() : NetConfig::currentSubnet();
-    const String formDNS1 = isStatic ? NetConfig::savedDNS1() : NetConfig::currentDNS1();
-    const String formDNS2 = isStatic ? NetConfig::savedDNS2() : NetConfig::currentDNS2();
-    html += F("<div class='row'><div><label>IP address</label><input name='ip' maxlength='15' inputmode='decimal' value='");
-    html += htmlEscape(formIP);
-    html += F("'><div class='help'>IPv4, four octets, maximum 255 each.</div></div><div><label>Gateway</label><input name='gateway' maxlength='15' inputmode='decimal' value='");
-    html += htmlEscape(formGateway);
-    html += F("'></div><div><label>Subnet mask</label><input name='subnet' maxlength='15' inputmode='decimal' value='");
-    html += htmlEscape(formSubnet);
-    html += F("'></div></div>");
-    html += F("<div class='row'><div><label>DNS 1</label><input name='dns1' maxlength='15' inputmode='decimal' value='");
-    html += htmlEscape(formDNS1);
-    html += F("'></div><div><label>DNS 2</label><input name='dns2' maxlength='15' inputmode='decimal' value='");
-    html += htmlEscape(formDNS2);
-    html += F("'></div></div><button class='good'>Save network settings</button></form></div>");
-    html += F("<div class='card'><h2>Current effective network</h2><table class='kv'><tr><td>Mode</td><td>");
-    html += isStatic ? F("MANUAL / STATIC") : F("DHCP");
-    html += F("</td></tr><tr><td>Hostname</td><td class='mono'>");
-    html += htmlEscape(NetConfig::hostname());
-    html += F(".local</td></tr><tr><td>IP</td><td class='mono'>");    html += NetConfig::currentIP();
-    html += F("</td></tr><tr><td>Gateway</td><td class='mono'>");
-    html += NetConfig::currentGateway();
-    html += F("</td></tr><tr><td>DNS 1</td><td class='mono'>");
-    html += NetConfig::currentDNS1();
-    html += F("</td></tr><tr><td>DNS 2</td><td class='mono'>");
-    html += NetConfig::currentDNS2();
-    html += F("</td></tr></table></div>");
-  }
-
-  if (tab == "diagnostics") {
-    html += F("<div class='card'><h2>Wi-Fi diagnostics</h2><table class='kv'><tr><td>Diagnostics</td><td class='");
-    html += WiFiDiagnostics::enabled() ? F("ok'>ON") : F("bad'>OFF");
-    html += F("</td></tr></table><form method='POST' action='/diagnostics/toggle'><button>");
-    html += WiFiDiagnostics::enabled() ? F("Turn diagnostics OFF") : F("Turn diagnostics ON");
-    html += F("</button></form></div>");
-    html += F("<div class='card'><h2>Live connection data</h2><table class='kv'><tr><td>Wi-Fi state</td><td>");
-    html += statusText();
-    html += F("</td></tr><tr><td>Authentication</td><td>");
-    if (connected) {
-      wifi_ap_record_t record = {};
-      if (esp_wifi_sta_get_ap_info(&record) == ESP_OK) html += WiFiControl::authModeName(record.authmode);
-      else html += F("unavailable");
-    } else html += F("-");
-    html += F("</td></tr><tr><td>BSSID</td><td class='mono'>");
-    html += connected ? htmlEscape(WiFi.BSSIDstr()) : F("-");
-    html += F("</td></tr><tr><td>RSSI</td><td>");
-    if (connected) { html += String(WiFi.RSSI()); html += F(" dBm"); } else html += F("-");
-    html += F("</td></tr></table><div class='help'>Detailed connection event records remain available on the serial diagnostics console.</div></div>");
-  }
-
-  if (tab == "relays") {
-    html += F("<div class='card'><h2>Relay control</h2><div class='muted'>Each relay is independently configurable. Either Save relay settings button saves BOTH relays. Blank values use the defaults: Relay 1 / Relay 2, OPEN, LATCHED, 250 ms.</div></div>");
-    html += F("");
-
-    html += F("<form method='POST' action='/relay/config'>");
-    for (uint8_t i = 0; i < 2; ++i) {
-      const Relay::Id id = static_cast<Relay::Id>(i);
-      const char* prefix = i == 0 ? "relay0_" : "relay1_";
-      html += F("<div class='card'><h2>");
-      html += htmlEscape(Relay::name(id));
-      html += F("</h2><table class='kv'><tr><td>GPIO</td><td>");
-      html += String(i == 0 ? 5 : 6);
-      html += F("</td></tr><tr><td>Contact</td><td>");
-      html += Relay::state(id) ? F("<span class='ok'>ACTIVE</span>") : F("NORMAL");
-      html += F("</td></tr><tr><td>Normal state</td><td>");
-      html += Relay::normalState(id) == Relay::NormalState::OPEN ? F("OPEN") : F("CLOSED");
-      html += F("</td></tr><tr><td>Activation</td><td>");
-      html += Relay::activationMode(id) == Relay::ActivationMode::PULSE ? F("PULSE") : F("LATCHED");
-      html += F("</td></tr>");
-      if (Relay::activationMode(id) == Relay::ActivationMode::PULSE) {
-        html += F("<tr><td>Pulse duration</td><td>");
-        html += String(Relay::pulseMs(id));
-        html += F(" ms</td></tr>");
-      }
-      html += F("</table><div class='row'><div><label>Name</label><input name='");
-      html += prefix;
-      html += F("name' maxlength='32' value='");
-      html += htmlEscape(Relay::name(id));
-      html += F("'></div><div><label>Normal contact state</label><select name='");
-      html += prefix;
-      html += F("normal'><option value='open'");
-      if (Relay::normalState(id) == Relay::NormalState::OPEN) html += F(" selected");
-      html += F(">OPEN</option><option value='closed'");
-      if (Relay::normalState(id) == Relay::NormalState::CLOSED) html += F(" selected");
-      html += F(">CLOSED</option></select></div><div><label>Activation mode</label><select name='");
-      html += prefix;
-      html += F("mode'><option value='latched'");
-      if (Relay::activationMode(id) == Relay::ActivationMode::LATCHED) html += F(" selected");
-      html += F(">LATCHED</option><option value='pulse'");
-      if (Relay::activationMode(id) == Relay::ActivationMode::PULSE) html += F(" selected");
-      html += F(">PULSE</option></select></div><div><label>Pulse duration (ms)</label><input name='");
-      html += prefix;
-      html += F("pulse' type='number' min='10' max='60000' step='1' value='");
-      html += String(Relay::pulseMs(id));
-      html += F("'><div class='help'>10–60000 ms. Blank uses 250 ms.</div></div></div>");
-      html += F("<button class='good' type='submit'>Save relay settings</button></div>");
+String jsonEscape(const String& input) {
+  String out;
+  out.reserve(input.length() + 8);
+  for (size_t i = 0; i < input.length(); ++i) {
+    const char ch = input[i];
+    switch (ch) {
+      case '\\': out += F("\\\\"); break;
+      case '"': out += F("\\\""); break;
+      case '\b': out += F("\\b"); break;
+      case '\f': out += F("\\f"); break;
+      case '\n': out += F("\\n"); break;
+      case '\r': out += F("\\r"); break;
+      case '\t': out += F("\\t"); break;
+      default:
+        if (static_cast<unsigned char>(ch) < 0x20) out += ' ';
+        else out += ch;
+        break;
     }
-    html += F("</form>");
   }
-
-  if (tab == "storage") {
-    const esp_partition_t* nvs = nvsPartition();
-    html += F("<div class='card'><h2>Configuration backup</h2>");
-    html += F("<div class='muted'>Download a complete NVS configuration backup. This includes saved Wi-Fi credentials and other configuration values, so treat the backup file as sensitive.</div>");
-    if (nvs != nullptr) {
-      html += F("<p class='mono'>NVS partition: ");
-      html += String(nvs->size);
-      html += F(" bytes</p>");
-    }
-    html += F("<a href='/config/backup'><button class='good' type='button'>Download configuration backup</button></a></div>");
-    html += F("<div class='card'><h2>Restore configuration</h2>");
-    html += F("<div class='bad'>Restore replaces the entire NVS configuration and then reboots the ESP32-C3. Use a backup created by this firmware on a compatible ESP32-C3 relay device.</div>");
-    html += F("<form method='POST' action='/config/restore' enctype='multipart/form-data' onsubmit='return confirm(&quot;Restore this configuration and reboot the ESP32-C3?&quot;);'><div class='row'><div><label for='configfile'>Configuration backup</label><input id='configfile' name='configfile' type='file' accept='.bin,application/octet-stream' required></div></div><button class='good'>Restore configuration and reboot</button></form></div>");
-    html += F("<div class='card'><h2>NVS contents</h2>");
-    html += nvsTable();
-    html += F("</div><div class='card'><h2>Format NVS</h2><div class='bad'>This erases the entire NVS partition, including Wi-Fi credentials, TX power, diagnostics, and network settings.</div>");
-    html += F("<form method='POST' action='/nvs/format' onsubmit='return confirm(&quot;Erase the entire NVS partition and reboot the ESP32?&quot;);'><button class='danger'>Format NVS and reboot</button></form></div>");
-  }
-  if (tab == "system") {
-    html += F("<div class='card'><h2>Firmware</h2><table class='kv'><tr><td>Build</td><td>");
-    html += firmwareBuild();
-    html += F("</td></tr><tr><td>Build date</td><td>");
-    html += __DATE__;
-    html += F(" ");
-    html += __TIME__;
-    html += F("</td></tr><tr><td>ESP-IDF</td><td>");
-    html += esp_get_idf_version();
-    html += F("</td></tr><tr><td>Arduino core</td><td>");
-    html += ESP_ARDUINO_VERSION_STR;
-    html += F("</td></tr><tr><td>Chip</td><td>ESP32-C3</td></tr><tr><td>CPU frequency</td><td>");
-    html += String(getCpuFrequencyMhz());
-    html += F(" MHz</td></tr><tr><td>Uptime</td><td>");
-    html += String(uptime);
-    html += F(" seconds</td></tr></table></div>");
-    html += F("<div class='card'><h2>Firmware updates</h2>");
-    html += F("<div class='muted'>Check GitHub for the latest published firmware release. If a newer compatible build is available, it can be downloaded and installed directly.</div>");
-    html += F("<div class='firmware-update-actions'><form method='GET' action='/system/check-update'><button class='secondary' type='submit'>Check for firmware updates</button></form>");
-    html += F("<form method='POST' action='/system/update-latest' onsubmit=&quot;return confirm('Download and install the latest firmware from GitHub, then reboot the ESP32-C3?');&quot;><button class='good' type='submit'>Download and install latest firmware</button></form></div></div>");
-    html += F("<div class='card'><h2>Firmware upgrade</h2>");
-    html += F("<div class='warn'>Upload a compatible ESP32-C3 firmware .bin file. The current firmware will be replaced and the device will reboot automatically. NVS configuration is preserved.</div>");
-    html += F("<form method='POST' action='/system/update' enctype='multipart/form-data' onsubmit='return confirm(&quot;Upgrade firmware and reboot the ESP32-C3?&quot;);'><div class='row'><div><label for='firmware'>Firmware image</label><input id='firmware' name='firmware' type='file' accept='.bin,application/octet-stream' required></div></div><button class='good' type='submit'>Upgrade firmware</button></form></div>");
-    html += F("<div class='card'><h2>System actions</h2><form method='POST' action='/system/reboot' onsubmit=\"return confirm('Reboot the ESP32-C3?');\"><button class='danger'>Reboot ESP32-C3</button></form></div>");
-  }
-
-  html += F("<div class='muted'>Page status: ");
-  html += statusText();
-  html += F("</div></body></html>");
-  return html;
+  return out;
 }
 
-String page() {
-  static bool webTemplateLoaded = false;
-  static String webTemplate;
-  if (!webTemplateLoaded) {
-    webTemplateLoaded = true;
-    if (SPIFFS.exists("/index.html")) {
-      File file = SPIFFS.open("/index.html", FILE_READ);
-      if (file) {
-        webTemplate.reserve(file.size() + 256);
-        while (file.available()) webTemplate += static_cast<char>(file.read());
-        file.close();
-      }
-    }
+void handlePageState() {
+  const bool enabled = WiFiControl::isEnabled();
+  const bool connected = enabled && WiFi.status() == WL_CONNECTED;
+
+  String json;
+  json.reserve(12000);
+  json += F("{\"wifi\":{");
+
+  auto addString = [&](const char* key, const String& value, bool comma = true) {
+    json += '"';
+    json += key;
+    json += F("\":\"");
+    json += jsonEscape(value);
+    json += '"';
+    if (comma) json += ',';
+  };
+  auto addBool = [&](const char* key, bool value, bool comma = true) {
+    json += '"';
+    json += key;
+    json += F("\":");
+    json += value ? F("true") : F("false");
+    if (comma) json += ',';
+  };
+  auto addNumber = [&](const char* key, long long value, bool comma = true) {
+    json += '"';
+    json += key;
+    json += F("\":");
+    json += String(value);
+    if (comma) json += ',';
+  };
+
+  addBool("enabled", enabled);
+  addBool("connected", connected);
+  addString("status", statusText());
+  addString("ssid", connected ? WiFi.SSID() : "");
+  addString("savedSsid", WiFiControl::savedSSID());
+  addString("ip", connected ? WiFi.localIP().toString() : "");
+  addString("gateway", connected ? WiFi.gatewayIP().toString() : "");
+  addString("subnet", connected ? WiFi.subnetMask().toString() : "");
+  addString("dns", connected ? WiFi.dnsIP().toString() : "");
+  addNumber("rssi", connected ? WiFi.RSSI() : 0);
+  addNumber("channel", connected ? WiFi.channel() : 0);
+  addString("bssid", connected ? WiFi.BSSIDstr() : "");
+  addString("auth", connected ? WiFiControl::authModeName([&]() {
+    wifi_ap_record_t record = {};
+    return esp_wifi_sta_get_ap_info(&record) == ESP_OK ? record.authmode : WIFI_AUTH_OPEN;
+  }()) : "");
+  int8_t txPower = 60;
+  if (esp_wifi_get_max_tx_power(&txPower) != ESP_OK) txPower = 60;
+  addString("tx", String(static_cast<float>(txPower) * 0.25f, 2), false);
+  json += F("},\"network\":{");
+  addString("mode", NetConfig::mode() == NetConfig::Mode::STATIC ? "static" : "dhcp");
+  addString("hostname", NetConfig::hostname());
+  const bool isStatic = NetConfig::mode() == NetConfig::Mode::STATIC;
+  addString("ip", isStatic ? NetConfig::savedIP() : NetConfig::currentIP());
+  addString("gateway", isStatic ? NetConfig::savedGateway() : NetConfig::currentGateway());
+  addString("subnet", isStatic ? NetConfig::savedSubnet() : NetConfig::currentSubnet());
+  addString("dns1", isStatic ? NetConfig::savedDNS1() : NetConfig::currentDNS1());
+  addString("dns2", isStatic ? NetConfig::savedDNS2() : NetConfig::currentDNS2(), false);
+  json += F("},\"diagnostics\":{");
+  addBool("enabled", WiFiDiagnostics::enabled(), false);
+  json += F("},\"relays\":[");
+  for (uint8_t i = 0; i < 2; ++i) {
+    const Relay::Id id = static_cast<Relay::Id>(i);
+    json += '{';
+    addString("name", Relay::name(id));
+    addBool("state", Relay::state(id));
+    addString("normal", Relay::normalState(id) == Relay::NormalState::OPEN ? "OPEN" : "CLOSED");
+    addString("mode", Relay::activationMode(id) == Relay::ActivationMode::PULSE ? "PULSE" : "LATCHED");
+    addNumber("pulse", Relay::pulseMs(id), false);
+    json += '}';
+    if (i == 0) json += ',';
   }
-  if (webTemplate.isEmpty()) return legacyPage();
-
-  const String tab = tabName();
-  const String legacy = legacyPage();
-  const String floatStart = "<div class='relay-float'>";
-  const String floatEnd = "</div></div>";
-  const int floatPos = legacy.indexOf(floatStart);
-  const int floatEndPos = floatPos >= 0 ? legacy.indexOf(floatEnd, floatPos) : -1;
-  const String footerMarker = "<div class='muted'>Page status:";
-  const int contentStart = floatEndPos >= 0 ? floatEndPos + floatEnd.length() : -1;
-  const int contentEnd = legacy.indexOf(footerMarker);
-
-  if (floatPos < 0 || floatEndPos < 0 || contentStart < 0 || contentEnd < contentStart) {
-    return legacyPage();
+  json += F("],\"nvs\":{\"size\":");
+  const esp_partition_t* nvs = nvsPartition();
+  json += String(nvs != nullptr ? nvs->size : 0);
+  json += F(",\"entries\":[");
+  nvs_iterator_t iterator = nullptr;
+  size_t count = 0;
+  esp_err_t result = nvs_entry_find("nvs", nullptr, NVS_TYPE_ANY, &iterator);
+  while (result == ESP_OK && iterator != nullptr) {
+    nvs_entry_info_t info;
+    nvs_entry_info(iterator, &info);
+    if (count > 0) json += ',';
+    json += F("{\"namespace\":\"");
+    json += jsonEscape(info.namespace_name);
+    json += F("\",\"key\":\"");
+    json += jsonEscape(info.key);
+    json += F("\",\"type\":\"");
+    json += nvsTypeName(info.type);
+    json += F("\",\"value\":\"");
+    json += jsonEscape(nvsValue(info));
+    json += F("\"}");
+    ++count;
+    result = nvs_entry_next(&iterator);
   }
+  if (iterator != nullptr) nvs_release_iterator(iterator);
+  json += F("]},\"system\":{");
+  addString("build", firmwareBuild());
+  addString("date", String(__DATE__) + F(" ") + __TIME__);
+  addString("idf", esp_get_idf_version());
+  addString("arduino", ESP_ARDUINO_VERSION_STR);
+  addNumber("cpu", getCpuFrequencyMhz());
+  addNumber("uptime", millis() / 1000UL, false);
+  json += F("}}");
 
-  String relayFloat = legacy.substring(floatPos, floatEndPos + floatEnd.length());
-  String content = legacy.substring(contentStart, contentEnd);
-  String html = webTemplate;
-
-  html.replace("{{TAB_DASHBOARD}}", tab == "dashboard" ? "active" : "");
-  html.replace("{{TAB_WIFI}}", tab == "wifi" ? "active" : "");
-  html.replace("{{TAB_NETWORK}}", tab == "network" ? "active" : "");
-  html.replace("{{TAB_DIAGNOSTICS}}", tab == "diagnostics" ? "active" : "");
-  html.replace("{{TAB_RELAYS}}", tab == "relays" ? "active" : "");
-  html.replace("{{TAB_STORAGE}}", tab == "storage" ? "active" : "");
-  html.replace("{{TAB_SYSTEM}}", tab == "system" ? "active" : "");
-  html.replace("{{RELAY_FLOAT}}", relayFloat);
-  html.replace("{{CONTENT}}", content);
-  html.replace("{{PAGE_STATUS}}", statusText());
-  return html;
+  server.send(200, "application/json; charset=utf-8", json);
 }
 
 void handleRoot() {
+  if (!SPIFFS.exists("/index.html")) {
+    server.send(500, "text/plain; charset=utf-8",
+                "Web UI filesystem is unavailable.");
+    return;
+  }
+  File file = SPIFFS.open("/index.html", FILE_READ);
+  if (!file) {
+    server.send(500, "text/plain; charset=utf-8",
+                "Web UI could not be opened.");
+    return;
+  }
+  server.streamFile(file, "text/html; charset=utf-8");
+  file.close();
+}
+
+ {
   server.send(200, "text/html; charset=utf-8", page());
 }
 
@@ -1219,6 +1028,7 @@ void begin() {
   }
 
   server.on("/", HTTP_GET, handleRoot);
+  server.on("/api/state", HTTP_GET, handlePageState);
   server.on("/wifi/toggle", HTTP_POST, handleToggle);
   server.on("/wifi/reconnect", HTTP_POST, handleReconnect);
   server.on("/wifi/save", HTTP_POST, handleWifiSave);
