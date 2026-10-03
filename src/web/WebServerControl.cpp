@@ -327,7 +327,22 @@ String latestReleaseAssetUrl(const String& json, const String& filenameSuffix) {
 }
 
 String latestReleaseFirmwareUrl(const String& json) {
-  return latestReleaseAssetUrl(json, ".bin");
+  int pos = 0;
+  while ((pos = json.indexOf("\"browser_download_url\"", pos)) >= 0) {
+    int valueStart = json.indexOf('"', pos + 23);
+    if (valueStart < 0) return "";
+    ++valueStart;
+    int valueEnd = valueStart;
+    while (valueEnd < static_cast<int>(json.length())) {
+      if (json[valueEnd] == '"' && json[valueEnd - 1] != '\\') break;
+      ++valueEnd;
+    }
+    if (valueEnd <= valueStart) return "";
+    const String url = json.substring(valueStart, valueEnd);
+    if (url.endsWith(".bin") && !url.endsWith("-spiffs.bin")) return url;
+    pos = valueEnd + 1;
+  }
+  return "";
 }
 
 String latestReleaseSpiffsUrl(const String& json) {
