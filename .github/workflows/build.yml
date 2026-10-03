@@ -65,7 +65,7 @@ jobs:
 
           test -s dist/firmware/boot_app0.bin
 
-          python -m esptool --chip esp32c3 merge-bin             -o dist/firmware/factory.bin             --pad-to-size 4MB             --flash-mode keep             --flash-freq keep             --flash-size keep             0x0 "$BUILD/bootloader.bin"             0x8000 "$BUILD/partitions.bin"             0xe000 dist/firmware/boot_app0.bin             0x10000 "$BUILD/firmware.bin"              0x310000 "$BUILD/spiffs.bin"
+          python -m esptool --chip esp32c3 merge-bin             -o dist/firmware/factory.bin             --pad-to-size 4MB             --flash-mode keep             --flash-freq keep             --flash-size keep             0x0 "$BUILD/bootloader.bin"             0x8000 "$BUILD/partitions.bin"             0xe000 dist/firmware/boot_app0.bin             0x10000 "$BUILD/firmware.bin"              0x310000 "$FS_IMAGE"
 
           test -s dist/firmware/factory.bin
           echo "Packaging checks passed."
