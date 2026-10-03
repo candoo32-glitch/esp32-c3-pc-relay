@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install PlatformIO
         run: python -m pip install --upgrade platformio==6.2.0
@@ -24,9 +26,35 @@ jobs:
       - name: Install esptool
         run: python -m pip install --upgrade esptool
 
+      - name: Determine OTA components
+        run: |
+          FIRMWARE_CHANGED=false
+          WEB_CHANGED=false
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            FIRMWARE_CHANGED=true
+            WEB_CHANGED=true
+          else
+            while IFS= read -r path; do
+              case "$path" in
+                data/*)
+                  WEB_CHANGED=true
+                  ;;
+                src/*|include/*|platformio.ini|partitions.csv|scripts/*)
+                  FIRMWARE_CHANGED=true
+                  ;;
+              esac
+            done < <(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+          fi
+
+          echo "OTA_FIRMWARE_CHANGED=$FIRMWARE_CHANGED" >> "$GITHUB_ENV"
+          echo "OTA_WEB_CHANGED=$WEB_CHANGED" >> "$GITHUB_ENV"
+          echo "OTA components: firmware=$FIRMWARE_CHANGED web=$WEB_CHANGED"
+
       - name: Set firmware build version
         run: |
           echo "FW_BUILD_VERSION=${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "WEB_BUILD_VERSION=${{ github.run_number }}" >> "$GITHUB_ENV"
           echo "BUILD_BRANCH_NAME=${{ github.head_ref || github.ref_name }}" >> "$GITHUB_ENV"
 
       - name: Install and patch Arduino-ESP32 build tools
@@ -36,6 +64,9 @@ jobs:
 
       - name: Build ESP32-C3 firmware
         run: pio run -v
+
+      - name: Stamp web interface version
+        run: printf "%s\n" "$WEB_BUILD_VERSION" > data/web_version.txt
 
       - name: Build web filesystem
         run: pio run -t buildfs
@@ -59,6 +90,7 @@ jobs:
           cp "$BUILD/partitions.bin" dist/firmware/partitions.bin
           cp "$BUILD/bootloader.bin" dist/firmware/bootloader.bin
           cp "$FS_IMAGE" dist/firmware/spiffs.bin
+          printf "%s\n" "$WEB_BUILD_VERSION" > dist/WEB_BUILD_VERSION.txt
 
           echo "Downloading boot_app0.bin"
           curl -fsSL -o dist/firmware/boot_app0.bin             https://github.com/espressif/arduino-esp32/raw/refs/heads/master/tools/partitions/boot_app0.bin
@@ -561,21 +593,25 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish raw OTA firmware release
+      - name: Publish raw OTA component release
+        if: env.OTA_FIRMWARE_CHANGED == 'true' || env.OTA_WEB_CHANGED == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           RELEASE_TAG="esp32-c3-pc-relay-v${FW_BUILD_VERSION}"
           RELEASE_NAME="ESP32-C3 PC Relay v${FW_BUILD_VERSION}"
           RELEASE_ASSET="esp32-c3-pc-relay-v${FW_BUILD_VERSION}.bin"
+          WEB_ASSET="esp32-c3-pc-relay-v${WEB_BUILD_VERSION}-spiffs.bin"
 
-          cp dist/firmware/firmware.bin "dist/firmware/${RELEASE_ASSET}"
-          cp dist/firmware/spiffs.bin "dist/firmware/esp32-c3-pc-relay-v${FW_BUILD_VERSION}-spiffs.bin"
+          RELEASE_ARGS=()
+          if [ "$OTA_FIRMWARE_CHANGED" = "true" ]; then
+            cp dist/firmware/firmware.bin "dist/firmware/${RELEASE_ASSET}"
+            RELEASE_ARGS+=("dist/firmware/${RELEASE_ASSET}")
+          fi
 
-          gh release create "$RELEASE_TAG" \
-            "dist/firmware/${RELEASE_ASSET}" \
-            "dist/firmware/esp32-c3-pc-relay-v${FW_BUILD_VERSION}-spiffs.bin" \
-            --repo "${{ github.repository }}" \
-            --target "${{ github.sha }}" \
-            --title "$RELEASE_NAME" \
-            --notes "ESP32-C3 PC Relay firmware ${FW_BUILD_VERSION}. Includes the firmware and matching SPIFFS web interface image for OTA updates."
+          if [ "$OTA_WEB_CHANGED" = "true" ]; then
+            cp dist/firmware/spiffs.bin "dist/firmware/${WEB_ASSET}"
+            RELEASE_ARGS+=("dist/firmware/${WEB_ASSET}")
+          fi
+
+          gh release create "$RELEASE_TAG" "${RELEASE_ARGS[@]}"             --repo "${{ github.repository }}"             --target "${{ github.sha }}"             --title "$RELEASE_NAME"             --notes "ESP32-C3 PC Relay release ${FW_BUILD_VERSION}. Firmware and SPIFFS web interface are independently published; this release contains only the components changed by this build."
