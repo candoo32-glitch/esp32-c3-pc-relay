@@ -423,18 +423,23 @@ bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* descr
   bool failed = false;
   uint32_t lastYield = millis();
 
-  while (download.connected() && totalWritten < static_cast<size_t>(contentLength)) {
+  // Consume the declared Content-Length rather than using connected() as
+  // the loop condition. A GitHub CDN connection may close after delivering
+  // the final bytes while those bytes are still buffered locally.
+  while (totalWritten < static_cast<size_t>(contentLength)) {
     const size_t available = stream->available();
     if (available == 0) {
-      delay(1);
-      if (millis() - lastYield > 10000) {
+      if (!download.connected() || millis() - lastYield > 10000) {
         failed = true;
         break;
       }
+      delay(1);
+      yield();
       continue;
     }
 
-    const size_t toRead = min(available, static_cast<size_t>(4096));
+    const size_t remaining = static_cast<size_t>(contentLength) - totalWritten;
+    const size_t toRead = min(available, min(remaining, static_cast<size_t>(4096)));
     const int readBytes = stream->readBytes(buffer, toRead);
     if (readBytes <= 0 ||
         Update.write(buffer, static_cast<size_t>(readBytes)) != static_cast<size_t>(readBytes)) {
@@ -566,7 +571,8 @@ void handleFirmwareUpdateLatest() {
 
   server.send(200, "text/html; charset=utf-8",
               updatePage("Update installed", "The " + installed + " update was installed successfully. The ESP32-C3 will reboot now."));
-  delay(300);
+  server.client().flush();
+  delay(1000);
   ESP.restart();
 }
 
