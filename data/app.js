@@ -1,6 +1,8 @@
 (function(){
 "use strict";
 const $=id=>document.getElementById(id);
+let wifiCredentialsDirty=false;
+let networkFormDirty=false;
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 function text(id,v){const e=$(id);if(e)e.textContent=v??"-"}
 function showTab(tab){if(!["dashboard","wifi","network","diagnostics","relays","storage","system"].includes(tab))tab="dashboard";
