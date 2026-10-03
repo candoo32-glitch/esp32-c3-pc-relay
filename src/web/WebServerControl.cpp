@@ -239,74 +239,6 @@ String latestReleaseBuild(const String& tag) {
   return tag.substring(start, end + 1);
 }
 
-void handleFirmwareUpdateCheck() {
-  if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
-    server.send(503, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update check unavailable</h2><p>The ESP32-C3 is not connected to Wi-Fi.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
-
-  WiFiClientSecure client;
-  client.setInsecure();
-
-  HTTPClient http;
-  const char* apiUrl = "https://api.github.com/repos/candoo32-glitch/esp32-c3-pc-relay/releases/latest";
-  if (!http.begin(client, apiUrl)) {
-    server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update check failed</h2><p>Could not start the secure connection to GitHub.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
-
-  http.setTimeout(10000);
-  http.addHeader("User-Agent", "ESP32-C3-PC-Relay");
-  const int responseCode = http.GET();
-
-  if (responseCode != HTTP_CODE_OK) {
-    http.end();
-    String message = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update check failed</h2><p>GitHub returned HTTP ";
-    message += String(responseCode);
-    message += F(".</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    server.send(responseCode > 0 ? 502 : 504, "text/html; charset=utf-8", message);
-    return;
-  }
-
-  const String json = http.getString();
-  http.end();
-
-  const String tag = jsonStringField(json, "tag_name");
-  const String releaseUrl = jsonStringField(json, "html_url");
-  const String latestBuild = latestReleaseBuild(tag);
-  const String currentBuild = firmwareBuild();
-  const long currentNumber = currentBuild.toInt();
-  const long latestNumber = latestBuild.toInt();
-
-  String html = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'>";
-  if (tag.isEmpty() || latestBuild.isEmpty()) {
-    html += F("<h2>Update check failed</h2><p>GitHub returned a release response, but no firmware version could be identified.</p>");
-  } else if (latestNumber > currentNumber) {
-    html += F("<h2>Firmware update available</h2><p>Current firmware: <b>");
-    html += htmlEscape(currentBuild);
-    html += F("</b><br>Latest release: <b>");
-    html += htmlEscape(tag);
-    html += F("</b></p>");
-    if (!releaseUrl.isEmpty()) {
-      html += F("<p><a href='");
-      html += htmlEscape(releaseUrl);
-      html += F("' style='color:#7eb6ff'>Open GitHub release</a></p>");
-    }
-    html += F("<p>Download the compatible .bin from the release, then use the Firmware upgrade section to install it.</p>");
-  } else {
-    html += F("<h2>Firmware is up to date</h2><p>Current firmware: <b>");
-    html += htmlEscape(currentBuild);
-    html += F("</b><br>Latest release: <b>");
-    html += htmlEscape(tag);
-    html += F("</b></p>");
-  }
-  html += F("<p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body></html>");
-  server.send(200, "text/html; charset=utf-8", html);
-}
-
-
 String releaseAssetBuild(const String& url, const String& suffix) {
   const int suffixPos = url.lastIndexOf(suffix);
   if (suffixPos < 0) return "";
@@ -458,6 +390,85 @@ void handleFirmwareUpdateCheck() {
 
   html += F("<p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body></html>");
   server.send(200, "text/html; charset=utf-8", html);
+}
+
+bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* description) {
+  const int contentLength = download.getSize();
+  if (contentLength <= 0) {
+    Serial.print("OTA ");
+    Serial.print(description);
+    Serial.println(" download did not provide a valid image size.");
+    return false;
+  }
+
+  if (!Update.begin(static_cast<size_t>(contentLength), command)) {
+    Serial.print("OTA ");
+    Serial.print(description);
+    Serial.print(" begin failed: ");
+    Serial.println(Update.errorString());
+    return false;
+  }
+
+  WiFiClient* stream = download.getStreamPtr();
+  uint8_t* buffer = static_cast<uint8_t*>(malloc(4096));
+  if (buffer == nullptr) {
+    Update.abort();
+    Serial.print("OTA ");
+    Serial.print(description);
+    Serial.println(" failed: insufficient RAM for download buffer.");
+    return false;
+  }
+
+  size_t totalWritten = 0;
+  bool failed = false;
+  uint32_t lastYield = millis();
+
+  while (download.connected() && totalWritten < static_cast<size_t>(contentLength)) {
+    const size_t available = stream->available();
+    if (available == 0) {
+      delay(1);
+      if (millis() - lastYield > 10000) {
+        failed = true;
+        break;
+      }
+      continue;
+    }
+
+    const size_t toRead = min(available, static_cast<size_t>(4096));
+    const int readBytes = stream->readBytes(buffer, toRead);
+    if (readBytes <= 0 ||
+        Update.write(buffer, static_cast<size_t>(readBytes)) != static_cast<size_t>(readBytes)) {
+      failed = true;
+      break;
+    }
+
+    totalWritten += static_cast<size_t>(readBytes);
+    lastYield = millis();
+    yield();
+  }
+
+  const bool finished =
+      !failed &&
+      totalWritten == static_cast<size_t>(contentLength) &&
+      Update.end(true);
+
+  free(buffer);
+
+  if (!finished) {
+    Serial.print("OTA ");
+    Serial.print(description);
+    Serial.print(" failed: ");
+    Serial.println(Update.errorString());
+    Update.abort();
+    return false;
+  }
+
+  Serial.print("OTA ");
+  Serial.print(description);
+  Serial.print(" complete: ");
+  Serial.print(totalWritten);
+  Serial.println(" bytes.");
+  return true;
 }
 
 void handleFirmwareUpdateLatest() {
