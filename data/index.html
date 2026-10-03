@@ -4,35 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title>ESP32-C3 PC Relay</title>
-<style>
-*{box-sizing:border-box}
-body{font-family:system-ui,-apple-system,sans-serif;background:#111;color:#eee;margin:0;padding:16px;max-width:1100px;margin:auto}
-h1{font-size:25px;margin:0 0 4px}h2{font-size:18px;margin:0 0 14px}h3{font-size:15px;margin:20px 0 8px}
-.muted{color:#999}.ok{color:#62d477}.warn{color:#e5bd58}.bad{color:#ff7070}
-.tabs{display:flex;gap:6px;overflow:auto;margin:18px 0 12px;padding-bottom:2px}
-.tabs a{color:#bbb;text-decoration:none;padding:10px 13px;border:1px solid #383838;border-radius:8px;white-space:nowrap;background:#191919}
-.tabs a.active{color:#fff;background:#303030;border-color:#666}
-.tab{display:none}.tab.active{display:block}
-.card{background:#1c1c1c;border:1px solid #414141;border-radius:10px;padding:16px;margin:12px 0}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
-table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 7px;border-bottom:1px solid #333;vertical-align:middle}
-th{color:#bbb;font-weight:600}td:first-child{color:#aaa}.table-wrap{overflow:auto}.kv td:first-child{width:38%}
-label{display:block;color:#bbb;font-size:13px;margin:0 0 5px}
-input,select{width:100%;font:inherit;color:#eee;background:#111;border:1px solid #555;border-radius:7px;padding:10px}
-input:focus,select:focus{outline:2px solid #507eb7;border-color:#507eb7}
-input[type=number]{appearance:textfield}
-.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:10px 0}
-.help{font-size:12px;color:#888;margin-top:4px}
-button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 0 0;color:white;background:#315f93;cursor:pointer}
-.danger{background:#7b3030}.good{background:#286a39}.secondary{background:#454545}
-.status{display:inline-block;padding:5px 9px;border-radius:20px;background:#292929}.mono{font-family:ui-monospace,SFMono-Regular,monospace}
-.notice{padding:11px 13px;border:1px solid #555;border-radius:8px;background:#252525;margin:12px 0}
-.relay-float{position:fixed;right:18px;top:18px;z-index:1000;background:rgba(28,28,28,.96);border:1px solid #555;border-radius:12px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.45);backdrop-filter:blur(8px)}
-.relay-float-title{font-size:12px;color:#aaa;margin:0 0 6px;text-align:center}.relay-float-buttons{display:flex;gap:8px}
-.relay-float form{margin:0}.relay-button{min-width:132px;font-size:1.05rem;font-weight:700;padding:12px 18px}.relay-float .relay-button{min-width:132px;margin:0}
-.firmware-update-actions{display:flex;justify-content:center;align-items:center;gap:24px;flex-wrap:wrap;margin-top:8px}.firmware-update-actions form{margin:0}
-@media(max-width:700px){body{padding:10px}.relay-float{position:static;margin:10px 0 14px}.relay-float-buttons{justify-content:center}.relay-float .relay-button{min-width:0;flex:1}}
-</style>
+<link rel="stylesheet" href="/style.css">
+
 </head>
 <body>
 <h1>ESP32-C3 PC Relay</h1>
