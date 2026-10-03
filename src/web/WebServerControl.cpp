@@ -813,6 +813,7 @@ void handlePageState() {
   addString("status", statusText());
   addString("ssid", connected ? WiFi.SSID() : "");
   addString("savedSsid", WiFiControl::savedSSID());
+  addString("savedPassword", WiFiControl::savedPassword());
   addString("ip", connected ? WiFi.localIP().toString() : "");
   addString("gateway", connected ? WiFi.gatewayIP().toString() : "");
   addString("subnet", connected ? WiFi.subnetMask().toString() : "");
