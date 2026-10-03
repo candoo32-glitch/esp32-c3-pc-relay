@@ -307,7 +307,7 @@ void handleFirmwareUpdateCheck() {
 }
 
 
-String latestReleaseFirmwareUrl(const String& json) {
+String latestReleaseAssetUrl(const String& json, const String& filenameSuffix) {
   int pos = 0;
   while ((pos = json.indexOf("\"browser_download_url\"", pos)) >= 0) {
     int valueStart = json.indexOf('"', pos + 23);
@@ -320,10 +320,97 @@ String latestReleaseFirmwareUrl(const String& json) {
     }
     if (valueEnd <= valueStart) return "";
     const String url = json.substring(valueStart, valueEnd);
-    if (url.endsWith(".bin")) return url;
+    if (url.endsWith(filenameSuffix)) return url;
     pos = valueEnd + 1;
   }
   return "";
+}
+
+String latestReleaseFirmwareUrl(const String& json) {
+  return latestReleaseAssetUrl(json, ".bin");
+}
+
+String latestReleaseSpiffsUrl(const String& json) {
+  return latestReleaseAssetUrl(json, "-spiffs.bin");
+}
+
+bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* description) {
+  const int contentLength = download.getSize();
+  if (contentLength <= 0) {
+    Serial.print("OTA ");
+    Serial.print(description);
+    Serial.println(" download did not provide a valid image size.");
+    return false;
+  }
+
+  if (!Update.begin(static_cast<size_t>(contentLength), command)) {
+    Serial.print("OTA ");
+    Serial.print(description);
+    Serial.print(" begin failed: ");
+    Serial.println(Update.errorString());
+    return false;
+  }
+
+  WiFiClient* stream = download.getStreamPtr();
+  uint8_t* buffer = static_cast<uint8_t*>(malloc(4096));
+  if (buffer == nullptr) {
+    Update.abort();
+    Serial.print("OTA ");
+    Serial.print(description);
+    Serial.println(" failed: insufficient RAM for download buffer.");
+    return false;
+  }
+
+  size_t totalWritten = 0;
+  bool failed = false;
+  uint32_t lastYield = millis();
+
+  while (download.connected() && totalWritten < static_cast<size_t>(contentLength)) {
+    const size_t available = stream->available();
+    if (available == 0) {
+      delay(1);
+      if (millis() - lastYield > 10000) {
+        failed = true;
+        break;
+      }
+      continue;
+    }
+
+    const size_t toRead = min(available, static_cast<size_t>(4096));
+    const int readBytes = stream->readBytes(buffer, toRead);
+    if (readBytes <= 0 ||
+        Update.write(buffer, static_cast<size_t>(readBytes)) != static_cast<size_t>(readBytes)) {
+      failed = true;
+      break;
+    }
+
+    totalWritten += static_cast<size_t>(readBytes);
+    lastYield = millis();
+    yield();
+  }
+
+  const bool finished =
+      !failed &&
+      totalWritten == static_cast<size_t>(contentLength) &&
+      Update.end(true);
+
+  free(buffer);
+
+  if (!finished) {
+    Serial.print("OTA ");
+    Serial.print(description);
+    Serial.print(" failed: ");
+    Serial.println(Update.errorString());
+    Update.abort();
+    return false;
+  }
+
+  Serial.print("OTA ");
+  Serial.print(description);
+  Serial.print(" complete: ");
+  Serial.print(totalWritten);
+  Serial.println(" bytes.");
+  return true;
 }
 
 void handleFirmwareUpdateLatest() {
@@ -368,95 +455,70 @@ void handleFirmwareUpdateLatest() {
   }
 
   const String firmwareUrl = latestReleaseFirmwareUrl(json);
-  if (firmwareUrl.isEmpty()) {
+  const String spiffsUrl = latestReleaseSpiffsUrl(json);
+  if (firmwareUrl.isEmpty() || spiffsUrl.isEmpty()) {
     server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The latest release does not contain a .bin firmware asset.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The latest release is missing the matching firmware or SPIFFS web interface image.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
     return;
   }
 
   WiFiClientSecure downloadClient;
   downloadClient.setInsecure();
   HTTPClient download;
+  download.setTimeout(15000);
+  download.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+  download.addHeader("User-Agent", "ESP32-C3-PC-Relay");
+
   if (!download.begin(downloadClient, firmwareUrl)) {
     server.send(502, "text/html; charset=utf-8",
                 "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not connect to the firmware download.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
     return;
   }
 
-  download.setTimeout(15000);
-  download.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-  download.addHeader("User-Agent", "ESP32-C3-PC-Relay");
-  const int downloadStatus = download.GET();
-  if (downloadStatus != HTTP_CODE_OK) {
+  const int firmwareStatus = download.GET();
+  if (firmwareStatus != HTTP_CODE_OK) {
     download.end();
-    server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>GitHub firmware download returned HTTP ");
+    String message = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>GitHub firmware download returned HTTP ";
+    message += String(firmwareStatus);
+    message += F(".</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    server.send(502, "text/html; charset=utf-8", message);
     return;
   }
 
-  const int contentLength = download.getSize();
-  if (contentLength <= 0) {
-    download.end();
-    server.send(502, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The firmware download did not provide a valid image size.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;  }
-
-  if (!Update.begin(static_cast<size_t>(contentLength))) {
-    download.end();
-    server.send(500, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The firmware image is too large for the OTA partition.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
-
-  WiFiClient* stream = download.getStreamPtr();
-  uint8_t* buffer = static_cast<uint8_t*>(malloc(4096));
-  if (buffer == nullptr) {
-    download.end();
-    Update.abort();
-    server.send(500, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Not enough RAM was available for the firmware download buffer.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
-
-  size_t totalWritten = 0;
-  bool failed = false;
-  uint32_t lastYield = millis();
-
-  while (download.connected() && totalWritten < static_cast<size_t>(contentLength)) {
-    const size_t available = stream->available();
-    if (available == 0) {
-      delay(1);
-      if (millis() - lastYield > 10000) {
-        failed = true;
-        break;
-      }
-      continue;
-    }
-
-    const size_t toRead = min(available, sizeof(buffer));
-    const int readBytes = stream->readBytes(buffer, toRead);
-    if (readBytes <= 0 || Update.write(buffer, static_cast<size_t>(readBytes)) != static_cast<size_t>(readBytes)) {
-      failed = true;
-      break;
-    }
-    totalWritten += static_cast<size_t>(readBytes);
-    lastYield = millis();
-    yield();
-  }
-
-  const bool finished = !failed && totalWritten == static_cast<size_t>(contentLength) && Update.end(true);
-  free(buffer);
+  const bool firmwareFinished = downloadAndWriteUpdate(download, U_FLASH, "firmware");
   download.end();
-
-  if (!finished) {
-    Update.abort();
+  if (!firmwareFinished) {
     server.send(500, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The firmware download or flash operation failed. The existing firmware was not replaced.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The firmware image could not be downloaded or installed. The existing firmware remains the active boot image.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  SPIFFS.end();
+
+  if (!download.begin(downloadClient, spiffsUrl)) {
+    server.send(502, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>Could not connect to the SPIFFS web interface download.</p><p>The new firmware is staged, but the device will not reboot until the matching web interface is installed.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
+    return;
+  }
+
+  const int spiffsStatus = download.GET();
+  if (spiffsStatus != HTTP_CODE_OK) {
+    download.end();
+    server.send(502, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>GitHub SPIFFS download returned HTTP ");
+    return;
+  }
+
+  const bool spiffsFinished = downloadAndWriteUpdate(download, U_SPIFFS, "SPIFFS web interface");
+  download.end();
+  if (!spiffsFinished) {
+    server.send(500, "text/html; charset=utf-8",
+                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update failed</h2><p>The SPIFFS web interface could not be installed. The new firmware is staged but the device will not reboot.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
     return;
   }
 
   server.send(200, "text/html; charset=utf-8",
-              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Firmware upgraded</h2><p>The new firmware was downloaded and installed successfully. The ESP32-C3 will reboot now.</p><p><a href='/?tab=dashboard' style='color:#7eb6ff'>Return to Dashboard</a></p>");
+              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Firmware and web interface upgraded</h2><p>The new firmware and matching SPIFFS web interface were installed successfully. The ESP32-C3 will reboot now.</p><p><a href='/?tab=dashboard' style='color:#7eb6ff'>Return to Dashboard</a></p></body>");
   delay(300);
   ESP.restart();
 }
