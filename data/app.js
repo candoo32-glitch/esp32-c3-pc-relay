@@ -22,7 +22,11 @@ function render(s){
  statusClass($("dash-wifi-status"),w.status); statusClass($("wifi-status"),w.status);
  text("dash-ssid",w.connected?w.ssid:"-");text("dash-ip",w.connected?w.ip:"-");text("dash-rssi",w.connected?w.rssi+" dBm":"-");text("dash-channel",w.connected?w.channel:"-");
  text("wifi-ssid",w.connected?w.ssid:"-");text("wifi-ip",w.connected?w.ip:"-");text("wifi-gateway",w.connected?w.gateway:"-");text("wifi-subnet",w.connected?w.subnet:"-");text("wifi-dns",w.connected?w.dns:"-");text("wifi-rssi",w.connected?w.rssi+" dBm":"-");text("wifi-channel",w.connected?w.channel:"-");text("wifi-bssid",w.connected?w.bssid:"-");text("wifi-tx",w.tx+" dBm");
- $("wifi-toggle").textContent=w.enabled?"Turn Wi-Fi OFF":"Turn Wi-Fi ON";$("wifi-toggle").className=w.enabled?"danger":"good";$("wifi-reconnect-form").style.display=w.enabled?"block":"none";$("ssid").value=w.savedSsid||"";
+ if(!wifiCredentialsDirty){
+ $("ssid").value=w.savedSsid||"";
+ $("password").value=w.savedPassword||"";
+}
+$("wifi-toggle").textContent=w.enabled?"Turn Wi-Fi OFF":"Turn Wi-Fi ON";$("wifi-toggle").className=w.enabled?"danger":"good";$("wifi-reconnect-form").style.display=w.enabled?"block":"none";$("ssid").value=w.savedSsid||"";
  $("txpower").value=w.tx;
  text("net-state",w.status);text("net-auth",w.connected?w.auth:"-");text("net-bssid",w.connected?w.bssid:"-");text("net-rssi",w.connected?w.rssi+" dBm":"-");
  $("hostname").value=n.hostname;$("net-mode").value=n.mode;$("net-ip").value=n.ip;$("net-gateway").value=n.gateway;$("net-subnet").value=n.subnet;$("net-dns1").value=n.dns1;$("net-dns2").value=n.dns2;
@@ -38,6 +42,15 @@ function render(s){
 }
 async function load(){try{const r=await fetch("/api/state",{cache:"no-store"});if(!r.ok)throw new Error(r.status);render(await r.json())}catch(e){text("page-status","UNAVAILABLE")}}
 document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));
+["ssid","password"].forEach(id=>$(id).addEventListener("input",()=>{wifiCredentialsDirty=true}));
+["hostname","net-mode","net-ip","net-gateway","net-subnet","net-dns1","net-dns2"].forEach(id=>{
+ const e=$(id); e.addEventListener("input",()=>{networkFormDirty=true}); e.addEventListener("change",()=>{networkFormDirty=true});
+});
+$("show-password").addEventListener("click",()=>{
+ const e=$("password"), visible=e.type==="text";
+ e.type=visible?"password":"text";
+ $("show-password").textContent=visible?"Show password":"Hide password";
+});
 window.addEventListener("hashchange",currentTab);
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 load();
