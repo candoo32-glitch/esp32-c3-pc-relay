@@ -26,11 +26,13 @@ function render(s){
  $("ssid").value=w.savedSsid||"";
  $("password").value=w.savedPassword||"";
 }
-$("wifi-toggle").textContent=w.enabled?"Turn Wi-Fi OFF":"Turn Wi-Fi ON";$("wifi-toggle").className=w.enabled?"danger":"good";$("wifi-reconnect-form").style.display=w.enabled?"block":"none";$("ssid").value=w.savedSsid||"";
+$("wifi-toggle").textContent=w.enabled?"Turn Wi-Fi OFF":"Turn Wi-Fi ON";$("wifi-toggle").className=w.enabled?"danger":"good";$("wifi-reconnect-form").style.display=w.enabled?"block":"none";
  $("txpower").value=w.tx;
  text("net-state",w.status);text("net-auth",w.connected?w.auth:"-");text("net-bssid",w.connected?w.bssid:"-");text("net-rssi",w.connected?w.rssi+" dBm":"-");
+ if(!networkFormDirty){
  $("hostname").value=n.hostname;$("net-mode").value=n.mode;$("net-ip").value=n.ip;$("net-gateway").value=n.gateway;$("net-subnet").value=n.subnet;$("net-dns1").value=n.dns1;$("net-dns2").value=n.dns2;
- $("static-fields").style.display=n.mode==="static"?"grid":"none";
+}
+$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  text("diag-state",w.status);text("diag-auth",w.connected?w.auth:"-");text("diag-bssid",w.connected?w.bssid:"-");text("diag-rssi",w.connected?w.rssi+" dBm":"-");
  $("diagnostics-toggle").textContent=d.enabled?"Disable diagnostics":"Enable diagnostics";$("diagnostics-toggle").className=d.enabled?"danger":"good";
  setRelay(s.relays[0],0);setRelay(s.relays[1],1);
