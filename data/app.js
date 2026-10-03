@@ -32,7 +32,7 @@ function render(s){
  setRelay(s.relays[0],0);setRelay(s.relays[1],1);
  text("nvs-size",s.nvs.size);$("nvs-table").innerHTML="<table><thead><tr><th>#</th><th>Namespace</th><th>Key</th><th>Type</th><th>Value</th></tr></thead><tbody>"+s.nvs.entries.map((e,i)=>"<tr><td>"+(i+1)+"</td><td>"+esc(e.namespace)+"</td><td>"+esc(e.key)+"</td><td>"+esc(e.type)+"</td><td>"+esc(e.value)+"</td></tr>").join("")+"</tbody></table><div class='muted'>"+s.nvs.entries.length+" entries. Password/token values are hidden.</div>";
  text("dash-uptime",s.system.uptime+" seconds");text("dash-build",s.system.build);text("dash-idf",s.system.idf);text("dash-cpu",s.system.cpu+" MHz");
- text("sys-build",s.system.build);text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
+ text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
  text("page-status",w.status); currentTab();
 }
