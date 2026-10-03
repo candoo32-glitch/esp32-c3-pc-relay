@@ -944,9 +944,10 @@ void handleWifiSave() {
   const String ssid = server.arg("ssid");
   String password = server.arg("password");
   if (password == "********") {
-    password = WiFiControl::savedPassword();
+    WiFiControl::configureSavedCredentials(ssid);
+  } else {
+    WiFiControl::configureCredentials(ssid, password);
   }
-  WiFiControl::configureCredentials(ssid, password);
   redirect("wifi");
 }
 
