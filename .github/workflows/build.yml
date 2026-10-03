@@ -570,5 +570,12 @@ jobs:
           RELEASE_ASSET="esp32-c3-pc-relay-v${FW_BUILD_VERSION}.bin"
 
           cp dist/firmware/firmware.bin "dist/firmware/${RELEASE_ASSET}"
+          cp dist/firmware/spiffs.bin "dist/firmware/esp32-c3-pc-relay-v${FW_BUILD_VERSION}-spiffs.bin"
 
-          gh release create "$RELEASE_TAG" "dist/firmware/${RELEASE_ASSET}" --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "$RELEASE_NAME" --notes "ESP32-C3 PC Relay firmware ${FW_BUILD_VERSION}. Raw OTA image for System > Firmware upgrade."
+          gh release create "$RELEASE_TAG" \
+            "dist/firmware/${RELEASE_ASSET}" \
+            "dist/firmware/esp32-c3-pc-relay-v${FW_BUILD_VERSION}-spiffs.bin" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "$RELEASE_NAME" \
+            --notes "ESP32-C3 PC Relay firmware ${FW_BUILD_VERSION}. Includes the firmware and matching SPIFFS web interface image for OTA updates."
