@@ -577,6 +577,10 @@ String savedSSID() {
   return preferences.getString(SSID_KEY, "");
 }
 
+String savedPassword() {
+  return preferences.getString(PASSWORD_KEY, "");
+}
+
 bool configureCredentials(const String& ssid, const String& password) {
   if (!wifiEnabled) return false;
   if (ssid.isEmpty() || ssid.length() > 32 || password.length() > 63) return false;
