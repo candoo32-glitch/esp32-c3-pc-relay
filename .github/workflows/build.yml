@@ -49,13 +49,16 @@ jobs:
           test -s "$BUILD/firmware.elf"
           test -s "$BUILD/partitions.bin"
           test -s "$BUILD/bootloader.bin"
-          test -s "$BUILD/spiffs.bin"
+          # PlatformIO 55.3 names the SPIFFS build target littlefs.bin even when
+          # board_build.filesystem = spiffs. The firmware still mounts SPIFFS.
+          FS_IMAGE="$BUILD/littlefs.bin"
+          test -s "$FS_IMAGE"
 
           cp "$BUILD/firmware.bin" dist/firmware/firmware.bin
           cp "$BUILD/firmware.elf" dist/firmware/firmware.elf
           cp "$BUILD/partitions.bin" dist/firmware/partitions.bin
           cp "$BUILD/bootloader.bin" dist/firmware/bootloader.bin
-          cp "$BUILD/spiffs.bin" dist/firmware/spiffs.bin
+          cp "$FS_IMAGE" dist/firmware/spiffs.bin
 
           echo "Downloading boot_app0.bin"
           curl -fsSL -o dist/firmware/boot_app0.bin             https://github.com/espressif/arduino-esp32/raw/refs/heads/master/tools/partitions/boot_app0.bin
