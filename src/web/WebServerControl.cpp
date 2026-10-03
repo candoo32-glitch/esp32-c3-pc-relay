@@ -865,6 +865,7 @@ void handlePageState() {
   if (iterator != nullptr) nvs_release_iterator(iterator);
   json += F("]},\"system\":{");
   addString("build", firmwareBuild());
+  addString("webBuild", webInterfaceBuild());
   addString("date", String(__DATE__) + F(" ") + __TIME__);
   addString("idf", esp_get_idf_version());
   addString("arduino", ESP_ARDUINO_VERSION_STR);
