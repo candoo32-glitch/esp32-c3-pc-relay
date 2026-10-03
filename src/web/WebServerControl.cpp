@@ -813,7 +813,6 @@ void handlePageState() {
   addString("status", statusText());
   addString("ssid", connected ? WiFi.SSID() : "");
   addString("savedSsid", WiFiControl::savedSSID());
-  addString("savedPassword", WiFiControl::savedPassword());
   addString("ip", connected ? WiFi.localIP().toString() : "");
   addString("gateway", connected ? WiFi.gatewayIP().toString() : "");
   addString("subnet", connected ? WiFi.subnetMask().toString() : "");
@@ -943,7 +942,10 @@ void handleWifiSave() {
     return;
   }
   const String ssid = server.arg("ssid");
-  const String password = server.arg("password");
+  String password = server.arg("password");
+  if (password == "********") {
+    password = WiFiControl::savedPassword();
+  }
   WiFiControl::configureCredentials(ssid, password);
   redirect("wifi");
 }
