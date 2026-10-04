@@ -2384,11 +2384,11 @@ h1::after{
  * LCARS LEFT INSTRUMENT FIELD — randomized background hardware
  * ------------------------------------------------------------------------- */
 .lcars-left-field{
-  position:fixed;
+  position:absolute;
   left:0;
   top:0;
-  bottom:0;
   width:104px;
+  min-height:100vh;
   z-index:2;
   pointer-events:none;
   overflow:hidden;
