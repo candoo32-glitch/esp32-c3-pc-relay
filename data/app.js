@@ -7,6 +7,8 @@ const UI_CATALOG_URL=UI_ROOT_URL+"/catalog.json";
 const UI_MANIFEST_VERSION=1;
 let uiCatalogLoaded=false;
 let activeExternalUi="";
+let uiInitialLoad=true;
+let uiInitialFallback=false;
 
 function uiAssetUrl(uiId,asset){
   return UI_ROOT_URL+"/"+encodeURIComponent(uiId)+"/"+String(asset||"").split("/").map(encodeURIComponent).join("/");
@@ -68,7 +70,17 @@ async function activateUi(uiId){
     return true;
   }catch(e){
     removeExternalUi();
-    console.warn("External UI could not be loaded:",e);
+    // GitHub UI packages are optional. Never overwrite the saved NVS choice
+    // just because the package cannot be reached during this page load.
+    if(uiInitialLoad){
+      uiInitialFallback=true;
+      activeExternalUi="builtin";
+      document.documentElement.dataset.externalUi="builtin";
+      document.body.classList.add("external-ui-fallback");
+    }else{
+      activeExternalUi="";
+    }
+    console.warn("External UI could not be loaded; using Built-in for this session:",e);
     return false;
   }
 }
@@ -779,6 +791,7 @@ async function bootstrapPage(){
    await load();
    await resumeOtaStatus();
  }finally{
+   uiInitialLoad=false;
    document.documentElement.classList.remove("ui-boot-pending");
  }
 }
