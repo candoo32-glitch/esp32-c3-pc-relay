@@ -333,8 +333,11 @@ document.querySelectorAll('form[method="POST"]').forEach(f=>{if(["wifi-scan-form
 $("wifi-scan-form").addEventListener("submit",scan);$("update-latest-form").addEventListener("submit",latest);$("firmware-upload-form").addEventListener("submit",e=>upload(e));$("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
 window.addEventListener("hashchange",currentTab);
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
-load();
-resumeOtaStatus();
+async function bootstrapPage(){
+ await load();
+ await resumeOtaStatus();
+}
+bootstrapPage();
 setInterval(load,5000);
 document.addEventListener("visibilitychange",()=>{
  if(!document.hidden)resumeOtaStatus();
