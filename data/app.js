@@ -206,6 +206,21 @@ function renderOtaStatus(d){
    if(!webRow.hidden)webBar.style.width="100%";
    showUpdateStatus(d.message||"Update complete.","ok");
    setPageStatus("Update complete","ok");
+ }else if(d.active){
+   showUpdateStatus(d.message||"OTA update in progress.","warn");
+   setPageStatus("OTA update in progress…","warn");
+ }
+}
+async function monitorOtaStatus(){
+ while(true){
+   try{
+     const d=await readOtaStatus();
+     renderOtaStatus(d);
+     if(d.stage==="error"||d.stage==="complete"||d.stage==="rebooting")return d;
+   }catch(x){
+     return null;
+   }
+   await new Promise(resolve=>setTimeout(resolve,500));
  }
 }
 async function latest(e){
@@ -216,7 +231,7 @@ async function latest(e){
  $("software-update-details").hidden=true;
  $("software-update-progress").hidden=false;
  const progress=$("software-update-progress"),stage=$("ota-progress-stage"),info=$("ota-progress-info");
- const firmwareRow=$("ota-progress-firmware"),webRow=$("ota-progress-web"),firmwareBar=$("ota-firmware-bar"),webBar=$("ota-web-bar"),firmwareInfo=$("ota-firmware-info"),webInfo=$("ota-web-info");
+ const firmwareRow=$("ota-progress-firmware"),webRow=$("ota-progress-web"),firmwareBar=$("ota-firmware-bar"),webBar=$("ota-web-bar");
  progress.hidden=false;
  firmwareRow.hidden=true;
  webRow.hidden=true;
@@ -231,30 +246,24 @@ async function latest(e){
    let d={};
    try{d=await r.json()}catch(x){}
    if(!r.ok)throw new Error(d?.message||"OTA request failed (HTTP "+r.status+").");
-
-   let connectionLost=false;
-   while(true){
-     await new Promise(resolve=>setTimeout(resolve,500));
-     try{
-       d=await readOtaStatus();
-       renderOtaStatus(d);
-       if(d.stage==="error"||d.stage==="complete"||d.stage==="rebooting")break;
-       connectionLost=false;
-     }catch(x){
-       if(!connectionLost){
-         connectionLost=true;
-         setPageStatus("Browser connection lost","warn");
-         showUpdateStatus("Browser connection lost. The ESP32 is continuing the OTA independently. Reconnect to verify the result.","warn");
-         stage.textContent="Connection lost";
-         info.textContent="OTA execution is independent of this browser connection.";
-       }
-       break;
-     }
-   }
  }catch(x){
    showUpdateStatus(x.message||"Update request failed.","bad");
    setPageStatus("Update request failed","bad");
+   return;
  }
+ await monitorOtaStatus();
+}
+async function resumeOtaStatus(){
+ try{
+   const d=await readOtaStatus();
+   if(d.active||["rebooting","complete","error"].includes(d.stage)){
+     $("software-update-message").hidden=true;
+     $("software-update-details").hidden=true;
+     $("software-update-progress").hidden=false;
+     renderOtaStatus(d);
+     if(d.active)await monitorOtaStatus();
+   }
+ }catch(x){}
 }
 async function upload(e,q){e.preventDefault();if(q&&!confirm(q))return;setPageStatus("Uploading…");try{const d=await pfu(e.currentTarget);setPageStatus(d?.message||"Operation completed.","ok")}catch(x){setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad")}}
 document.querySelectorAll('form[method="POST"]').forEach(f=>{if(["wifi-scan-form","update-latest-form","firmware-upload-form","config-restore-form"].includes(f.id))return;f.addEventListener("submit",async e=>{e.preventDefault();try{await pf(f);setPageStatus("Saved","ok");setTimeout(load,300)}catch(x){setPageStatus("Request failed","bad")}})});
@@ -262,5 +271,6 @@ $("wifi-scan-form").addEventListener("submit",scan);$("check-update-form").addEv
 window.addEventListener("hashchange",currentTab);
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 load();
+resumeOtaStatus();
 setInterval(load,5000);
 })();
