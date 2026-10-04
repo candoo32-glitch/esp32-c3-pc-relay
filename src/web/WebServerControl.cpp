@@ -391,29 +391,33 @@ bool serviceOtaWrite(const char* component) {
   }
 
   WiFiClient* stream = otaDownload.getStreamPtr();
+  // Do not use stream->available() as the gate for OTA reads. With HTTPS/TLS,
+  // data may not be buffered yet even though more data is on the way. Polling
+  // available() in that case can turn a ~900 KB transfer into minutes of
+  // repeated short service calls. Wait briefly for actual stream data instead.
+  stream->setTimeout(50);
+
   const uint32_t startMs = millis();
   size_t bytesThisService = 0;
 
   while ((otaTotal == 0 || otaReceived < otaTotal) &&
          bytesThisService < OTA_SERVICE_BYTE_BUDGET &&
          static_cast<uint32_t>(millis() - startMs) < OTA_SERVICE_TIME_BUDGET_MS) {
-    const size_t available = stream->available();
-    if (available == 0) break;
-
     const size_t remaining = otaTotal > 0 ? otaTotal - otaReceived : OTA_BUFFER_SIZE;
-    const size_t toRead = min(available, min(remaining, OTA_BUFFER_SIZE));
-    const int readBytes = stream->read(otaBuffer, toRead);
+    const size_t toRead = min(remaining, OTA_BUFFER_SIZE);
 
-    if (readBytes <= 0 ||
-        Update.write(otaBuffer, static_cast<size_t>(readBytes)) != static_cast<size_t>(readBytes)) {
+    const size_t readBytes = stream->readBytes(otaBuffer, toRead);
+    if (readBytes == 0) break;
+
+    if (Update.write(otaBuffer, readBytes) != readBytes) {
       const String error = Update.errorString();
       otaDownload.end();
       failOta(String("Writing ") + component + " failed: " + error);
       return false;
     }
 
-    otaReceived += static_cast<size_t>(readBytes);
-    bytesThisService += static_cast<size_t>(readBytes);
+    otaReceived += readBytes;
+    bytesThisService += readBytes;
   }
 
   if (bytesThisService > 0) {
