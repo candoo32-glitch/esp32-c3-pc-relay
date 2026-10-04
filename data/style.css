@@ -175,7 +175,7 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
 .config-backup-copy{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:3px;min-width:0}
 .config-backup-copy strong{font-size:14px;color:var(--fg)}
 .config-backup-copy span{font-size:11px;line-height:1.4;color:var(--text-muted)}
-.config-backup-button{grid-column:2;grid-row:3;justify-self:start;align-self:end;margin-top:10px;text-decoration:none}
+.config-backup-button{grid-column:2;grid-row:3;justify-self:start;align-self:end;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:38px;margin-top:10px;padding:9px 14px;text-decoration:none;color:var(--fg);font-weight:600;border-radius:7px;cursor:pointer}
 .config-file-picker{grid-column:2;grid-row:2;display:flex;align-items:center;min-width:0;margin-top:10px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input);font-size:12px;color:var(--text-muted);cursor:pointer}
 .config-file-picker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .config-file-picker input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
@@ -211,3 +211,5 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
   .file-actions{white-space:normal}
   .file-actions button{margin-bottom:4px}
 }
+
+.recovery-card{margin-top:12px}.recovery-link{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 14px;border:1px solid var(--border);border-radius:7px;background:var(--secondary);color:var(--fg);text-decoration:none;font-weight:600}.recovery-link:hover{background:var(--tab-active);border-color:var(--accent)}
