@@ -23,22 +23,31 @@ function removeExternalUi(){
   activeExternalUi="";
 }
 
-async function loadExternalUiAsset(tag,url){
+async function fetchExternalUiSource(url){
   const r=await fetch(url,{cache:"no-store"});
   if(!r.ok)throw new Error("UI asset HTTP "+r.status+": "+url);
-  const source=await r.text();
-  const el=document.createElement(tag);
-  el.dataset.externalUi="true";
-  if(tag==="link"){
-    const style=document.createElement("style");
-    style.dataset.externalUi="true";
-    style.textContent=source;
-    document.head.appendChild(style);
-    return style;
-  }
-  el.textContent=source;
-  document.head.appendChild(el);
-  return el;
+  return await r.text();
+}
+
+function installExternalUiStyle(source){
+  const style=document.createElement("style");
+  style.dataset.uiPending="true";
+  style.textContent=source;
+  document.head.appendChild(style);
+  return style;
+}
+
+function promotePendingUiStyle(style){
+  style.removeAttribute("data-ui-pending");
+  style.dataset.externalUi="true";
+}
+
+function installExternalUiScript(source){
+  const script=document.createElement("script");
+  script.dataset.externalUi="true";
+  script.textContent=source;
+  document.head.appendChild(script);
+  return script;
 }
 
 async function activateUi(uiId){
