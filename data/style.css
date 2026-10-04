@@ -145,6 +145,20 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
 .config-file-picker{grid-column:2;grid-row:2;display:flex;align-items:center;min-width:0;margin-top:10px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input);font-size:12px;color:var(--text-muted);cursor:pointer}
 .config-file-picker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .config-file-picker input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.manual-update-card{overflow:hidden}
+.manual-update-intro{margin-top:4px;color:var(--text-muted);max-width:950px;line-height:1.5}
+.manual-update-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.manual-update-action{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto 1fr auto;column-gap:12px;min-height:170px;align-items:start;padding:14px;background:var(--tab);border:1px solid var(--line);border-radius:10px}
+.manual-update-icon{grid-column:1;grid-row:1 / span 3;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--card);font-size:18px;font-weight:700;color:var(--accent)}
+.manual-update-copy{grid-column:2;grid-row:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+.manual-update-copy strong{font-size:14px;color:var(--fg)}
+.manual-update-copy span{font-size:11px;line-height:1.45;color:var(--text-muted)}
+.manual-update-copy code{font:inherit;color:var(--fg)}
+.manual-file-picker{grid-column:2;grid-row:2;display:flex;align-items:center;min-width:0;margin-top:10px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input);font-size:12px;color:var(--text-muted);cursor:pointer}
+.manual-file-picker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.manual-file-picker input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.manual-update-button{grid-column:2;grid-row:3;justify-self:start;align-self:end;margin-top:10px}
+
 .danger-zone{border-color:color-mix(in srgb,var(--danger) 55%,var(--border))}
 .storage-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
 .storage-viewer{margin:12px 0;padding:16px;background:var(--card);border:1px solid var(--accent);border-radius:10px;box-shadow:0 8px 28px var(--shadow)}
@@ -157,6 +171,7 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
   .storage-upload-row button{width:100%}
   .nvs-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
   .config-backup-grid{grid-template-columns:1fr}
+  .manual-update-grid{grid-template-columns:1fr}
   .config-backup-button,.config-file-picker{grid-column:2}
   .storage-actions{grid-template-columns:1fr}
   .file-actions{white-space:normal}
