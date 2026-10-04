@@ -21,7 +21,7 @@
 
 namespace WebControl {
 namespace {
-// OTA simultaneous firmware + Web UI speed test build marker.
+// OTA simultaneous firmware + Web UI combined OTA test build marker.
 WebServer server(80);
 bool serverStarted = false;
 
