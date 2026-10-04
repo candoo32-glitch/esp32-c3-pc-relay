@@ -23,7 +23,6 @@ function setRelay(r,i){
  $("relay"+i+"-name").value=r.name; $("relay"+i+"-normal").value=r.normal.toLowerCase(); $("relay"+i+"-mode").value=r.mode.toLowerCase(); $("relay"+i+"-pulse").value=r.pulse;
  text("dash-relay"+i+"-name",r.name); $("dash-relay"+i+"-state").innerHTML=r.state?'<span class="ok">ON</span>':'OFF';
 }
-refreshNvsIfNeeded(tab);
 async function loadNvsContents(){try{const r=await fetch("/api/nvs",{cache:"no-store"});if(!r.ok)throw Error(r.status);const n=await r.json();text("nvs-size",n.size||0);$("nvs-table").innerHTML="<table><thead><tr><th>#</th><th>Namespace</th><th>Key</th><th>Type</th><th>Value</th></tr></thead><tbody>"+(n.entries||[]).map((e,i)=>"<tr><td>"+(i+1)+"</td><td>"+esc(e.namespace)+"</td><td>"+esc(e.key)+"</td><td>"+esc(e.type)+"</td><td>"+esc(e.value)+"</td></tr>").join("")+"</tbody></table><div class=\"muted\">"+(n.entries||[]).length+" entries. Password/token values are hidden.</div>"}catch(e){text("nvs-size","Unavailable");$("nvs-table").innerHTML="<div class=\"help bad\">NVS contents unavailable.</div>"}}
 function render(s){
  const w=s.wifi,n=s.network,d=s.diagnostics;
@@ -135,7 +134,7 @@ async function load(){
    }
  }
 }
-document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));function refreshNvsIfNeeded(tab){if(tab==="storage")loadNvsContents()}$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
+document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
 document.querySelectorAll(".theme-option").forEach(o=>o.addEventListener("click",async()=>{closeThemeOptions();await saveTheme(o.dataset.themeValue);}));
 document.addEventListener("click",e=>{const p=document.querySelector(".theme-picker");if(p&&!p.contains(e.target))closeThemeOptions();});
 $("ssid").addEventListener("input",()=>{wifiCredentialsDirty=true;filterSsidOptions();});$("wifi-ssid-toggle").addEventListener("click",()=>{const o=$("wifi-ssid-options");if(o.hidden){openSsidOptions()}else closeSsidOptions();});$("ssid").addEventListener("focus",()=>{if(document.querySelector(".ssid-option"))openSsidOptions();});document.addEventListener("click",e=>{const box=document.querySelector(".ssid-combobox");if(box&&!box.contains(e.target))closeSsidOptions();});
