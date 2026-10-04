@@ -649,11 +649,20 @@ void handleFirmwareUpdateUpload() {
   HTTPUpload& upload = server.upload();
 
   switch (upload.status) {
-    case UPLOAD_FILE_START:
+    case UPLOAD_FILE_START: {
       firmwareUpdateFailed = false;
       firmwareUpdateBytes = 0;
+      String filename = upload.filename;
+      filename.toLowerCase();
+
+      if (!filename.endsWith(".bin")) {
+        firmwareUpdateFailed = true;
+        DiagnosticsLog::line(String("OTA | UPLOAD REJECTED | invalid firmware image name | ") + upload.filename);
+        break;
+      }
+
       DiagnosticsLog::line(String("OTA | UPLOAD START | ") + upload.filename);
-      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)) {
         firmwareUpdateFailed = true;
         Serial.print("Firmware OTA begin failed: ");
         Serial.println(Update.errorString());
@@ -662,6 +671,7 @@ void handleFirmwareUpdateUpload() {
       Serial.print("Firmware OTA started: ");
       Serial.println(upload.filename);
       break;
+    }
 
     case UPLOAD_FILE_WRITE:
       if (firmwareUpdateFailed) break;
