@@ -169,10 +169,12 @@ function renderOtaStatus(d){
  const firmwareRow=$("ota-progress-firmware"),webRow=$("ota-progress-web");
  const firmwareBar=$("ota-firmware-bar"),webBar=$("ota-web-bar");
  const firmwareInfo=$("ota-firmware-info"),webInfo=$("ota-web-info");
+ const message=$("software-update-message");
  if(!progress)return;
  progress.hidden=false;
  if(d.component==="firmware")firmwareRow.hidden=false;
  if(d.component==="web")webRow.hidden=false;
+
  const bar=d.component==="web"?webBar:firmwareBar;
  const row=d.component==="web"?webRow:firmwareRow;
  const detail=d.component==="web"?webInfo:firmwareInfo;
@@ -181,35 +183,56 @@ function renderOtaStatus(d){
    if(d.total>0){
      bar.classList.remove("indeterminate");
      bar.style.width=Math.min(100,(d.received/d.total)*100)+"%";
-     detail.textContent=Math.round((d.received/d.total)*100)+"% — "+d.received.toLocaleString()+" / "+d.total.toLocaleString()+" bytes";
+     detail.textContent=d.received.toLocaleString()+" / "+d.total.toLocaleString()+" bytes ("+Math.round((d.received/d.total)*100)+"%)";
    }else{
      bar.classList.add("indeterminate");
      detail.textContent=d.received?d.received.toLocaleString()+" bytes received":"Waiting for download size…";
    }
  }
- stage.textContent=d.stage==="complete"?"Complete":d.stage==="rebooting"?"Rebooting":d.stage==="error"?"Error":(d.message||d.stage||"Updating");
- info.textContent=d.message||"";
+
+ let title="";
+ switch(d.stage){
+   case "checking": title="Checking GitHub for updates"; break;
+   case "downloading": title="Downloading "+(d.component==="web"?"Web UI":"Firmware"); break;
+   case "writing": title="Writing "+(d.component==="web"?"Web UI":"Firmware"); break;
+   case "finalizing": title="Finalizing updates"; break;
+   case "rebooting": title="Rebooting ESP32-C3"; break;
+   case "complete": title="Update complete"; break;
+   case "error": title="Update failed"; break;
+   default: title=d.message||"Updating";
+ }
+ stage.textContent=title;
+
  if(d.stage==="error"){
    firmwareBar.classList.remove("indeterminate");
    webBar.classList.remove("indeterminate");
-   showUpdateStatus(d.message||"OTA update failed.","bad");
+   message.hidden=false;
+   message.className="notice bad";
+   message.textContent=d.message||"OTA update failed.";
    setPageStatus("OTA update failed","bad");
  }else if(d.stage==="rebooting"){
    firmwareBar.classList.remove("indeterminate");
    webBar.classList.remove("indeterminate");
-   showUpdateStatus(d.message||"Rebooting the ESP32-C3…","ok");
+   message.hidden=false;
+   message.className="notice ok";
+   message.textContent=d.message||"Updates installed successfully. Rebooting…";
    setPageStatus("Rebooting…","ok");
  }else if(d.stage==="complete"){
    firmwareBar.classList.remove("indeterminate");
    webBar.classList.remove("indeterminate");
    if(!firmwareRow.hidden)firmwareBar.style.width="100%";
    if(!webRow.hidden)webBar.style.width="100%";
-   showUpdateStatus(d.message||"Update complete.","ok");
+   message.hidden=false;
+   message.className="notice ok";
+   message.textContent=d.message||"Update complete.";
    setPageStatus("Update complete","ok");
  }else if(d.active){
-   showUpdateStatus(d.message||"OTA update in progress.","warn");
-   setPageStatus("OTA update in progress…","warn");
+   message.hidden=true;
+   setPageStatus(title+"…","warn");
+ }else{
+   message.hidden=true;
  }
+ info.textContent=d.stage==="checking" ? (d.message||"Checking GitHub for newer firmware and Web UI components…") : "";
 }
 async function monitorOtaStatus(){
  while(true){
