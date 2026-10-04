@@ -38,6 +38,11 @@ struct WiFiDiagnosticRecord {
 
 } // namespace
 
+void rememberDiagnosticLine(const String& line) {
+  if (!diagnosticsEnabled || line.isEmpty()) return;
+  DiagnosticsLog::remember(line);
+}
+
 const char* wifiDisconnectReasonName(uint8_t reason) {
   switch (reason) {
     case WIFI_REASON_UNSPECIFIED: return "UNSPECIFIED";
