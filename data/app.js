@@ -9,6 +9,13 @@ let uiCatalogLoaded=false;
 let activeExternalUi="";
 let uiInitialLoad=true;
 let uiInitialFallback=false;
+const UI_FETCH_TIMEOUT_MS=4000;
+
+function fetchWithTimeout(url,options={},timeoutMs=UI_FETCH_TIMEOUT_MS){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  return fetch(url,{...options,signal:controller.signal}).finally(()=>clearTimeout(timer));
+}
 
 function uiAssetUrl(uiId,asset){
   return UI_ROOT_URL+"/"+encodeURIComponent(uiId)+"/"+String(asset||"").split("/").map(encodeURIComponent).join("/");
@@ -25,7 +32,7 @@ function removeExternalUi(keepPending=false){
 }
 
 async function fetchExternalUiSource(url){
-  const r=await fetch(url,{cache:"no-store"});
+  const r=await fetchWithTimeout(url,{cache:"no-store"});
   if(!r.ok)throw new Error("UI asset HTTP "+r.status+": "+url);
   return await r.text();
 }
@@ -66,7 +73,7 @@ async function activateUi(uiId){
 
   try{
     const manifestUrl=UI_ROOT_URL+"/"+encodeURIComponent(id)+"/manifest.json?t="+Date.now();
-    const r=await fetch(manifestUrl,{cache:"no-store"});
+    const r=await fetchWithTimeout(manifestUrl,{cache:"no-store"});
     if(!r.ok)throw Error("Manifest HTTP "+r.status);
 
     const manifest=await r.json();
@@ -112,18 +119,14 @@ async function activateUi(uiId){
      * keeps the saved NVS selection unchanged and the built-in DOM remains
      * usable.
      */
-    removeExternalUi();
-
-    if(uiInitialLoad){
+    if(!activeExternalUi){
       uiInitialFallback=true;
       activeExternalUi="builtin";
       document.documentElement.dataset.externalUi="builtin";
       document.body.classList.add("external-ui-fallback");
-    }else{
-      activeExternalUi="";
     }
 
-    console.warn("External UI could not be loaded; using Built-in for this session:",e);
+    console.warn("External UI could not be loaded; keeping the currently active UI:",e);
     return false;
   }
 }
@@ -132,7 +135,7 @@ async function loadUiCatalog(){
   const select=$("ui-selection");
   if(!select)return;
   try{
-    const r=await fetch(UI_CATALOG_URL+"?t="+Date.now(),{cache:"no-store"});
+    const r=await fetchWithTimeout(UI_CATALOG_URL+"?t="+Date.now(),{cache:"no-store"});
     if(!r.ok)throw Error(r.status);
     const catalog=await r.json();
     const entries=Array.isArray(catalog?.uis)?catalog.uis:[];
@@ -421,7 +424,7 @@ function stopDiagnosticPolling(){
  clearInterval(diagnosticPollTimer);
  diagnosticPollTimer=null;
 }
-async function load(){
+async function load(applyExternalUi=true){
  if(otaMonitorRunning||otaUpdateStarting)return;
  try{
    const r=await fetch("/api/state",{cache:"no-store"});
@@ -429,10 +432,11 @@ async function load(){
    const state=await r.json();
    stateFailureCount=0;
    render(state);
+   if(!applyExternalUi)return;
    const selectedUi=String(state.system?.uiSelection||"builtin");
-   // If the saved external UI failed during initial bootstrap, keep the
-   // built-in UI for this page instead of hammering GitHub every 5 seconds.
-   if(selectedUi!=="builtin" && uiInitialFallback) return;
+   // A failed external UI load must never block the built-in UI or cause
+   // repeated GitHub requests during the normal 5-second state poll.
+   if(selectedUi!=="builtin" && uiInitialFallback)return;
    if(selectedUi!==activeExternalUi){
      const loaded=await activateUi(selectedUi);
      if(!loaded && selectedUi!=="builtin"){
@@ -840,14 +844,21 @@ window.addEventListener("hashchange",currentTab);
 currentTab();
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 async function bootstrapPage(){
- try{
-   await loadUiCatalog();
-   await load();
-   await resumeOtaStatus();
- }finally{
-   uiInitialLoad=false;
-   document.documentElement.classList.remove("ui-boot-pending");
- }
+  // The built-in UI is the guaranteed local fallback. Render it first;
+  // GitHub-hosted themes are strictly a background enhancement.
+  await load(false);
+  uiInitialLoad=false;
+  document.documentElement.classList.remove("ui-boot-pending");
+
+  // Never let GitHub availability hold the page hostage.
+  try{
+    await loadUiCatalog();
+    await load(true);
+  }catch(e){
+    console.warn("External UI bootstrap failed; continuing with built-in UI:",e);
+  }
+
+  await resumeOtaStatus();
 }
 bootstrapPage();
 setInterval(load,5000);
