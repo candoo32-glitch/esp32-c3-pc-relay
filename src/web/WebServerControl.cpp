@@ -888,6 +888,40 @@ void handleNvsState() {
   server.send(200, "application/json; charset=utf-8", json);
 }
 
+const char RECOVERY_PAGE[] PROGMEM = R"RECOVERY(
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PC Relay Recovery</title>
+<style>
+html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif}
+body{max-width:520px;margin:0 auto;padding:28px;box-sizing:border-box}
+h1{font-size:24px;margin:0 0 10px}
+p{line-height:1.45;color:#ccc}
+button{width:100%;padding:16px;background:#315f93;color:#fff;border:0;border-radius:6px;font-size:17px;font-weight:bold}
+button:disabled{opacity:.5}
+#status{margin-top:18px;padding:12px;background:#1c1c1c;border:1px solid #414141;border-radius:6px}
+</style>
+</head>
+<body>
+<h1>PC Relay Recovery</h1>
+<p>This page is independent of the normal Web UI. It downloads the newest firmware and Web UI from GitHub, installs both, and reboots the ESP32-C3.</p>
+<button id="update" type="button">UPDATE FROM GITHUB</button>
+<div id="status">Ready.</div>
+<script>
+document.getElementById("update").onclick=async function(){
+  this.disabled=true;
+  document.getElementById("status").textContent="Update started. The device will reboot when finished.";
+  try{await fetch("/recovery/update",{method:"POST",cache:"no-store"});}
+  catch(e){}
+};
+</script>
+</body>
+</html>
+)RECOVERY";
+
 void handleStaticAsset(const char* path, const char* contentType) {
   if (!SPIFFS.exists(path)) {
     server.send(404, "text/plain; charset=utf-8", "Web UI asset not found.");
@@ -903,6 +937,11 @@ void handleStaticAsset(const char* path, const char* contentType) {
 
   server.streamFile(file, contentType);
   file.close();
+}
+
+void handleRecoveryPage() {
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "text/html; charset=utf-8", RECOVERY_PAGE);
 }
 
 void handleRoot() {
@@ -1088,6 +1127,8 @@ void begin() {
     Serial.println("Web UI filesystem mounted.");
   }
 
+  server.on("/recovery", HTTP_GET, handleRecoveryPage);
+  server.on("/recovery/update", HTTP_POST, handleFirmwareUpdateLatest);
   server.on("/", HTTP_GET, handleRoot);
   server.on("/style.css", HTTP_GET, handleStyleCss);
   server.on("/app.js", HTTP_GET, handleAppJs);
