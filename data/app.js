@@ -48,7 +48,14 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
  text("page-status",w.status); currentTab();
 }
-async function load(){try{const r=await fetch("/api/state",{cache:"no-store"});if(!r.ok)throw new Error(r.status);render(await r.json())}catch(e){text("page-status","UNAVAILABLE")}}
+async function load(){
+ if(otaMonitorRunning||otaUpdateStarting)return;
+ try{
+   const r=await fetch("/api/state",{cache:"no-store"});
+   if(!r.ok)throw new Error(r.status);
+   render(await r.json())
+ }catch(e){text("page-status","UNAVAILABLE")}
+}
 document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));
 $("ssid").addEventListener("input",()=>{wifiCredentialsDirty=true;filterSsidOptions();});$("wifi-ssid-toggle").addEventListener("click",()=>{const o=$("wifi-ssid-options");if(o.hidden){openSsidOptions()}else closeSsidOptions();});$("ssid").addEventListener("focus",()=>{if(document.querySelector(".ssid-option"))openSsidOptions();});document.addEventListener("click",e=>{const box=document.querySelector(".ssid-combobox");if(box&&!box.contains(e.target))closeSsidOptions();});
 $("password").addEventListener("focus",()=>{
@@ -241,6 +248,7 @@ function renderOtaStatus(d){
  info.textContent=d.stage==="checking" ? (d.message||"Checking GitHub for newer firmware and Web UI components…") : "";
 }
 let otaMonitorRunning=false;
+let otaUpdateStarting=false;
 let otaWasActive=false;
 let otaExpectedFirmware=-1;
 let otaExpectedWeb=-1;
@@ -265,8 +273,13 @@ async function monitorOtaStatus(){
        }
 
        renderOtaStatus(d);
-       if(d.stage==="error"||d.stage==="complete"||d.stage==="rebooting"){
-       setOtaUpdateButtonDisabled(d.stage==="rebooting");
+       if(d.stage==="error"||d.stage==="complete"){
+       setOtaUpdateButtonDisabled(false);
+       return d;
+     }
+     if(d.stage==="rebooting"){
+       setOtaUpdateButtonDisabled(true);
+       await waitForRebootAndReset();
        return d;
      }
      }catch(x){
@@ -285,6 +298,7 @@ async function latest(e){
  const button=$("update-latest-button");
  if(button?.disabled)return;
  setOtaUpdateButtonDisabled(true);
+ otaUpdateStarting=true;
  setPageStatus("Installing updates…","warn");
  showUpdateStatus("", "warn");
  $("software-update-message").hidden=true;
@@ -307,11 +321,13 @@ async function latest(e){
    try{d=await r.json()}catch(x){}
    if(!r.ok)throw new Error(d?.message||"OTA request failed (HTTP "+r.status+").");
  }catch(x){
+   otaUpdateStarting=false;
    setOtaUpdateButtonDisabled(false);
    showUpdateStatus(x.message||"Update request failed.","bad");
    setPageStatus("Update request failed","bad");
    return;
  }
+ otaUpdateStarting=false;
  await monitorOtaStatus();
 }
 async function resumeOtaStatus(){
