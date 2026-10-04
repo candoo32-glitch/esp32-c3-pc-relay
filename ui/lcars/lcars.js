@@ -5,6 +5,37 @@
   const boot=()=>{
     document.body.classList.add("lcars-ready");
 
+    /* Live LCARS date/time readout. It is injected into the external UI
+       layer so removing LCARS also removes the clock cleanly. */
+    const clock=document.createElement("div");
+    clock.className="lcars-clock";
+    clock.dataset.externalUi="true";
+    clock.setAttribute("aria-label","Current date and time");
+    clock.innerHTML='<div class="lcars-clock-time"></div><div class="lcars-clock-date"></div><span class="lcars-clock-rule"></span>';
+    const nav=document.querySelector(".tabs");
+    if(nav) nav.parentNode.insertBefore(clock,nav);
+    const updateClock=()=>{
+      const now=new Date();
+      const time=now.toLocaleTimeString([],{
+        hour:"numeric",
+        minute:"2-digit",
+        second:"2-digit"
+      });
+      const date=now.toLocaleDateString([],{
+        weekday:"short",
+        month:"short",
+        day:"numeric",
+        year:"numeric"
+      });
+      const t=clock.querySelector(".lcars-clock-time");
+      const d=clock.querySelector(".lcars-clock-date");
+      if(t)t.textContent=time;
+      if(d)d.textContent=date;
+    };
+    updateClock();
+    const clockTimer=setInterval(updateClock,1000);
+    clock.dataset.clockTimer=String(clockTimer);
+
     /* LCARS is a control console, not a presentation animation. Keep the
        panels stable so live data and controls remain visually anchored. */
     document.querySelectorAll(".card").forEach(card=>{
