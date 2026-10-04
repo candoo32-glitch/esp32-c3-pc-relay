@@ -628,13 +628,13 @@ $("wifi-scan-form").addEventListener("submit",scan);$("update-latest-form").addE
 $("firmware-upload-form").addEventListener("submit",e=>{
   const file=$("firmware")?.files?.[0];
   if(!file)return;
-  if(!/\\.bin$/i.test(file.name)){e.preventDefault();setPageStatus("Firmware image must be a .bin file.","bad");return;}
+  if(!/\.bin$/i.test(file.name)){e.preventDefault();setPageStatus("Firmware image must be a .bin file.","bad");return;}
   upload(e,"Upgrade the firmware with "+file.name+"? The current firmware will be replaced and the ESP32-C3 will reboot. NVS configuration will be preserved.");
 });
 $("web-upload-form").addEventListener("submit",e=>{
   const file=$("web-filesystem")?.files?.[0];
   if(!file)return;
-  if(!/-spiffs\\.bin$/i.test(file.name)){e.preventDefault();setPageStatus("Web UI image must use the -spiffs.bin filename suffix.","bad");return;}
+  if(!/-spiffs\.bin$/i.test(file.name)){e.preventDefault();setPageStatus("Web UI image must use the -spiffs.bin filename suffix.","bad");return;}
   upload(e,"Upgrade the Web UI filesystem with "+file.name+"? The current Web UI filesystem will be replaced and the ESP32-C3 will reboot.");
 });
 $("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
