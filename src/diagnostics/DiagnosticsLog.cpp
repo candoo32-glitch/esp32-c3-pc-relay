@@ -60,4 +60,22 @@ String recentJson() {
   return json;
 }
 
+String recentOtaJson() {
+  String json;
+  json.reserve(2400);
+  json += F("{\"lines\":[");
+  bool first = true;
+  for (size_t i = 0; i < count; ++i) {
+    const size_t index = (next + HISTORY_LINES - count + i) % HISTORY_LINES;
+    if (!history[index].startsWith("OTA |")) continue;
+    if (!first) json += ',';
+    first = false;
+    json += '"';
+    json += escapeJson(history[index]);
+    json += '"';
+  }
+  json += F("]}");
+  return json;
+}
+
 }
