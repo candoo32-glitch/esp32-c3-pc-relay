@@ -2200,3 +2200,181 @@ body{
   .lcars-clock-date{font-size:.48rem}
   .lcars-clock::before{font-size:.42rem}
 }
+
+
+/* -------------------------------------------------------------------------
+ * LCARS ACTIVE BLOCKS — low-level system activity
+ *
+ * The panels behave like powered console modules. Nothing moves far enough
+ * to interfere with reading or controls; the motion is primarily light.
+ * ------------------------------------------------------------------------- */
+
+.card{
+  --lcars-activity-color:var(--lcars-blue);
+  --lcars-activity-duration:7.2s;
+  --lcars-activity-delay:0s;
+  background:
+    linear-gradient(108deg,
+      transparent 0%,
+      transparent 39%,
+      rgba(169,202,255,.00) 43%,
+      rgba(169,202,255,.055) 48%,
+      rgba(169,202,255,.00) 53%,
+      transparent 58%,
+      transparent 100%),
+    linear-gradient(135deg,rgba(255,255,255,.025),transparent 45%),
+    linear-gradient(180deg,var(--lcars-panel-2),var(--lcars-panel));
+  background-size:220% 100%,100% 100%,100% 100%;
+  background-position:130% 0,0 0,0 0;
+  animation:
+    lcarsPanelSweep var(--lcars-activity-duration) linear var(--lcars-activity-delay) infinite,
+    lcarsPanelBreath 4.8s ease-in-out var(--lcars-activity-delay) infinite;
+}
+
+@keyframes lcarsPanelSweep{
+  0%,28%{background-position:130% 0,0 0,0 0}
+  48%,63%{background-position:-30% 0,0 0,0 0}
+  83%,100%{background-position:130% 0,0 0,0 0}
+}
+
+@keyframes lcarsPanelBreath{
+  0%,100%{
+    box-shadow:
+      0 12px 34px rgba(0,0,0,.25),
+      inset 0 0 0 rgba(111,168,255,0);
+  }
+  50%{
+    box-shadow:
+      0 12px 34px rgba(0,0,0,.25),
+      inset 0 0 22px color-mix(in srgb,var(--lcars-activity-color) 5%,transparent);
+  }
+}
+
+/* Each module gets a different tempo and channel color. */
+.card:nth-child(1){
+  --lcars-activity-color:var(--lcars-orange);
+  --lcars-activity-duration:6.4s;
+  --lcars-activity-delay:-1.1s;
+}
+.card:nth-child(2){
+  --lcars-activity-color:var(--lcars-blue);
+  --lcars-activity-duration:8.1s;
+  --lcars-activity-delay:-4.2s;
+}
+.card:nth-child(3){
+  --lcars-activity-color:var(--lcars-purple);
+  --lcars-activity-duration:7.1s;
+  --lcars-activity-delay:-2.5s;
+}
+.card:nth-child(4){
+  --lcars-activity-color:var(--lcars-blue-hot);
+  --lcars-activity-duration:9.2s;
+  --lcars-activity-delay:-6.0s;
+}
+.card:nth-child(5){
+  --lcars-activity-color:var(--lcars-orange);
+  --lcars-activity-duration:7.7s;
+  --lcars-activity-delay:-3.3s;
+}
+
+/* The upper command rail has a traveling energy pulse. */
+h1::after{
+  background:
+    linear-gradient(90deg,
+      var(--lcars-orange) 0 46%,
+      var(--lcars-purple) 46% 61%,
+      var(--lcars-blue) 61% 100%);
+  background-size:140% 100%;
+  animation:lcarsTitleEnergy 6s ease-in-out infinite;
+}
+@keyframes lcarsTitleEnergy{
+  0%,22%{background-position:100% 0}
+  50%,68%{background-position:0 0}
+  100%{background-position:100% 0}
+}
+
+/* Data rails briefly illuminate as if polling their subsystem. */
+.kv td:first-child::before{
+  animation:lcarsDataRail 4.6s ease-in-out infinite;
+}
+.kv tr:nth-child(2) td:first-child::before{animation-delay:-1.2s}
+.kv tr:nth-child(3) td:first-child::before{animation-delay:-2.4s}
+.kv tr:nth-child(4) td:first-child::before{animation-delay:-3.1s}
+.kv tr:nth-child(5) td:first-child::before{animation-delay:-.6s}
+
+@keyframes lcarsDataRail{
+  0%,70%,100%{opacity:.52;filter:brightness(1)}
+  77%{opacity:1;filter:brightness(1.65)}
+  84%{opacity:.62;filter:brightness(1.05)}
+}
+
+/* Section headings get a tiny “system ready” flare. */
+.section-heading h2,
+.card > h2{
+  text-shadow:0 0 0 rgba(169,202,255,0);
+  animation:lcarsHeadingPulse 5.7s ease-in-out infinite;
+}
+@keyframes lcarsHeadingPulse{
+  0%,86%,100%{text-shadow:0 0 0 rgba(169,202,255,0)}
+  90%{text-shadow:0 0 12px rgba(169,202,255,.18)}
+}
+
+/* The active navigation rail has an intermittent carrier pulse. */
+.tabs{
+  box-shadow:
+    0 12px 36px rgba(0,0,0,.28),
+    0 0 18px rgba(111,168,255,.16);
+  animation:lcarsDeckPulse 8s ease-in-out infinite;
+}
+@keyframes lcarsDeckPulse{
+  0%,100%{box-shadow:0 12px 36px rgba(0,0,0,.28),0 0 18px rgba(111,168,255,.12)}
+  48%{box-shadow:0 12px 36px rgba(0,0,0,.28),0 0 25px rgba(111,168,255,.22)}
+  53%{box-shadow:0 12px 36px rgba(0,0,0,.28),0 0 18px rgba(111,168,255,.12)}
+}
+
+/* Relay command buttons have a very short edge sweep, like physical
+   illuminated controls. */
+.relay-button{
+  overflow:hidden!important;
+}
+.relay-button::after{
+  content:"";
+  position:absolute;
+  top:0;
+  left:-35%;
+  width:18%;
+  height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);
+  transform:skewX(-18deg);
+  animation:lcarsButtonSweep 4.2s ease-in-out infinite;
+  pointer-events:none;
+}
+.relay-float form:nth-child(2) .relay-button::after{
+  animation-delay:-2.1s;
+}
+@keyframes lcarsButtonSweep{
+  0%,65%{left:-35%;opacity:0}
+  70%{opacity:1}
+  84%{left:125%;opacity:.55}
+  100%{left:125%;opacity:0}
+}
+
+/* Keep animation from becoming expensive or visually noisy on small screens. */
+@media (max-width:650px){
+  .card{
+    animation-duration:9s,6.2s;
+  }
+}
+
+/* Reduced motion remains a hard override. */
+@media (prefers-reduced-motion:reduce){
+  .card,
+  .tabs,
+  h1::after,
+  .relay-button::after,
+  .kv td:first-child::before,
+  .section-heading h2,
+  .card > h2{
+    animation:none!important;
+  }
+}
