@@ -77,16 +77,60 @@
 </section>
 
 <section id="tab-storage" class="tab">
-<div class="card"><h2>Configuration backup</h2><div class="muted">Download a complete NVS configuration backup. This includes saved Wi-Fi credentials and other configuration values, so treat the backup file as sensitive.</div><p class="mono">NVS partition: <span id="nvs-size"></span> bytes</p>
-<a href="/config/backup"><button class="good" type="button">Download configuration backup</button></a></div>
-<div class="card"><h2>Restore configuration</h2><div class="bad">Restore replaces the entire NVS configuration and then reboots the ESP32-C3. Use a backup created by this firmware on a compatible ESP32-C3 relay device.</div>
-<form id="config-restore-form" method="POST" action="/config/restore" enctype="multipart/form-data"><div class="row"><div><label for="configfile">Configuration backup</label><input id="configfile" name="configfile" type="file" accept=".bin,application/octet-stream" required></div></div><button class="good">Restore configuration and reboot</button></form></div>
-<div class="card"><h2>Web UI storage</h2><div class="muted">Manage the files stored in the ESP32-C3 web filesystem. You can view text files, download files, upload replacements, and erase individual files. Erasing <span class="mono">index.html</span>, <span class="mono">style.css</span>, or <span class="mono">app.js</span> can make the normal Web UI unusable; the Recovery Updater remains available.</div>
-<form id="storage-upload-form" method="POST" action="/storage/upload" enctype="multipart/form-data"><div class="row"><div><label for="storage-file">Upload Web UI file</label><input id="storage-file" name="storagefile" type="file" required><div class="help">Files are stored in the web filesystem and can replace existing files with the same name.</div></div></div><button class="good" type="submit">Upload file</button></form><div class="help" id="storage-status">Ready.</div>
-<div id="storage-files" class="table-wrap"></div></div>
-<div class="card"><h2>NVS contents</h2><div id="nvs-table" class="table-wrap"></div></div>
-<div class="card"><h2>Format NVS</h2><div class="bad">This erases the entire NVS partition, including Wi-Fi credentials, TX power, diagnostics, and network settings.</div>
-<form method="POST" action="/nvs/format"><button class="danger">Format NVS and reboot</button></form></div>
+<div class="storage-hero card">
+  <div>
+    <div class="eyebrow">DEVICE STORAGE</div>
+    <h2>Storage manager</h2>
+    <div class="muted">Manage the Web filesystem and inspect persistent NVS configuration without mixing the two together.</div>
+  </div>
+  <div class="storage-summary"><span id="storage-summary-files">-</span><span class="muted"> files</span><span class="storage-summary-dot">·</span><span id="storage-summary-used">-</span><span class="muted"> used</span></div>
+</div>
+
+<div class="card">
+  <div class="section-heading"><div><div class="eyebrow">WEB FILESYSTEM</div><h2>SPIFFS browser</h2></div><button id="storage-refresh" class="secondary" type="button">Refresh</button></div>
+  <div class="storage-meter"><div id="storage-meter-bar" class="storage-meter-bar"></div></div>
+  <div id="storage-meter-label" class="storage-meter-label">Checking filesystem…</div>
+  <form id="storage-upload-form" method="POST" action="/storage/upload" enctype="multipart/form-data" class="storage-upload">
+    <label for="storage-file">Upload or replace a file</label>
+    <div class="storage-upload-row"><input id="storage-file" name="storagefile" type="file" required><button class="good" type="submit">Upload file</button></div>
+    <div class="help">Uploading a file with the same name replaces the existing copy.</div>
+  </form>
+  <div class="help" id="storage-status">Ready.</div>
+  <div id="storage-files" class="table-wrap"></div>
+</div>
+
+<div class="card">
+  <div class="section-heading"><div><div class="eyebrow">PERSISTENT CONFIGURATION</div><h2>NVS inspector</h2></div><button id="nvs-refresh" class="secondary" type="button">Refresh</button></div>
+  <div class="nvs-stats">
+    <div class="nvs-stat"><span class="nvs-stat-value" id="nvs-size">-</span><span>partition bytes</span></div>
+    <div class="nvs-stat"><span class="nvs-stat-value" id="nvs-used">-</span><span>used entries</span></div>
+    <div class="nvs-stat"><span class="nvs-stat-value" id="nvs-free">-</span><span>free entries</span></div>
+    <div class="nvs-stat"><span class="nvs-stat-value" id="nvs-namespaces">-</span><span>namespaces</span></div>
+  </div>
+  <div class="nvs-toolbar"><label for="nvs-filter">Filter entries</label><input id="nvs-filter" type="search" placeholder="Search namespace, key, type, or value…"></div>
+  <div id="nvs-table" class="nvs-browser"></div>
+  <div class="help">Read-only inspector. Password, passphrase, and token values are hidden. Use the normal configuration pages to change settings.</div>
+</div>
+
+<div class="card">
+  <div class="section-heading"><div><div class="eyebrow">CONFIGURATION FILE</div><h2>Backup & restore</h2></div></div>
+  <div class="muted">A complete NVS backup includes saved Wi-Fi credentials and other configuration values, so treat the backup file as sensitive.</div>
+  <div class="storage-actions">
+    <a href="/config/backup"><button class="good" type="button">Download configuration backup</button></a>
+    <form id="config-restore-form" method="POST" action="/config/restore" enctype="multipart/form-data"><label for="configfile">Restore backup</label><input id="configfile" name="configfile" type="file" accept=".bin,application/octet-stream" required><button class="secondary">Restore and reboot</button></form>
+  </div>
+</div>
+
+<div class="card danger-zone">
+  <div class="section-heading"><div><div class="eyebrow">DANGER ZONE</div><h2>Erase persistent configuration</h2></div></div>
+  <div class="bad">This erases the entire NVS partition, including Wi-Fi credentials, TX power, diagnostics, and network settings, then reboots the ESP32-C3.</div>
+  <form method="POST" action="/nvs/format"><button class="danger">Format NVS and reboot</button></form>
+</div>
+
+<div id="storage-viewer" class="storage-viewer" hidden>
+  <div class="storage-viewer-head"><div><div class="eyebrow">FILE VIEWER</div><h2 id="storage-viewer-title">File</h2></div><button id="storage-viewer-close" class="secondary" type="button">Close</button></div>
+  <pre id="storage-viewer-content" class="storage-code"></pre>
+</div>
 </section>
 
 <section id="tab-system" class="tab">
