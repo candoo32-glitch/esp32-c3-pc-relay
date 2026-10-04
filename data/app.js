@@ -262,12 +262,23 @@ $("storage-viewer-close")?.addEventListener("click",closeStorageViewer);
 $("storage-upload-form")?.addEventListener("submit",async e=>{
   e.preventDefault();
   const form=e.currentTarget;
+  const input=$("storage-file");
+  const file=input?.files?.[0];
+  if(!file)return;
+  const target="/"+file.name.replace(/\\/g,"/");
+  const existing=storageFiles.find(f=>f.path===target);
+  if(existing&&!confirm("Replace "+target+"? The existing filesystem file will be erased and replaced. This cannot be undone."))return;
   try{
-    setStorageStatus("Uploading…");
+    setStorageStatus(existing?"Replacing file…":"Uploading…");
     const r=await fetch(form.action,{method:"POST",body:new FormData(form),cache:"no-store"});
     if(!r.ok)throw Error(r.status);
-    form.reset();setStorageStatus("File uploaded.","ok");await loadStorageFiles();
+    form.reset();setStorageStatus(existing?"File replaced.":"File uploaded.","ok");await loadStorageFiles();
   }catch(x){setStorageStatus("File upload failed.","bad")}
+});
+$("configfile")?.addEventListener("change",e=>{
+  const file=e.currentTarget.files?.[0];
+  const label=$("configfile-name");
+  if(label)label.textContent=file?file.name:"Choose backup file…";
 });
 $("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
 document.querySelectorAll(".theme-option").forEach(o=>o.addEventListener("click",async()=>{closeThemeOptions();await saveTheme(o.dataset.themeValue);}));
