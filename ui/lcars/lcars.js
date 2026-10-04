@@ -64,15 +64,49 @@
   syncTabIdentity();
   window.addEventListener("hashchange",syncTabIdentity,{passive:true});
 
-  /* Animate the visible panel only after the existing app has selected it. */
+  /* LCARS tab activation: the deck comes online in sections rather than
+     appearing as one flat web page. Each panel gets a slightly different
+     entry vector/timing, while controls remain fully interactive. */
   const animateActiveTab=()=>{
     const id="tab-"+((location.hash||"#dashboard").slice(1).split("?")[0]);
     const tab=document.getElementById(id);
     if(!tab)return;
+
+    const sections=[...tab.querySelectorAll(".card")];
+    const directions=[
+      {x:-18,y:4},{x:14,y:0},{x:0,y:12},{x:10,y:-8},{x:-8,y:-6}
+    ];
+
     tab.animate(
-      [{opacity:.72,transform:"translateY(7px)"},{opacity:1,transform:"translateY(0)"}],
-      {duration:260,easing:"cubic-bezier(.2,.8,.2,1)"}
+      [{opacity:.15},{opacity:1}],
+      {duration:420,easing:"ease-out"}
     );
+
+    sections.forEach((card,index)=>{
+      const d=directions[Math.floor(Math.random()*directions.length)];
+      const delay=Math.floor(Math.random()*150)+index*42;
+      const duration=360+Math.floor(Math.random()*180);
+      card.animate(
+        [
+          {opacity:0,transform:"translate3d("+d.x+"px,"+d.y+"px,0) scale(.985)"},
+          {opacity:1,transform:"translate3d(0,0,0) scale(1)"}
+        ],
+        {
+          duration,
+          delay,
+          easing:"cubic-bezier(.16,.82,.24,1)",
+          fill:"both"
+        }
+      );
+
+      card.querySelectorAll(".eyebrow,.section-heading h2").forEach((label)=>{
+        label.animate(
+          [{opacity:0,filter:"brightness(2.2)",transform:"translateX(-6px)"},
+           {opacity:1,filter:"brightness(1)",transform:"translateX(0)"}],
+          {duration:280,delay:delay+90,easing:"ease-out",fill:"both"}
+        );
+      });
+    });
   };
   window.addEventListener("hashchange",animateActiveTab,{passive:true});
 
