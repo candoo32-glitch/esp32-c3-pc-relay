@@ -615,6 +615,7 @@ document.querySelectorAll('form[method="POST"]').forEach(f=>{
 });
 $("wifi-scan-form").addEventListener("submit",scan);$("update-latest-form").addEventListener("submit",latest);$("firmware-upload-form").addEventListener("submit",e=>upload(e));$("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
 window.addEventListener("hashchange",currentTab);
+currentTab();
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 async function bootstrapPage(){
  await load();
