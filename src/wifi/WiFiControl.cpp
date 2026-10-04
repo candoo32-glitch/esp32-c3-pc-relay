@@ -1102,8 +1102,11 @@ void begin() {
     WiFi.setAutoReconnect(true);
     WiFi.mode(WIFI_STA);
     configureTxPower();
-    connect();
   }
+
+  // Do not block boot for up to CONNECT_TIMEOUT_MS waiting for an AP.
+  // The reconnect task performs the initial connection attempt in the
+  // background, allowing the web server to start immediately.
   if (reconnectTaskHandle == nullptr) {
     xTaskCreate(
         reconnectTask,
