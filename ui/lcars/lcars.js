@@ -5,6 +5,42 @@
   const boot=()=>{
     document.body.classList.add("lcars-ready");
 
+    /* Dynamic LCARS left-side instrument field. */
+    const leftField=document.createElement("div");
+    leftField.className="lcars-left-field";
+    leftField.dataset.externalUi="true";
+    leftField.setAttribute("aria-hidden","true");
+
+    const shapes=[
+      "bar","bar","block","block","step","step","bar",
+      "block","bar","corner","block","step","bar","block","bar"
+    ];
+    const colors=["orange","purple","blue","magenta"];
+    shapes.forEach((shape,index)=>{
+      const el=document.createElement("i");
+      el.className="lcars-left-shape "+shape+" "+colors[index%colors.length];
+      const width=8+Math.floor(Math.random()*54);
+      const height=3+Math.floor(Math.random()*22);
+      const top=7+Math.random()*84;
+      const left=Math.random()*52;
+      const duration=(3.2+Math.random()*6.8).toFixed(2);
+      const delay=(-(Math.random()*duration)).toFixed(2);
+      const opacity=(.24+Math.random()*.58).toFixed(2);
+      const radius=Math.floor(Math.random()*9);
+      el.style.cssText=
+        "--shape-w:"+width+"px;"+
+        "--shape-h:"+height+"px;"+
+        "--shape-top:"+top.toFixed(2)+"%;"+
+        "--shape-left:"+left.toFixed(2)+"px;"+
+        "--shape-duration:"+duration+"s;"+
+        "--shape-delay:"+delay+"s;"+
+        "--shape-opacity:"+opacity+";"+
+        "--shape-radius:"+radius+"px;";
+      leftField.appendChild(el);
+    });
+
+    document.body.appendChild(leftField);
+
     /* Live LCARS date/time readout. It is injected into the external UI
        layer so removing LCARS also removes the clock cleanly. */
     const clock=document.createElement("div");
