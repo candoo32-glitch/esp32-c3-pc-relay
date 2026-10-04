@@ -95,6 +95,40 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
 .theme-option[data-theme-value="20"] .swatch-bg{background:#111}.theme-option[data-theme-value="20"] .swatch-card{background:#1c1c1c}.theme-option[data-theme-value="20"] .swatch-text{background:#eee}.theme-option[data-theme-value="20"] .swatch-accent{background:#315f93}
 
 
+/* Wi-Fi and Network pages */
+.wifi-connection-card{overflow:hidden}
+.wifi-overview{display:grid;grid-template-columns:minmax(220px,1.7fr) repeat(3,minmax(130px,1fr));gap:10px;margin:16px 0}
+.wifi-primary,.wifi-stat{display:flex;flex-direction:column;justify-content:center;min-height:78px;padding:12px 14px;background:var(--tab);border:1px solid var(--line);border-radius:9px}
+.wifi-primary-label,.wifi-stat span,.network-live-primary span{font-size:11px;color:var(--text-muted);margin-bottom:5px}
+.wifi-primary strong{font-size:18px;overflow-wrap:anywhere}
+.wifi-stat strong{font-size:15px;overflow-wrap:anywhere}
+.wifi-details{margin-top:4px;padding-top:14px;border-top:1px solid var(--line)}
+.wifi-details .eyebrow{margin-bottom:5px}
+.wifi-details table{margin-top:2px}
+.wifi-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.wifi-actions form{margin:0}
+.wifi-actions button{margin:0}
+.wifi-tools{margin-top:0}
+.network-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:12px;align-items:start}
+.network-config-card,.network-live-card{height:100%}
+.network-config-card>form{margin-top:16px}
+.network-static-fields{display:none}
+.network-live-primary{display:grid;grid-template-columns:1.3fr 1.3fr .8fr;gap:8px;margin:16px 0}
+.network-live-primary>div{display:flex;flex-direction:column;min-width:0;padding:11px 12px;background:var(--tab);border:1px solid var(--line);border-radius:8px}
+.network-live-primary strong{font-size:14px;overflow-wrap:anywhere}
+.network-live-card .kv{margin-top:4px}
+.network-live-card .help{margin-top:12px}
+@media(max-width:800px){
+  .wifi-overview{grid-template-columns:1fr 1fr}
+  .wifi-primary{grid-column:1 / -1}
+  .network-grid{grid-template-columns:1fr}
+}
+@media(max-width:500px){
+  .wifi-overview{grid-template-columns:1fr}
+  .wifi-primary{grid-column:auto}
+  .network-live-primary{grid-template-columns:1fr}
+}
+
 /* Storage manager */
 .eyebrow{font-size:10px;letter-spacing:.14em;color:var(--text-muted);font-weight:700;margin-bottom:3px}
 .section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
