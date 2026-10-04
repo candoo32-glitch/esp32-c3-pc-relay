@@ -172,8 +172,16 @@ function renderOtaStatus(d){
  const message=$("software-update-message");
  if(!progress)return;
  progress.hidden=false;
+
  if(d.component==="firmware")firmwareRow.hidden=false;
- if(d.component==="web")webRow.hidden=false;
+ if(d.component==="web"){
+   webRow.hidden=false;
+   // Firmware is always installed before the Web UI in the combined OTA path.
+   firmwareRow.hidden=false;
+   firmwareBar.classList.remove("indeterminate");
+   firmwareBar.style.width="100%";
+   firmwareInfo.textContent="100% — firmware update complete";
+ }
 
  const bar=d.component==="web"?webBar:firmwareBar;
  const row=d.component==="web"?webRow:firmwareRow;
@@ -181,9 +189,10 @@ function renderOtaStatus(d){
  if(d.component){
    row.hidden=false;
    if(d.total>0){
+     const percent=Math.min(100,Math.max(0,(d.received/d.total)*100));
      bar.classList.remove("indeterminate");
-     bar.style.width=Math.min(100,(d.received/d.total)*100)+"%";
-     detail.textContent=d.received.toLocaleString()+" / "+d.total.toLocaleString()+" bytes ("+Math.round((d.received/d.total)*100)+"%)";
+     bar.style.width=percent+"%";
+     detail.textContent=d.received.toLocaleString()+" / "+d.total.toLocaleString()+" bytes ("+Math.round(percent)+"%)";
    }else{
      bar.classList.add("indeterminate");
      detail.textContent=d.received?d.received.toLocaleString()+" bytes received":"Waiting for download size…";
@@ -210,22 +219,25 @@ function renderOtaStatus(d){
    message.className="notice bad";
    message.textContent=d.message||"OTA update failed.";
    setPageStatus("OTA update failed","bad");
- }else if(d.stage==="rebooting"){
-   firmwareBar.classList.remove("indeterminate");
-   webBar.classList.remove("indeterminate");
-   message.hidden=false;
-   message.className="notice ok";
-   message.textContent=d.message||"Updates installed successfully. Rebooting…";
-   setPageStatus("Rebooting…","ok");
- }else if(d.stage==="complete"){
+ }else if(d.stage==="rebooting"||d.stage==="complete"||d.stage==="finalizing"){
    firmwareBar.classList.remove("indeterminate");
    webBar.classList.remove("indeterminate");
    if(!firmwareRow.hidden)firmwareBar.style.width="100%";
    if(!webRow.hidden)webBar.style.width="100%";
-   message.hidden=false;
-   message.className="notice ok";
-   message.textContent=d.message||"Update complete.";
-   setPageStatus("Update complete","ok");
+   if(d.stage==="rebooting"){
+     message.hidden=false;
+     message.className="notice ok";
+     message.textContent=d.message||"Updates installed successfully. Rebooting…";
+     setPageStatus("Rebooting…","ok");
+   }else if(d.stage==="complete"){
+     message.hidden=false;
+     message.className="notice ok";
+     message.textContent=d.message||"Update complete.";
+     setPageStatus("Update complete","ok");
+   }else{
+     message.hidden=true;
+     setPageStatus("Finalizing updates…","warn");
+   }
  }else if(d.active){
    message.hidden=true;
    setPageStatus(title+"…","warn");
