@@ -32,7 +32,7 @@ void printBootTiming() {
   Serial.printf("Network init     %+6lu ms\r\n", static_cast<unsigned long>(networkReadyMs - bootStartMs));
   Serial.printf("WiFi init        %+6lu ms\r\n", static_cast<unsigned long>(wifiInitMs - bootStartMs));
   Serial.printf("Web server       %+6lu ms\r\n", static_cast<unsigned long>(webServerReadyMs - bootStartMs));
-  Serial.printf("Console init     %+6lu ms\r\n", static_cast<unsigned long>(consoleReadyMs - bootStartMs));
+  Serial.printf("Console ready    %+6lu ms\r\n", static_cast<unsigned long>(consoleReadyMs - bootStartMs));
   Serial.printf("SETUP COMPLETE   %+6lu ms\r\n", static_cast<unsigned long>(consoleReadyMs - bootStartMs));
   Serial.printf("Report printed   %+6lu ms\r\n", static_cast<unsigned long>(now - bootStartMs));
   Serial.println("========================================");
@@ -73,18 +73,18 @@ void setup() {
   WebControl::begin();
   webServerReadyMs = millis();
 
-  Console::begin();
+  // The USB console is optional and can legitimately block waiting for a
+  // terminal response. Do not make the boot-timing report depend on that
+  // interactive prompt returning: the web server and core services are already
+  // initialized here, so this is the end of the boot-critical setup sequence.
   consoleReadyMs = millis();
 
   Serial.println();
-  Serial.println("Serial configuration console ready.");
-
-  // The console is now fully initialized, so all timing fields contain valid
-  // timestamps. Use CRLF explicitly because some terminal sessions do not
-  // translate a printf-only LF into a carriage return, which causes each
-  // timing line to start farther to the right.
+  Serial.println("Core services initialized; entering optional USB console.");
   printBootTiming();
   Serial.flush();
+
+  Console::begin();
 }
 
 void loop() {
