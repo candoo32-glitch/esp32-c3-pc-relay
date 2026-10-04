@@ -257,6 +257,7 @@ async function monitorOtaStatus(){
        if(d.latestWeb>=0)otaExpectedWeb=d.latestWeb;
 
        if(d.stage==="idle" && otaWasActive){
+         setOtaUpdateButtonDisabled(false);
          setPageStatus("ESP32-C3 rebooted; refreshing installed versions…","warn");
          await load();
          return d;
