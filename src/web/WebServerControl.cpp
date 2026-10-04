@@ -247,13 +247,20 @@ String latestReleaseAssetUrl(const String& json, const String& suffix, long& ver
   return bestUrl;
 }
 
+String cachedWebInterfaceBuild = "0";
+
 String webInterfaceBuild() {
-  if (!SPIFFS.exists("/web_version.txt")) return "0";
+  return cachedWebInterfaceBuild;
+}
+
+void loadWebInterfaceBuild() {
+  cachedWebInterfaceBuild = "0";
+  if (!SPIFFS.exists("/web_version.txt")) return;
   File file = SPIFFS.open("/web_version.txt", FILE_READ);
-  if (!file) return "0";
+  if (!file) return;
   const String value = file.readStringUntil('\n');
   file.close();
-  return value.length() > 0 ? value : "0";
+  if (value.length() > 0) cachedWebInterfaceBuild = value;
 }
 
 String firmwareReleaseUrl(const String& json, long& version) {
@@ -395,7 +402,10 @@ bool serviceOtaWrite(const char* component) {
   // data may not be buffered yet even though more data is on the way. Polling
   // available() in that case can turn a ~900 KB transfer into minutes of
   // repeated short service calls. Wait briefly for actual stream data instead.
-  stream->setTimeout(50);
+  // Keep each network read short so the WebServer and relay control remain responsive
+  // while HTTPS data is arriving. readBytes() blocks until the requested data arrives
+  // or this timeout expires.
+  stream->setTimeout(10);
 
   const uint32_t startMs = millis();
   size_t bytesThisService = 0;
@@ -1014,6 +1024,7 @@ void begin() {
   if (!SPIFFS.begin(false)) {
     Serial.println("Web UI filesystem mount failed.");
   } else {
+    loadWebInterfaceBuild();
     Serial.println("Web UI filesystem mounted.");
   }
 
