@@ -1343,22 +1343,18 @@ void handleStaticAsset(const char* path, const char* contentType) {
 }
 
 void handleRecoveryPage() {
-  server.sendHeader("Cache-Control", "no-store");
   sendNoCache(200, "text/html; charset=utf-8", RECOVERY_PAGE);
 }
 
 void handleRoot() {
-  server.sendHeader("Cache-Control", "no-store");
   handleStaticAsset("/index.html", "text/html; charset=utf-8");
 }
 
 void handleStyleCss() {
-  server.sendHeader("Cache-Control", "no-store");
   handleStaticAsset("/style.css", "text/css; charset=utf-8");
 }
 
 void handleAppJs() {
-  server.sendHeader("Cache-Control", "no-store");
   handleStaticAsset("/app.js", "application/javascript; charset=utf-8");
 }
 
