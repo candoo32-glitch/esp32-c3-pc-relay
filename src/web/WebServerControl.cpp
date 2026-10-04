@@ -1032,7 +1032,7 @@ void begin() {
     json += String(otaCurrentWebVersion);
     json += F(",\"latestWeb\":");
     json += String(otaWebVersion);
-    json += F("\",\"received\":");
+    json += F(",\"received\":");
     json += String(otaReceived);
     json += F(",\"total\":");
     json += String(otaTotal);
