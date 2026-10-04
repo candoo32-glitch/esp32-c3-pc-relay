@@ -2512,3 +2512,69 @@ h1::after{
     opacity:.32;
   }
 }
+
+
+/* -------------------------------------------------------------------------
+ * DUAL LCARS INSTRUMENT FIELDS
+ * The random fields are the complete side architecture. The old static
+ * viewport spine is intentionally disabled.
+ * ------------------------------------------------------------------------- */
+body::after{
+  display:none!important;
+}
+.lcars-left-field{
+  width:104px;
+  z-index:2;
+}
+.lcars-left-field::before{
+  display:none;
+}
+.lcars-right-field{
+  position:absolute;
+  top:0;
+  right:0;
+  width:168px;
+  min-height:100vh;
+  z-index:2;
+  pointer-events:none;
+  overflow:hidden;
+}
+.lcars-right-field::before{
+  content:"";
+  position:absolute;
+  right:14px;
+  top:0;
+  bottom:0;
+  width:5px;
+  background:linear-gradient(180deg,
+    var(--lcars-orange) 0 17%,
+    transparent 17% 22%,
+    rgba(255,155,91,.22) 22% 43%,
+    transparent 43% 48%,
+    var(--lcars-purple) 48% 72%,
+    transparent 72% 77%,
+    rgba(179,140,255,.24) 77% 100%);
+  opacity:.55;
+  filter:drop-shadow(0 0 8px rgba(255,155,91,.16));
+}
+.lcars-right-field .lcars-left-shape{
+  left:auto;
+  right:28px;
+}
+.lcars-right-field .lcars-left-shape::after{
+  background:linear-gradient(270deg,rgba(255,255,255,.25),transparent 55%);
+}
+.relay-float{
+  z-index:120!important;
+}
+@media (max-width:650px){
+  .lcars-right-field{
+    width:58px;
+  }
+  .lcars-right-field::before{
+    right:5px;
+  }
+  .lcars-right-field .lcars-left-shape{
+    right:12px;
+  }
+}
