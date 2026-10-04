@@ -13,6 +13,12 @@
     leftField.setAttribute("aria-hidden","true");
     document.body.appendChild(leftField);
 
+    const rightField=document.createElement("div");
+    rightField.className="lcars-right-field";
+    rightField.dataset.externalUi="true";
+    rightField.setAttribute("aria-hidden","true");
+    document.body.appendChild(rightField);
+
     const rebuildLeftField=()=>{
       const raw=(location.hash||"#dashboard").slice(1).split("?")[0];
       const tab=document.getElementById("tab-"+raw);
@@ -32,6 +38,7 @@
       ];
       const colors=["orange","purple","blue","magenta"];
       leftField.querySelectorAll(".lcars-left-shape").forEach(el=>el.remove());
+      rightField.querySelectorAll(".lcars-left-shape").forEach(el=>el.remove());
 
       shapes.forEach((shape,index)=>{
         const el=document.createElement("i");
@@ -54,6 +61,17 @@
           "--shape-opacity:"+opacity+";"+
           "--shape-radius:"+radius+"px;";
         leftField.appendChild(el);
+
+        const right=el.cloneNode();
+        right.style.cssText=el.style.cssText;
+        right.className=el.className;
+        // Give the right bank its own independent geometry and timing.
+        right.style.setProperty("--shape-w",(8+Math.floor(Math.random()*54))+"px");
+        right.style.setProperty("--shape-top",(2+Math.random()*94).toFixed(2)+"%");
+        right.style.setProperty("--shape-duration",(3.2+Math.random()*6.8).toFixed(2)+"s");
+        right.style.setProperty("--shape-delay",(-(Math.random()*7)).toFixed(2)+"s");
+        right.style.setProperty("--shape-opacity",(0.18+Math.random()*0.60).toFixed(2));
+        rightField.appendChild(right);
       });
     };
     rebuildLeftField();
