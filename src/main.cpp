@@ -19,6 +19,7 @@ uint32_t networkReadyMs = 0;
 uint32_t wifiInitMs = 0;
 uint32_t webServerReadyMs = 0;
 uint32_t consoleReadyMs = 0;
+bool bootTimingPending = true;
 
 void printBootTiming() {
   const uint32_t now = millis();
@@ -79,10 +80,18 @@ void setup() {
   Serial.println();
   Serial.println("Serial configuration console ready.");
 
-  printBootTiming();
+  if (Serial.isConnected()) {
+    printBootTiming();
+    bootTimingPending = false;
+  }
 }
 
 void loop() {
+  if (bootTimingPending && Serial.isConnected()) {
+    printBootTiming();
+    bootTimingPending = false;
+  }
+
   Relay::service();
   NetConfig::service();
   WebControl::service();
