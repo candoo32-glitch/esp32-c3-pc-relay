@@ -1194,7 +1194,7 @@ setInterval(poll,500);
 </script>
 </body>
 </html>
-)RECOVERY;
+)RECOVERY";
 
 void handleStaticAsset(const char* path, const char* contentType) {
   if (!SPIFFS.exists(path)) {
