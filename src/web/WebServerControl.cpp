@@ -906,9 +906,11 @@ void handleAppJs() {
   handleStaticAsset("/app.js", "application/javascript; charset=utf-8");
 }
 
-void handleToggle(){const bool enable=!WiFiControl::isEnabled();if(!enable){server.send(204);delay(100);WiFiControl::setEnabled(false);return;}WiFiControl::setEnabled(true);server.send(204);}
+void handleToggle(){const bool enable=!WiFiControl::isEnabled();
+  DiagnosticsLog::line(String("WEB | WIFI TOGGLE | ") + (enable ? "ON" : "OFF"));if(!enable){server.send(204);delay(100);WiFiControl::setEnabled(false);return;}WiFiControl::setEnabled(true);server.send(204);}
 
 void handleReconnect() {
+  DiagnosticsLog::line("WEB | WIFI RECONNECT");
   WiFiControl::connect();
   server.send(204);
 }
@@ -920,6 +922,7 @@ void handleWifiSave() {
   }
   const String ssid = server.arg("ssid");
   String password = server.arg("password");
+  DiagnosticsLog::line(String("WEB | WIFI SAVE | SSID=") + ssid);
   if (password == "********") {
     WiFiControl::configureSavedCredentials(ssid);
   } else {
@@ -928,10 +931,11 @@ void handleWifiSave() {
   server.send(204);
 }
 
-void handleWifiScan(){if(!WiFiControl::isEnabled()){server.send(409,"application/json; charset=utf-8","{\"networks\":[]}");return;}WiFiControl::service();WiFi.scanDelete();const int count=WiFi.scanNetworks();String j=F("{\"networks\":[");for(int n=0;n<count;++n){if(n)j+=',';j+=F("{\"ssid\":\"");j+=jsonEscape(WiFi.SSID(n));j+=F("\",\"rssi\":");j+=String(WiFi.RSSI(n));j+=F(",\"channel\":");j+=String(WiFi.channel(n));j+=F(",\"security\":\"");j+=jsonEscape(WiFiControl::authModeName(WiFi.encryptionType(n)));j+=F("\",\"bssid\":\"");j+=jsonEscape(WiFi.BSSIDstr(n));j+=F("\"}");}j+=F("]}");WiFi.scanDelete();server.send(200,"application/json; charset=utf-8",j);}
+void handleWifiScan(){DiagnosticsLog::line("WEB | WIFI SCAN");if(!WiFiControl::isEnabled()){server.send(409,"application/json; charset=utf-8","{\"networks\":[]}");return;}WiFiControl::service();WiFi.scanDelete();const int count=WiFi.scanNetworks();String j=F("{\"networks\":[");for(int n=0;n<count;++n){if(n)j+=',';j+=F("{\"ssid\":\"");j+=jsonEscape(WiFi.SSID(n));j+=F("\",\"rssi\":");j+=String(WiFi.RSSI(n));j+=F(",\"channel\":");j+=String(WiFi.channel(n));j+=F(",\"security\":\"");j+=jsonEscape(WiFiControl::authModeName(WiFi.encryptionType(n)));j+=F("\",\"bssid\":\"");j+=jsonEscape(WiFi.BSSIDstr(n));j+=F("\"}");}j+=F("]}");WiFi.scanDelete();server.send(200,"application/json; charset=utf-8",j);}
 
 void handleTxPower() {
   if (server.hasArg("dbm")) {
+    DiagnosticsLog::line(String("WEB | WIFI TX POWER | ") + server.arg("dbm") + " dBm");
     const float value = server.arg("dbm").toFloat();
     WiFiControl::setTxPowerDbm(value);
   }
@@ -940,11 +944,13 @@ void handleTxPower() {
 
 void handleDiagnosticsToggle() {
   const bool desired = !WiFiDiagnostics::enabled();
+  DiagnosticsLog::line(String("WEB | WIFI DIAGNOSTICS | ") + (desired ? "ON" : "OFF"));
   if (desired != WiFiDiagnostics::enabled()) WiFiDiagnostics::toggle();
   server.send(204);
 }
 
 void handleNetworkSave() {
+  DiagnosticsLog::line("WEB | NETWORK SAVE");
   if (server.hasArg("hostname")) {
     if (!NetConfig::setHostname(server.arg("hostname"))) {
       server.send(204);
@@ -965,6 +971,7 @@ void handleNetworkSave() {
 }
 
 void handleRelayAction() {
+  DiagnosticsLog::line(String("WEB | RELAY ACTION | id=") + server.arg("id") + " action=" + server.arg("action"));
   if (!server.hasArg("id") || !server.hasArg("action")) {
     server.send(204);
     return;
@@ -986,6 +993,7 @@ void handleRelayAction() {
 }
 
 void handleRelayConfig() {
+  DiagnosticsLog::line("WEB | RELAY CONFIG SAVE");
   // Either relay's Save button submits the complete two-relay configuration.
   // Missing/blank fields intentionally fall back to the documented defaults.
   struct Defaults {
@@ -1122,13 +1130,14 @@ void begin() {
       return;
     }
     const long value = server.arg("theme").toInt();
+    DiagnosticsLog::line(String("WEB | THEME SAVE | ") + String(value));
     if (value < 0 || value >= THEME_COUNT || !saveTheme(static_cast<uint8_t>(value))) {
       server.send(400, "application/json; charset=utf-8", "{\"message\":\"Invalid theme.\"}");
       return;
     }
     server.send(204);
   });
-  server.on("/system/reboot", HTTP_POST, handleReboot);
+  server.on("/system/reboot", HTTP_POST, []() { DiagnosticsLog::line("WEB | REBOOT REQUEST"); handleReboot(); });
   server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
   server.begin();
   serverStarted = true;
