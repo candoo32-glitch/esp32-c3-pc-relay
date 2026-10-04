@@ -50,7 +50,7 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
 }
 async function load(){try{const r=await fetch("/api/state",{cache:"no-store"});if(!r.ok)throw new Error(r.status);render(await r.json())}catch(e){text("page-status","UNAVAILABLE")}}
 document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));
-$("ssid").addEventListener("input",()=>{wifiCredentialsDirty=true});$("wifi-ssid-select").addEventListener("change",()=>{const v=$("wifi-ssid-select").value;if(v){$("ssid").value=v;wifiCredentialsDirty=true}});
+$("ssid").addEventListener("input",()=>{wifiCredentialsDirty=true;filterSsidOptions();});$("wifi-ssid-toggle").addEventListener("click",()=>{const o=$("wifi-ssid-options");if(o.hidden){openSsidOptions();filterSsidOptions()}else closeSsidOptions();});$("ssid").addEventListener("focus",()=>{if(document.querySelector(".ssid-option")){openSsidOptions();filterSsidOptions()}});document.addEventListener("click",e=>{const box=document.querySelector(".ssid-combobox");if(box&&!box.contains(e.target))closeSsidOptions();});
 $("password").addEventListener("focus",()=>{
  if(!wifiPasswordEditing){
    wifiPasswordEditing=true;
@@ -78,20 +78,27 @@ async function rd(r){const t=r.headers.get("content-type")||"";return t.includes
 async function pf(f){const r=await fetch(f.action,{method:"POST",body:new URLSearchParams(new FormData(f)),cache:"no-store"});if(!r.ok)throw Error(r.status);return rd(r)}
 async function pfu(f){const r=await fetch(f.action,{method:"POST",body:new FormData(f),cache:"no-store"});if(!r.ok)throw Error(r.status);return rd(r)}
 function renderScan(d){
- const e=$("wifi-scan-results"),select=$("wifi-ssid-select");
+ const e=$("wifi-scan-results"),options=$("wifi-ssid-options");
  if(!e)return;
- if(select){
-   select.innerHTML='<option value="">Select a scanned network…</option>';
+ if(options){
+   options.innerHTML="";
    const seen=new Set();
    (d&&d.networks||[]).forEach(n=>{
      const ssid=String(n.ssid||"");
      if(!ssid||seen.has(ssid))return;
      seen.add(ssid);
-     const o=document.createElement("option");
-     o.value=ssid;
+     const o=document.createElement("button");
+     o.type="button";
+     o.className="ssid-option";
      o.textContent=ssid;
-     select.appendChild(o)
-   })
+     o.setAttribute("role","option");
+     o.addEventListener("click",()=>{
+       $("ssid").value=ssid;
+       wifiCredentialsDirty=true;
+       closeSsidOptions();
+     });
+     options.appendChild(o);
+   });
  }
  if(!d||!d.networks||!d.networks.length){
    e.innerHTML='<div class="help">No networks found or scan failed.</div>';
@@ -100,6 +107,24 @@ function renderScan(d){
  e.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>SSID</th><th>RSSI</th><th>Channel</th><th>Security</th><th>BSSID</th></tr></thead><tbody>'+
    d.networks.map((n,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(n.ssid||"(hidden)")+'</td><td>'+esc(n.rssi)+' dBm</td><td>'+esc(n.channel)+'</td><td>'+esc(n.security)+'</td><td class="mono">'+esc(n.bssid)+'</td></tr>').join("")+
    '</tbody></table></div><div class="help">'+d.networks.length+' access points found.</div>';
+}
+function closeSsidOptions(){
+ const o=$("wifi-ssid-options"),b=$("wifi-ssid-toggle"),i=$("ssid");
+ if(!o||!b)return;
+ o.hidden=true;
+ b.setAttribute("aria-expanded","false");
+ if(i)i.setAttribute("aria-expanded","false");
+}
+function openSsidOptions(){
+ const o=$("wifi-ssid-options"),b=$("wifi-ssid-toggle"),i=$("ssid");
+ if(!o||!b)return;
+ o.hidden=false;
+ b.setAttribute("aria-expanded","true");
+ if(i)i.setAttribute("aria-expanded","true");
+}
+function filterSsidOptions(){
+ const q=($("ssid").value||"").toLowerCase();
+ document.querySelectorAll(".ssid-option").forEach(o=>{o.hidden=q!==""&&!o.textContent.toLowerCase().includes(q)});
 }
 async function scan(e){e.preventDefault();const b=$("wifi-scan-button"),s=$("wifi-scan-spinner"),l=$("wifi-scan-label");b.disabled=true;s.hidden=false;l.textContent="Scanning…";setPageStatus("Wi-Fi scan in progress…","warn");try{renderScan(await pf(e.currentTarget));setPageStatus("Wi-Fi scan complete","ok")}catch(x){setPageStatus("Wi-Fi scan failed","bad")}finally{b.disabled=false;s.hidden=true;l.textContent="Scan now"}}
 async function check(e){e.preventDefault();setPageStatus("Checking for updates…");const b=$("software-update-status");b.hidden=false;b.textContent="Checking…";try{const r=await fetch(e.currentTarget.action,{cache:"no-store"}),d=await rd(r);if(!r.ok)throw Error();b.textContent=d.message||"Update check complete.";setPageStatus("Update check complete","ok")}catch(x){b.textContent="Could not retrieve the GitHub release catalog.";setPageStatus("Update check failed","bad")}}
