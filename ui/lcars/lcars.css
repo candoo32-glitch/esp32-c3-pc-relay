@@ -1501,3 +1501,46 @@ button.secondary::before{
   .relay-float{border-left-width:5px}
   #wifi-rssi::after,#dash-rssi::after,#net-rssi::after,#diag-rssi::after{display:none}
 }
+
+
+/* Final LCARS layout corrections */
+body{
+  padding-right:20px;
+}
+.relay-float{
+  top:auto;
+  right:20px;
+  bottom:20px;
+  width:min(260px,calc(100vw - 40px));
+}
+.relay-float .relay-button{
+  color:#090b10!important;
+  font-size:.78rem;
+  font-weight:900;
+  letter-spacing:.045em;
+  text-shadow:none;
+  white-space:nowrap;
+}
+@media (min-width:901px){
+  body > h1,
+  body > .muted,
+  body > .tabs,
+  body > .tab,
+  body > body > .muted{
+    width:100%;
+  }
+  .card{
+    width:100%;
+  }
+}
+@media (max-width:900px){
+  body{padding-right:16px}
+}
+@media (max-width:650px){
+  body{padding-right:10px}
+  .relay-float{
+    right:8px;
+    bottom:8px;
+    width:calc(100vw - 16px);
+  }
+}
