@@ -233,16 +233,40 @@ function renderOtaStatus(d){
  }
  info.textContent=d.stage==="checking" ? (d.message||"Checking GitHub for newer firmware and Web UI components…") : "";
 }
+let otaMonitorRunning=false;
+let otaWasActive=false;
+let otaExpectedFirmware=-1;
+let otaExpectedWeb=-1;
+
 async function monitorOtaStatus(){
- while(true){
-   try{
-     const d=await readOtaStatus();
-     renderOtaStatus(d);
-     if(d.stage==="error"||d.stage==="complete"||d.stage==="rebooting")return d;
-   }catch(x){
-     return null;
+ if(otaMonitorRunning)return null;
+ otaMonitorRunning=true;
+ otaWasActive=true;
+ try{
+   while(true){
+     try{
+       const d=await readOtaStatus();
+
+       if(d.latestFirmware>=0)otaExpectedFirmware=d.latestFirmware;
+       if(d.latestWeb>=0)otaExpectedWeb=d.latestWeb;
+
+       if(d.stage==="idle" && otaWasActive){
+         setPageStatus("ESP32-C3 rebooted; refreshing installed versions…","warn");
+         await load();
+         return d;
+       }
+
+       renderOtaStatus(d);
+       if(d.stage==="error"||d.stage==="complete"||d.stage==="rebooting")return d;
+     }catch(x){
+       setPageStatus("ESP32-C3 connection lost — waiting for it to reconnect…","warn");
+       await new Promise(resolve=>setTimeout(resolve,1000));
+       continue;
+     }
+     await new Promise(resolve=>setTimeout(resolve,500));
    }
-   await new Promise(resolve=>setTimeout(resolve,500));
+ }finally{
+   otaMonitorRunning=false;
  }
 }
 async function latest(e){
@@ -282,6 +306,8 @@ async function resumeOtaStatus(){
      $("software-update-message").hidden=true;
      $("software-update-details").hidden=false;
      $("software-update-progress").hidden=false;
+     if(d.latestFirmware>=0)otaExpectedFirmware=d.latestFirmware;
+     if(d.latestWeb>=0)otaExpectedWeb=d.latestWeb;
      renderOtaStatus(d);
      if(d.active)await monitorOtaStatus();
    }
@@ -295,4 +321,7 @@ $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$(
 load();
 resumeOtaStatus();
 setInterval(load,5000);
+document.addEventListener("visibilitychange",()=>{
+ if(!document.hidden)resumeOtaStatus();
+});
 })();
