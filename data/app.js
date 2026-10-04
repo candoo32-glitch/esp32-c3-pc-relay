@@ -131,6 +131,7 @@ function showUpdateStatus(message,kind){
  const box=$("software-update-status"),msg=$("software-update-message");
  if(!box||!msg)return;
  box.hidden=false;
+ msg.hidden=false;
  msg.className="notice "+(kind||"");
  msg.textContent=message||"";
 }
@@ -159,9 +160,9 @@ async function check(e){
 }
 async function latest(e){
  e.preventDefault();
- if(!confirm("Check for newer firmware and web interface components on GitHub, install any that are newer, then reboot the ESP32-C3?"))return;
  setPageStatus("Installing updates…","warn");
- showUpdateStatus("Checking for newer components…","warn");
+ showUpdateStatus("", "warn");
+ $("software-update-message").hidden=true;
  $("software-update-details").hidden=true;
  $("software-update-progress").hidden=false;
  const progress=$("software-update-progress"),stage=$("ota-progress-stage"),info=$("ota-progress-info");
@@ -229,8 +230,6 @@ async function latest(e){
            detail.textContent=d.received?d.received.toLocaleString()+" bytes received":"Waiting for download size…";
          }
          info.textContent=d.message||"";
-         if(d.stage==="found")showUpdateStatus(d.message||"Update available.","warn");
-         else showUpdateStatus(d.message||"Updating…","warn");
        }
      }
    }
@@ -246,9 +245,9 @@ async function latest(e){
    firmwareBar.style.width="0%"; webBar.style.width="0%";
  }
 }
-async function upload(e,q){e.preventDefault();if(!confirm(q))return;setPageStatus("Uploading…");try{const d=await pfu(e.currentTarget);setPageStatus(d?.message||"Operation completed.","ok")}catch(x){setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad")}}
+async function upload(e,q){e.preventDefault();if(q&&!confirm(q))return;setPageStatus("Uploading…");try{const d=await pfu(e.currentTarget);setPageStatus(d?.message||"Operation completed.","ok")}catch(x){setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad")}}
 document.querySelectorAll('form[method="POST"]').forEach(f=>{if(["wifi-scan-form","update-latest-form","firmware-upload-form","config-restore-form"].includes(f.id))return;f.addEventListener("submit",async e=>{e.preventDefault();try{await pf(f);setPageStatus("Saved","ok");setTimeout(load,300)}catch(x){setPageStatus("Request failed","bad")}})});
-$("wifi-scan-form").addEventListener("submit",scan);$("check-update-form").addEventListener("submit",check);$("update-latest-form").addEventListener("submit",latest);$("firmware-upload-form").addEventListener("submit",e=>upload(e,"Upgrade firmware and reboot the ESP32-C3?"));$("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
+$("wifi-scan-form").addEventListener("submit",scan);$("check-update-form").addEventListener("submit",check);$("update-latest-form").addEventListener("submit",latest);$("firmware-upload-form").addEventListener("submit",e=>upload(e));$("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
 window.addEventListener("hashchange",currentTab);
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 load();
