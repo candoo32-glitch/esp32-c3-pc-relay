@@ -888,6 +888,180 @@ void handleNvsState() {
   server.send(200, "application/json; charset=utf-8", json);
 }
 
+
+String storagePath(const String& raw) {
+  String path = raw;
+  path.trim();
+  if (path.isEmpty()) return "";
+  if (!path.startsWith("/")) path = "/" + path;
+  if (path.indexOf("..") >= 0 || path.indexOf('\\') >= 0 || path.indexOf('\0') >= 0) return "";
+  return path;
+}
+
+const char* storageContentType(const String& path) {
+  if (path.endsWith(".html") || path.endsWith(".htm")) return "text/html; charset=utf-8";
+  if (path.endsWith(".css")) return "text/css; charset=utf-8";
+  if (path.endsWith(".js")) return "application/javascript; charset=utf-8";
+  if (path.endsWith(".json")) return "application/json; charset=utf-8";
+  if (path.endsWith(".svg")) return "image/svg+xml";
+  if (path.endsWith(".txt")) return "text/plain; charset=utf-8";
+  if (path.endsWith(".xml")) return "application/xml; charset=utf-8";
+  if (path.endsWith(".png")) return "image/png";
+  if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+  if (path.endsWith(".gif")) return "image/gif";
+  if (path.endsWith(".ico")) return "image/x-icon";
+  if (path.endsWith(".woff")) return "font/woff";
+  if (path.endsWith(".woff2")) return "font/woff2";
+  return "application/octet-stream";
+}
+
+void handleStorageFiles() {
+  if (!SPIFFS.exists("/")) {
+    server.send(503, "application/json; charset=utf-8", "{\"message\":\"Web storage is unavailable.\"}");
+    return;
+  }
+
+  String json = F("{\"total\":");
+  json += String(SPIFFS.totalBytes());
+  json += F(",\"used\":");
+  json += String(SPIFFS.usedBytes());
+  json += F(",\"files\":[");
+  File root = SPIFFS.open("/");
+  if (!root) {
+    server.send(500, "application/json; charset=utf-8", "{\"message\":\"Web storage could not be opened.\"}");
+    return;
+  }
+
+  bool first = true;
+  File file = root.openNextFile();
+  while (file) {
+    if (!file.isDirectory()) {
+      if (!first) json += ',';
+      first = false;
+      const String name = file.name();
+      json += F("{\"path\":\"");
+      json += jsonEscape(name);
+      json += F("\",\"size\":");
+      json += String(file.size());
+      json += F("}");
+    }
+    file.close();
+    file = root.openNextFile();
+  }
+  root.close();
+  json += F("]}");
+  server.send(200, "application/json; charset=utf-8", json);
+}
+
+void handleStorageView() {
+  const String path = storagePath(server.arg("path"));
+  if (path.isEmpty() || !SPIFFS.exists(path)) {
+    server.send(404, "text/plain; charset=utf-8", "File not found.");
+    return;
+  }
+  File file = SPIFFS.open(path, FILE_READ);
+  if (!file || file.isDirectory()) {
+    if (file) file.close();
+    server.send(400, "text/plain; charset=utf-8", "Not a file.");
+    return;
+  }
+  server.sendHeader("Cache-Control", "no-store");
+  server.streamFile(file, storageContentType(path));
+  file.close();
+}
+
+void handleStorageDownload() {
+  const String path = storagePath(server.arg("path"));
+  if (path.isEmpty() || !SPIFFS.exists(path)) {
+    server.send(404, "text/plain; charset=utf-8", "File not found.");
+    return;
+  }
+  File file = SPIFFS.open(path, FILE_READ);
+  if (!file || file.isDirectory()) {
+    if (file) file.close();
+    server.send(400, "text/plain; charset=utf-8", "Not a file.");
+    return;
+  }
+  String filename = path.substring(path.lastIndexOf('/') + 1);
+  if (filename.isEmpty()) filename = "download";
+  server.sendHeader("Content-Disposition", String("attachment; filename=\"") + filename + "\"");
+  server.streamFile(file, storageContentType(path));
+  file.close();
+}
+
+void handleStorageDelete() {
+  const String path = storagePath(server.arg("path"));
+  if (path.isEmpty() || !SPIFFS.exists(path)) {
+    server.send(404, "application/json; charset=utf-8", "{\"message\":\"File not found.\"}");
+    return;
+  }
+  if (!SPIFFS.remove(path)) {
+    server.send(500, "application/json; charset=utf-8", "{\"message\":\"File could not be erased.\"}");
+    return;
+  }
+  DiagnosticsLog::line(String("WEB | STORAGE ERASE | ") + path);
+  server.send(200, "application/json; charset=utf-8", "{\"message\":\"File erased.\"}");
+}
+
+HTTPUpload& storageUpload() {
+  return server.upload();
+}
+
+String storageUploadPath;
+File storageUploadFile;
+bool storageUploadFailed = false;
+size_t storageUploadBytes = 0;
+
+void handleStorageUpload() {
+  HTTPUpload& upload = server.upload();
+  switch (upload.status) {
+    case UPLOAD_FILE_START: {
+      storageUploadFailed = false;
+      storageUploadBytes = 0;
+      storageUploadPath = storagePath(upload.filename);
+      if (storageUploadPath.isEmpty() || storageUploadPath == "/" ||
+          !storageUploadPath.substring(storageUploadPath.lastIndexOf('/') + 1).length()) {
+        storageUploadFailed = true;
+        break;
+      }
+      if (SPIFFS.exists(storageUploadPath)) SPIFFS.remove(storageUploadPath);
+      storageUploadFile = SPIFFS.open(storageUploadPath, FILE_WRITE);
+      if (!storageUploadFile) storageUploadFailed = true;
+      break;
+    }
+    case UPLOAD_FILE_WRITE:
+      if (storageUploadFailed || !storageUploadFile) break;
+      if (storageUploadFile.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        storageUploadFailed = true;
+      } else {
+        storageUploadBytes += upload.currentSize;
+      }
+      break;
+    case UPLOAD_FILE_END:
+      if (storageUploadFile) storageUploadFile.close();
+      if (storageUploadFailed || storageUploadBytes == 0) {
+        if (storageUploadPath.length() && SPIFFS.exists(storageUploadPath)) SPIFFS.remove(storageUploadPath);
+      }
+      break;
+    case UPLOAD_FILE_ABORTED:
+      storageUploadFailed = true;
+      if (storageUploadFile) storageUploadFile.close();
+      if (storageUploadPath.length() && SPIFFS.exists(storageUploadPath)) SPIFFS.remove(storageUploadPath);
+      break;
+    default:
+      break;
+  }
+}
+
+void handleStorageUploadComplete() {
+  if (storageUploadFailed || storageUploadPath.isEmpty() || storageUploadBytes == 0) {
+    server.send(400, "application/json; charset=utf-8", "{\"message\":\"The Web UI file could not be uploaded.\"}");
+    return;
+  }
+  DiagnosticsLog::line(String("WEB | STORAGE UPLOAD | ") + storageUploadPath + " | " + String(storageUploadBytes) + " bytes");
+  server.send(200, "application/json; charset=utf-8", "{\"message\":\"File uploaded.\"}");
+}
+
 const char RECOVERY_PAGE[] PROGMEM = R"RECOVERY(
 <!doctype html>
 <html lang="en">
