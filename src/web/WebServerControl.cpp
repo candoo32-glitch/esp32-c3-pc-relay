@@ -82,6 +82,30 @@ bool saveTheme(uint8_t value) {
   return result == ESP_OK;
 }
 
+constexpr const char* UI_SELECTION_NVS_KEY = "ui";
+constexpr uint8_t DEFAULT_UI_SELECTION = 0;
+constexpr uint8_t UI_SELECTION_COUNT = 2;
+
+uint8_t savedUiSelection() {
+  nvs_handle_t handle = 0;
+  uint8_t value = DEFAULT_UI_SELECTION;
+  if (nvs_open_from_partition("nvs", THEME_NVS_NAMESPACE, NVS_READONLY, &handle) == ESP_OK) {
+    nvs_get_u8(handle, UI_SELECTION_NVS_KEY, &value);
+    nvs_close(handle);
+  }
+  return value < UI_SELECTION_COUNT ? value : DEFAULT_UI_SELECTION;
+}
+
+bool saveUiSelection(uint8_t value) {
+  if (value >= UI_SELECTION_COUNT) return false;
+  nvs_handle_t handle = 0;
+  if (nvs_open_from_partition("nvs", THEME_NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) return false;
+  const esp_err_t result = nvs_set_u8(handle, UI_SELECTION_NVS_KEY, value);
+  if (result == ESP_OK) nvs_commit(handle);
+  nvs_close(handle);
+  return result == ESP_OK;
+}
+
 String nvsTypeName(nvs_type_t type) {
   switch (type) {
     case NVS_TYPE_U8: return "U8";
@@ -982,6 +1006,8 @@ void handlePageState() {
   addNumber("uptime", millis() / 1000UL, false);
   json += F(",\"theme\":");
   json += String(savedTheme());
+  json += F(",\"uiSelection\":");
+  json += String(savedUiSelection());
   json += F("}}");
 
   sendNoCache(200, "application/json; charset=utf-8", json);
@@ -1622,6 +1648,19 @@ void begin() {
     DiagnosticsLog::line(String("WEB | THEME SAVE | ") + String(value));
     if (value < 0 || value >= THEME_COUNT || !saveTheme(static_cast<uint8_t>(value))) {
       sendNoCache(400, "application/json; charset=utf-8", "{\"message\":\"Invalid theme.\"}");
+      return;
+    }
+    sendNoCache(204);
+  });
+  server.on("/system/ui-selection", HTTP_POST, []() {
+    if (!server.hasArg("ui")) {
+      sendNoCache(400, "application/json; charset=utf-8", "{\"message\":\"UI selection is required.\"}");
+      return;
+    }
+    const long value = server.arg("ui").toInt();
+    DiagnosticsLog::line(String("WEB | UI SELECTION SAVE | ") + String(value));
+    if (value < 0 || value >= UI_SELECTION_COUNT || !saveUiSelection(static_cast<uint8_t>(value))) {
+      sendNoCache(400, "application/json; charset=utf-8", "{\"message\":\"Invalid UI selection.\"}");
       return;
     }
     sendNoCache(204);
