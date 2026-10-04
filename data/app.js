@@ -258,8 +258,8 @@ async function monitorOtaStatus(){
 
        if(d.stage==="idle" && otaWasActive){
          setOtaUpdateButtonDisabled(false);
-         setPageStatus("ESP32-C3 rebooted; refreshing installed versions…","warn");
-         await load();
+         setPageStatus("ESP32-C3 rebooted; returning to the home page…","warn");
+         location.replace("/");
          return d;
        }
 
@@ -328,8 +328,59 @@ async function resumeOtaStatus(){
    }
  }catch(x){}
 }
-async function upload(e,q){e.preventDefault();if(q&&!confirm(q))return;setPageStatus("Uploading…");try{const d=await pfu(e.currentTarget);setPageStatus(d?.message||"Operation completed.","ok")}catch(x){setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad")}}
-document.querySelectorAll('form[method="POST"]').forEach(f=>{if(["wifi-scan-form","update-latest-form","firmware-upload-form","config-restore-form"].includes(f.id))return;f.addEventListener("submit",async e=>{e.preventDefault();try{await pf(f);setPageStatus("Saved","ok");setTimeout(load,300)}catch(x){setPageStatus("Request failed","bad")}})});
+async function waitForRebootAndReset(){
+ setPageStatus("ESP32-C3 rebooting — returning to the home page…","warn");
+ for(let i=0;i<30;i++){
+   await new Promise(resolve=>setTimeout(resolve,1000));
+   try{
+     const r=await fetch("/api/state",{cache:"no-store"});
+     if(r.ok){
+       location.replace("/");
+       return;
+     }
+   }catch(x){}
+ }
+ location.replace("/");
+}
+async function upload(e,q){
+ e.preventDefault();
+ if(q&&!confirm(q))return;
+ setPageStatus("Uploading…");
+ try{
+   const d=await pfu(e.currentTarget);
+   setPageStatus(d?.message||"Operation completed.","ok");
+   if(["firmware-upload-form","config-restore-form"].includes(e.currentTarget.id)){
+     await waitForRebootAndReset();
+   }
+ }catch(x){
+   if(["firmware-upload-form","config-restore-form"].includes(e.currentTarget.id)){
+     await waitForRebootAndReset();
+   }else{
+     setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad");
+   }
+ }
+}
+document.querySelectorAll('form[method="POST"]').forEach(f=>{
+ if(["wifi-scan-form","update-latest-form","firmware-upload-form","config-restore-form"].includes(f.id))return;
+ f.addEventListener("submit",async e=>{
+   e.preventDefault();
+   try{
+     await pf(f);
+     if(f.action.endsWith("/system/reboot")){
+       await waitForRebootAndReset();
+       return;
+     }
+     setPageStatus("Saved","ok");
+     setTimeout(load,300);
+   }catch(x){
+     if(f.action.endsWith("/system/reboot")){
+       await waitForRebootAndReset();
+       return;
+     }
+     setPageStatus("Request failed","bad");
+   }
+ });
+});
 $("wifi-scan-form").addEventListener("submit",scan);$("update-latest-form").addEventListener("submit",latest);$("firmware-upload-form").addEventListener("submit",e=>upload(e));$("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
 window.addEventListener("hashchange",currentTab);
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
