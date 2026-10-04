@@ -64,7 +64,7 @@ body::after{
   height:100vh!important;
   z-index:0!important;
   pointer-events:none!important;
-  opacity:.25;
+  opacity:.36;
 }
 body > *:not(.matrix-rain){
   position:relative;
