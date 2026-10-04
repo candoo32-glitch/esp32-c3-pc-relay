@@ -10,20 +10,12 @@ const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 function text(id,v){const e=$(id);if(e)e.textContent=v??"-"}
 function showTab(tab){if(!["dashboard","wifi","network","diagnostics","relays","storage","system"].includes(tab))tab="dashboard";
 document.querySelectorAll(".tab").forEach(e=>e.classList.toggle("active",e.id==="tab-"+tab));
-$("storage-upload-form").addEventListener("submit",async e=>{
-  e.preventDefault();
-  const form=e.currentTarget;
-  try{
-    setStorageStatus("Uploading…");
-    const r=await fetch(form.action,{method:"POST",body:new FormData(form),cache:"no-store"});
-    if(!r.ok)throw Error(r.status);
-    form.reset();setStorageStatus("File uploaded.","ok");await loadStorageFiles();
-  }catch(e){setStorageStatus("File upload failed.","bad")}
-});
 document.querySelectorAll("[data-tab-link]").forEach(e=>e.classList.toggle("active",e.dataset.tabLink===tab));
 document.querySelectorAll(".return-tab").forEach(e=>e.value=tab);
 if(tab==="diagnostics")startDiagnosticPolling();else stopDiagnosticPolling();
-location.hash=tab; if(tab==="storage"){loadNvsContents();loadStorageFiles();} return tab}
+location.hash=tab;
+if(tab==="storage"){loadNvsContents();loadStorageFiles();}
+return tab}
 function currentTab(){const hash=(location.hash||"").slice(1);const query=new URLSearchParams(location.search).get("tab");return showTab(hash||query||"dashboard")}
 function statusClass(e,v){e.className=v==="CONNECTED"?"ok":v==="OFF"?"muted":"warn";e.textContent=v}
 function fmt(v,s){return v===null||v===undefined||v===""?"-":String(v)+(s||"")}
@@ -33,50 +25,124 @@ function setRelay(r,i){
  $("relay"+i+"-name").value=r.name; $("relay"+i+"-normal").value=r.normal.toLowerCase(); $("relay"+i+"-mode").value=r.mode.toLowerCase(); $("relay"+i+"-pulse").value=r.pulse;
  text("dash-relay"+i+"-name",r.name); $("dash-relay"+i+"-state").innerHTML=r.state?'<span class="ok">ON</span>':'OFF';
 }
+let storageFiles=[];
+let nvsEntries=[];
+
+function formatBytes(bytes){
+  const n=Number(bytes)||0;
+  if(n<1024)return n+" B";
+  if(n<1048576)return (n/1024).toFixed(n<10240?1:0)+" KB";
+  return (n/1048576).toFixed(n<10485760?1:0)+" MB";
+}
+
 async function loadStorageFiles(){
+  const e=$("storage-files");
   try{
     const r=await fetch("/api/storage/files",{cache:"no-store"});
     if(!r.ok)throw Error(r.status);
-    const d=await r.json(),e=$("storage-files");
+    const d=await r.json();
+    storageFiles=d.files||[];
+    const used=Number(d.used)||0,total=Number(d.total)||0;
+    text("storage-summary-files",storageFiles.length);
+    text("storage-summary-used",formatBytes(used));
+    const pct=total>0?Math.min(100,used*100/total):0;
+    const bar=$("storage-meter-bar");if(bar)bar.style.width=pct.toFixed(1)+"%";
+    text("storage-meter-label",formatBytes(used)+" used of "+formatBytes(total)+" ("+pct.toFixed(1)+"%)");
     if(!e)return;
-    const rows=(d.files||[]).map(f=>{
+    if(!storageFiles.length){
+      e.innerHTML='<div class="empty-state"><strong>Filesystem is empty</strong><span>Upload a Web UI asset to get started.</span></div>';
+      return;
+    }
+    const rows=storageFiles.map(f=>{
       const path=encodeURIComponent(f.path);
       const canView=/\\.(html?|css|js|json|txt|xml|svg)$/i.test(f.path);
-      return "<tr><td class=\"mono\">"+esc(f.path)+"</td><td>"+fmt(f.size," bytes")+"</td><td>"+
-        (canView?"<button type=\"button\" class=\"secondary\" data-storage-view=\""+esc(f.path)+"\">View</button>":"")+
-        "<a href=\"/storage/download?path="+path+"\"><button type=\"button\" class=\"secondary\">Download</button></a>"+
-        "<button type=\"button\" class=\"danger\" data-storage-delete=\""+esc(f.path)+"\">Erase</button></td></tr>";
+      const ext=(f.path.split(".").pop()||"FILE").toUpperCase();
+      return '<tr><td><div class="file-name mono">'+esc(f.path)+'</div><div class="file-type">'+esc(ext)+'</div></td><td class="file-size">'+formatBytes(f.size)+'</td><td class="file-actions">'+
+        (canView?'<button type="button" class="secondary" data-storage-view="'+esc(f.path)+'">View</button>':"")+
+        '<a href="/storage/download?path='+path+'"><button type="button" class="secondary">Download</button></a>'+
+        '<button type="button" class="danger" data-storage-delete="'+esc(f.path)+'">Erase</button></td></tr>';
     }).join("");
-    e.innerHTML="<table><thead><tr><th>File</th><th>Size</th><th>Actions</th></tr></thead><tbody>"+(rows||"<tr><td colspan=\"3\" class=\"muted\">No files.</td></tr>")+"</tbody></table><div class=\"muted\">"+(d.files||[]).length+" files · "+fmt(d.used)+" / "+fmt(d.total)+" bytes used</div>";
+    e.innerHTML='<table class="storage-table"><thead><tr><th>File</th><th>Size</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody></table>';
     e.querySelectorAll("[data-storage-view]").forEach(b=>b.addEventListener("click",()=>viewStorageFile(b.dataset.storageView)));
     e.querySelectorAll("[data-storage-delete]").forEach(b=>b.addEventListener("click",()=>eraseStorageFile(b.dataset.storageDelete)));
-  }catch(e){$("storage-files").innerHTML="<div class=\"help bad\">Web storage unavailable.</div>"}
+  }catch(x){
+    storageFiles=[];
+    text("storage-summary-files","-");text("storage-summary-used","-");
+    if(e)e.innerHTML='<div class="empty-state"><strong>Web storage unavailable</strong><span>Check SPIFFS and try Refresh.</span></div>';
+    setStorageStatus("Web storage unavailable.","bad");
+  }
 }
+
 async function viewStorageFile(path){
+  const viewer=$("storage-viewer"),title=$("storage-viewer-title"),content=$("storage-viewer-content");
   try{
     const r=await fetch("/storage/view?path="+encodeURIComponent(path),{cache:"no-store"});
     if(!r.ok)throw Error(r.status);
-    const textValue=await r.text();
-    const win=window.open("","_blank");
-    if(!win){alert("Allow pop-ups to view the file.");return}
-    win.document.write("<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>"+esc(path)+"</title><style>body{margin:0;background:#111;color:#eee;font-family:ui-monospace,monospace}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px}</style></head><body><pre>"+esc(textValue)+"</pre></body></html>");
-    win.document.close();
-  }catch(e){setStorageStatus("File could not be viewed.","bad")}
+    const value=await r.text();
+    if(title)title.textContent=path;
+    if(content)content.textContent=value;
+    if(viewer){viewer.hidden=false;viewer.scrollIntoView({behavior:"smooth",block:"nearest"});}
+  }catch(x){setStorageStatus("File could not be viewed.","bad")}
 }
+function closeStorageViewer(){const viewer=$("storage-viewer");if(viewer)viewer.hidden=true}
+
 async function eraseStorageFile(path){
-  if(!confirm("Erase "+path+"? This cannot be undone."))return;
+  const protectedFile=/^\\/(index\\.html|style\\.css|app\\.js)$/i.test(path);
+  const warning=protectedFile?"\\n\\nThis is a core Web UI file. Erasing it can make the normal UI unusable; Recovery Updater will still be available.":"";
+  if(!confirm("Erase "+path+"? This cannot be undone."+warning))return;
   try{
     const r=await fetch("/storage/delete",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"path="+encodeURIComponent(path),cache:"no-store"});
     if(!r.ok)throw Error(r.status);
-    setStorageStatus("File erased.","ok");
-    await loadStorageFiles();
-  }catch(e){setStorageStatus("File could not be erased.","bad")}
+    closeStorageViewer();setStorageStatus("File erased.","ok");await loadStorageFiles();
+  }catch(x){setStorageStatus("File could not be erased.","bad")}
 }
 function setStorageStatus(message,kind){
   const e=$("storage-status");if(!e)return;
   e.textContent=message;e.className="help "+(kind||"");
 }
-async function loadNvsContents(){try{const r=await fetch("/api/nvs",{cache:"no-store"});if(!r.ok)throw Error(r.status);const n=await r.json();text("nvs-size",n.size||0);$("nvs-table").innerHTML="<table><thead><tr><th>#</th><th>Namespace</th><th>Key</th><th>Type</th><th>Value</th></tr></thead><tbody>"+(n.entries||[]).map((e,i)=>"<tr><td>"+(i+1)+"</td><td>"+esc(e.namespace)+"</td><td>"+esc(e.key)+"</td><td>"+esc(e.type)+"</td><td>"+esc(e.value)+"</td></tr>").join("")+"</tbody></table><div class=\"muted\">"+(n.entries||[]).length+" entries. Password/token values are hidden.</div>"}catch(e){text("nvs-size","Unavailable");$("nvs-table").innerHTML="<div class=\"help bad\">NVS contents unavailable.</div>"}}
+
+function renderNvsEntries(){
+  const root=$("nvs-table"),query=($("nvs-filter")?.value||"").trim().toLowerCase();
+  if(!root)return;
+  const groups={};
+  nvsEntries.forEach(e=>{
+    const hay=[e.namespace,e.key,e.type,e.value].join(" ").toLowerCase();
+    if(query&&!hay.includes(query))return;
+    (groups[e.namespace]||(groups[e.namespace]=[])).push(e);
+  });
+  const names=Object.keys(groups).sort();
+  if(!names.length){
+    root.innerHTML='<div class="empty-state"><strong>No matching NVS entries</strong><span>Try a different filter.</span></div>';
+    return;
+  }
+  root.innerHTML=names.map((ns,index)=>{
+    const entries=groups[ns];
+    const rows=entries.map(e=>'<tr><td class="mono">'+esc(e.key)+'</td><td>'+esc(e.type)+'</td><td class="mono nvs-value">'+esc(e.value)+'</td></tr>').join("");
+    return '<details class="nvs-namespace" '+(index<3||query?"open":"")+'><summary><span class="nvs-namespace-name">'+esc(ns)+'</span><span class="nvs-namespace-count">'+entries.length+' '+(entries.length===1?"entry":"entries")+'</span></summary><div class="table-wrap"><table><thead><tr><th>Key</th><th>Type</th><th>Value</th></tr></thead><tbody>'+rows+'</tbody></table></div></details>';
+  }).join("");
+}
+
+async function loadNvsContents(){
+  const root=$("nvs-table");
+  try{
+    const [entriesResponse,statsResponse]=await Promise.all([
+      fetch("/api/nvs",{cache:"no-store"}),
+      fetch("/api/nvs/stats",{cache:"no-store"})
+    ]);
+    if(!entriesResponse.ok||!statsResponse.ok)throw Error("NVS unavailable");
+    const n=await entriesResponse.json(),s=await statsResponse.json();
+    nvsEntries=n.entries||[];
+    text("nvs-size",formatBytes(n.size||0));
+    text("nvs-used",s.usedEntries??"-");
+    text("nvs-free",s.freeEntries??"-");
+    text("nvs-namespaces",s.namespaceCount??"-");
+    renderNvsEntries();
+  }catch(x){
+    text("nvs-size","Unavailable");text("nvs-used","-");text("nvs-free","-");text("nvs-namespaces","-");
+    if(root)root.innerHTML='<div class="empty-state"><strong>NVS unavailable</strong><span>Configuration inspection could not be loaded.</span></div>';
+  }
+}
+
 function render(s){
  const w=s.wifi,n=s.network,d=s.diagnostics;
  if(s.system&&s.system.theme!==undefined) applyTheme(s.system.theme);
@@ -187,7 +253,22 @@ async function load(){
    }
  }
 }
-document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
+document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));
+$("storage-refresh")?.addEventListener("click",loadStorageFiles);
+$("nvs-refresh")?.addEventListener("click",loadNvsContents);
+$("nvs-filter")?.addEventListener("input",renderNvsEntries);
+$("storage-viewer-close")?.addEventListener("click",closeStorageViewer);
+$("storage-upload-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const form=e.currentTarget;
+  try{
+    setStorageStatus("Uploading…");
+    const r=await fetch(form.action,{method:"POST",body:new FormData(form),cache:"no-store"});
+    if(!r.ok)throw Error(r.status);
+    form.reset();setStorageStatus("File uploaded.","ok");await loadStorageFiles();
+  }catch(x){setStorageStatus("File upload failed.","bad")}
+});
+$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
 document.querySelectorAll(".theme-option").forEach(o=>o.addEventListener("click",async()=>{closeThemeOptions();await saveTheme(o.dataset.themeValue);}));
 document.addEventListener("click",e=>{const p=document.querySelector(".theme-picker");if(p&&!p.contains(e.target))closeThemeOptions();});
 $("ssid").addEventListener("input",()=>{wifiCredentialsDirty=true;filterSsidOptions();});$("wifi-ssid-toggle").addEventListener("click",()=>{const o=$("wifi-ssid-options");if(o.hidden){openSsidOptions()}else closeSsidOptions();});$("ssid").addEventListener("focus",()=>{if(document.querySelector(".ssid-option"))openSsidOptions();});document.addEventListener("click",e=>{const box=document.querySelector(".ssid-combobox");if(box&&!box.contains(e.target))closeSsidOptions();});
