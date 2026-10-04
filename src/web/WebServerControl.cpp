@@ -186,6 +186,8 @@ size_t otaReceived = 0;
 size_t otaTotal = 0;
 String otaFirmwareUrl;
 String otaWebUrl;
+long otaCurrentFirmwareVersion = -1;
+long otaCurrentWebVersion = -1;
 bool otaFirmwarePending = false;
 bool otaWebPending = false;
 long otaFirmwareVersion = -1;
@@ -278,10 +280,6 @@ bool fetchReleaseCatalog(String& json) {
   http.end();
   return !json.isEmpty();
 }
-
-String jsonEscape(const String& input);
-
-void handleFirmwareUpdateCheck(){if(!WiFiControl::isEnabled()||WiFi.status()!=WL_CONNECTED){server.send(503,"application/json; charset=utf-8","{\"message\":\"The ESP32-C3 is not connected to Wi-Fi.\"}");return;}String j;if(!fetchReleaseCatalog(j)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not retrieve the GitHub release catalog.\"}");return;}const long cf=firmwareBuild().toInt(),cw=webInterfaceBuild().toInt();long lf=-1,lw=-1;const String fu=firmwareReleaseUrl(j,lf),wu=webReleaseUrl(j,lw);const bool fa=!fu.isEmpty()&&lf>cf,wa=!wu.isEmpty()&&lw>cw;String m;if(!fa&&!wa)m="Firmware and web interface are up to date.";else{m="Firmware "+String(cf)+" → "+String(lf)+(fa?" available. ":" is current. ");m+="Web UI "+String(cw)+" → "+String(lw)+(wa?" available.":" is current.");}String o=F("{\"message\":\"");o+=jsonEscape(m);o+=F("\",\"currentFirmware\":");o+=String(cf);o+=F(",\"latestFirmware\":");o+=String(lf);o+=F(",\"currentWeb\":");o+=String(cw);o+=F(",\"latestWeb\":");o+=String(lw);o+=F(",\"firmwareAvailable\":");o+=fa?"true":"false";o+=F(",\"webAvailable\":");o+=wa?"true":"false";o+='}';server.send(200,"application/json; charset=utf-8",o);}
 
 String jsonEscape(const String& input);
 
@@ -488,6 +486,8 @@ void serviceOta() {
 
       const long currentFirmware = firmwareBuild().toInt();
       const long currentWeb = webInterfaceBuild().toInt();
+      otaCurrentFirmwareVersion = currentFirmware;
+      otaCurrentWebVersion = currentWeb;
       otaFirmwareUrl = firmwareReleaseUrl(json, otaFirmwareVersion);
       otaWebUrl = webReleaseUrl(json, otaWebVersion);
       otaFirmwarePending = !otaFirmwareUrl.isEmpty() && otaFirmwareVersion > currentFirmware;
@@ -549,6 +549,8 @@ void handleFirmwareUpdateLatest() {
   otaWebUrl = "";
   otaFirmwareVersion = -1;
   otaWebVersion = -1;
+  otaCurrentFirmwareVersion = firmwareBuild().toInt();
+  otaCurrentWebVersion = webInterfaceBuild().toInt();
   otaReceived = 0;
   otaTotal = 0;
   otaComponent = "";
@@ -1004,7 +1006,6 @@ void begin() {
   server.on("/config/restore", HTTP_POST, handleConfigRestoreComplete, handleConfigRestoreUpload);
   server.on("/nvs/format", HTTP_POST, handleNvsFormat);
   server.on("/system/update", HTTP_POST, handleFirmwareUpdateComplete, handleFirmwareUpdateUpload);
-  server.on("/system/check-update", HTTP_GET, handleFirmwareUpdateCheck);
   server.on("/system/update-latest", HTTP_POST, handleFirmwareUpdateLatest);
   server.on("/system/update-status", HTTP_GET, []() {
     String json = F("{\"active\":");
@@ -1013,6 +1014,14 @@ void begin() {
     json += jsonEscape(otaStageName());
     json += F("\",\"component\":\"");
     json += jsonEscape(otaComponent);
+    json += F(",\"currentFirmware\":");
+    json += String(otaCurrentFirmwareVersion);
+    json += F(",\"latestFirmware\":");
+    json += String(otaFirmwareVersion);
+    json += F(",\"currentWeb\":");
+    json += String(otaCurrentWebVersion);
+    json += F(",\"latestWeb\":");
+    json += String(otaWebVersion);
     json += F("\",\"received\":");
     json += String(otaReceived);
     json += F(",\"total\":");
