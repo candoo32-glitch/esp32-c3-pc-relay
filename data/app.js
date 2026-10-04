@@ -592,11 +592,11 @@ async function upload(e,q){
  try{
    const d=await pfu(e.currentTarget);
    setPageStatus(d?.message||"Operation completed.","ok");
-   if(["firmware-upload-form","config-restore-form"].includes(e.currentTarget.id)){
+   if(["firmware-upload-form","web-upload-form","config-restore-form"].includes(e.currentTarget.id)){
      await waitForRebootAndReset();
    }
  }catch(x){
-   if(["firmware-upload-form","config-restore-form"].includes(e.currentTarget.id)){
+   if(["firmware-upload-form","web-upload-form","config-restore-form"].includes(e.currentTarget.id)){
      await waitForRebootAndReset();
    }else{
      setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad");
@@ -604,7 +604,7 @@ async function upload(e,q){
  }
 }
 document.querySelectorAll('form[method="POST"]').forEach(f=>{
- if(["wifi-scan-form","update-latest-form","firmware-upload-form","config-restore-form"].includes(f.id))return;
+ if(["wifi-scan-form","update-latest-form","firmware-upload-form","web-upload-form","config-restore-form"].includes(f.id))return;
  f.addEventListener("submit",async e=>{
    e.preventDefault();
    try{
@@ -624,7 +624,22 @@ document.querySelectorAll('form[method="POST"]').forEach(f=>{
    }
  });
 });
-$("wifi-scan-form").addEventListener("submit",scan);$("update-latest-form").addEventListener("submit",latest);$("firmware-upload-form").addEventListener("submit",e=>upload(e));$("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
+$("wifi-scan-form").addEventListener("submit",scan);$("update-latest-form").addEventListener("submit",latest);
+$("firmware-upload-form").addEventListener("submit",e=>{
+  const file=$("firmware")?.files?.[0];
+  if(!file)return;
+  if(!/\\.bin$/i.test(file.name)){e.preventDefault();setPageStatus("Firmware image must be a .bin file.","bad");return;}
+  upload(e,"Upgrade the firmware with "+file.name+"? The current firmware will be replaced and the ESP32-C3 will reboot. NVS configuration will be preserved.");
+});
+$("web-upload-form").addEventListener("submit",e=>{
+  const file=$("web-filesystem")?.files?.[0];
+  if(!file)return;
+  if(!/-spiffs\\.bin$/i.test(file.name)){e.preventDefault();setPageStatus("Web UI image must use the -spiffs.bin filename suffix.","bad");return;}
+  upload(e,"Upgrade the Web UI filesystem with "+file.name+"? The current Web UI filesystem will be replaced and the ESP32-C3 will reboot.");
+});
+$("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
+$("firmware").addEventListener("change",e=>{const f=e.currentTarget.files?.[0];const n=$("firmware-name");if(n)n.textContent=f?f.name:"Choose firmware .bin…";});
+$("web-filesystem").addEventListener("change",e=>{const f=e.currentTarget.files?.[0];const n=$("web-filesystem-name");if(n)n.textContent=f?f.name:"Choose Web UI -spiffs.bin…";});
 window.addEventListener("hashchange",currentTab);
 currentTab();
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
