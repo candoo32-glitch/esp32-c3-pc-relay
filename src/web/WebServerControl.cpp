@@ -1089,33 +1089,112 @@ const char RECOVERY_PAGE[] PROGMEM = R"RECOVERY(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>PC Relay Recovery</title>
 <style>
-html,body{margin:0;background:#111;color:#eee;font-family:Arial,sans-serif}
-body{max-width:520px;margin:0 auto;padding:28px;box-sizing:border-box}
-h1{font-size:24px;margin:0 0 10px}
-p{line-height:1.45;color:#ccc}
+html,body{margin:0;background:#0d0f14;color:#eee;font-family:Arial,sans-serif}
+body{max-width:760px;margin:0 auto;padding:24px;box-sizing:border-box}
+h1{font-size:25px;margin:0 0 7px}
+h2{font-size:15px;margin:0 0 10px}
+p{line-height:1.45;color:#b9c0cc}
+.card{background:#171a21;border:1px solid #363c47;border-radius:9px;padding:16px;margin:13px 0}
 button{width:100%;padding:16px;background:#315f93;color:#fff;border:0;border-radius:6px;font-size:17px;font-weight:bold}
 button:disabled{opacity:.5}
-#status{margin-top:18px;padding:12px;background:#1c1c1c;border:1px solid #414141;border-radius:6px}
+.status{margin-top:13px;padding:12px;border-radius:6px;background:#20242c;border:1px solid #3a414d;font-weight:bold}
+.status.ok{border-color:#286a39;color:#8be09a}.status.warn{border-color:#8b6a24;color:#ffd36a}.status.bad{border-color:#7b3030;color:#ff9b9b}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat{background:#11141a;border:1px solid #303641;border-radius:7px;padding:10px}
+.label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#8f98a8}.value{margin-top:4px;font-weight:bold;overflow-wrap:anywhere}
+#diagnostics{height:260px;box-sizing:border-box;width:100%;resize:vertical;background:#090b0f;color:#b9f5c2;border:1px solid #3a414d;border-radius:6px;padding:12px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre;overflow:auto}
+.small{font-size:12px;color:#8f98a8}
+@media(max-width:600px){body{padding:16px}.grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 <h1>PC Relay Recovery</h1>
-<p>This page is independent of the normal Web UI. It downloads the newest firmware and Web UI from GitHub, installs both, and reboots the ESP32-C3.</p>
+<p>This page is independent of the normal Web UI. It can update the firmware and Web UI directly from GitHub when the normal interface is unavailable.</p>
+<div class="card">
 <button id="update" type="button">UPDATE FROM GITHUB</button>
-<div id="status">Ready.</div>
+<div id="status" class="status">Ready — waiting for an update request.</div>
+</div>
+<div class="card">
+<h2>OTA status</h2>
+<div class="grid">
+<div class="stat"><div class="label">Stage</div><div id="stage" class="value">IDLE</div></div>
+<div class="stat"><div class="label">Component</div><div id="component" class="value">-</div></div>
+<div class="stat"><div class="label">Firmware</div><div id="firmware" class="value">-</div></div>
+<div class="stat"><div class="label">Web UI</div><div id="web" class="value">-</div></div>
+</div>
+<div class="small" id="progress" style="margin-top:10px">No OTA activity.</div>
+</div>
+<div class="card">
+<h2>OTA diagnostics</h2>
+<div class="small">Live OTA-related messages retained by the ESP32. This helps distinguish an active update from a version conflict, GitHub lookup failure, download failure, or other stop.</div>
+<textarea id="diagnostics" readonly spellcheck="false"></textarea>
+</div>
 <script>
-document.getElementById("update").onclick=async function(){
-  this.disabled=true;
-  document.getElementById("status").textContent="Update started. The device will reboot when finished.";
-  try{await fetch("/recovery/update",{method:"POST",cache:"no-store"});}
-  catch(e){}
+const $=id=>document.getElementById(id);
+let running=false;
+let nearBottom=true;
+function setStatus(message,kind){
+ const e=$("status");e.textContent=message;e.className="status "+(kind||"");
+}
+function versionText(current,latest){
+ if(current<0)return "-";
+ if(latest<0)return "Build "+current+" / latest unavailable";
+ if(latest>current)return "Build "+current+" → "+latest+" (update)";
+ if(latest===current)return "Build "+current+" (current)";
+ return "Build "+current+" → "+latest;
+}
+function render(d){
+ $("stage").textContent=d.stage||"IDLE";
+ $("component").textContent=d.component||"-";
+ $("firmware").textContent=versionText(d.currentFirmware,d.latestFirmware);
+ $("web").textContent=versionText(d.currentWeb,d.latestWeb);
+ if(d.total>0){
+   const p=Math.min(100,Math.max(0,(d.received/d.total)*100));
+   $("progress").textContent=(d.component||"OTA")+" — "+d.received.toLocaleString()+" / "+d.total.toLocaleString()+" bytes ("+Math.round(p)+"%)";
+ }else $("progress").textContent=d.message||"No OTA activity.";
+ const lines=(d.diagnostics&&d.diagnostics.lines)||[];
+ const area=$("diagnostics");
+ nearBottom=area.scrollHeight-area.scrollTop-area.clientHeight<40;
+ area.value=lines.join("\n");
+ if(nearBottom)area.scrollTop=area.scrollHeight;
+ if(d.stage==="error")setStatus(d.error||d.message||"OTA update failed.","bad");
+ else if(d.stage==="rebooting")setStatus(d.message||"Update complete. Waiting for reboot…","ok");
+ else if(d.active)setStatus(d.message||"OTA update is active…","warn");
+ else if(d.stage==="complete")setStatus(d.message||"Update complete.","ok");
+ else if(d.stage==="idle"&&running)setStatus("OTA is no longer active. The device may be rebooting or the update stopped.","warn");
+}
+async function poll(){
+ try{
+   const r=await fetch("/recovery/status",{cache:"no-store"});
+   if(!r.ok)throw Error(r.status);
+   render(await r.json());
+ }catch(e){
+   if(running)setStatus("Connection lost — the ESP32 may be rebooting. Waiting…","warn");
+ }
+}
+$("update").onclick=async function(){
+ if(running)return;
+ running=true;this.disabled=true;
+ setStatus("Starting OTA…","warn");
+ try{
+   const r=await fetch("/recovery/update",{method:"POST",cache:"no-store"});
+   let d={};try{d=await r.json()}catch(e){}
+   if(!r.ok)throw Error(d.message||"OTA request failed (HTTP "+r.status+").");
+   await poll();
+ }catch(e){
+   setStatus(e.message||"Could not start OTA.","bad");
+   this.disabled=false;running=false;
+ }
 };
+poll();
+setInterval(poll,500);
 </script>
 </body>
 </html>
-)RECOVERY";
+)RECOVERY;
 
 void handleStaticAsset(const char* path, const char* contentType) {
   if (!SPIFFS.exists(path)) {
@@ -1326,6 +1405,35 @@ void begin() {
   }
 
   server.on("/recovery", HTTP_GET, handleRecoveryPage);
+  server.on("/recovery/status", HTTP_GET, []() {
+    String json = F("{\"active\":");
+    json += otaActive ? F("true") : F("false");
+    json += F(",\"stage\":\"");
+    json += jsonEscape(otaStageName());
+    json += F("\",\"component\":\"");
+    json += jsonEscape(otaComponent);
+    json += F("\",\"currentFirmware\":");
+    json += String(otaCurrentFirmwareVersion);
+    json += F(",\"latestFirmware\":");
+    json += String(otaFirmwareVersion);
+    json += F(",\"currentWeb\":");
+    json += String(otaCurrentWebVersion);
+    json += F(",\"latestWeb\":");
+    json += String(otaWebVersion);
+    json += F(",\"received\":");
+    json += String(otaReceived);
+    json += F(",\"total\":");
+    json += String(otaTotal);
+    json += F(",\"message\":\"");
+    json += jsonEscape(otaMessage);
+    json += F("\",\"error\":\"");
+    json += jsonEscape(otaError);
+    json += F("\",\"diagnostics\":");
+    json += DiagnosticsLog::recentOtaJson();
+    json += '}';
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "application/json; charset=utf-8", json);
+  });
   server.on("/recovery/update", HTTP_POST, handleFirmwareUpdateLatest);
   server.on("/", HTTP_GET, handleRoot);
   server.on("/style.css", HTTP_GET, handleStyleCss);
