@@ -27,16 +27,16 @@ function render(s){
  text("wifi-ssid",w.connected?w.ssid:"-");text("wifi-ip",w.connected?w.ip:"-");text("wifi-gateway",w.connected?w.gateway:"-");text("wifi-subnet",w.connected?w.subnet:"-");text("wifi-dns",w.connected?w.dns:"-");text("wifi-rssi",w.connected?w.rssi+" dBm":"-");text("wifi-channel",w.connected?w.channel:"-");text("wifi-bssid",w.connected?w.bssid:"-");text("wifi-tx",w.tx+" dBm");
  if(!wifiCredentialsDirty){
  $("ssid").value=w.savedSsid||"";
- $("password").value=w.savedPassword?"********":"";
+ $("password").value=w.passwordSaved?"********":"";
  $("password").type="password";
  $("show-password").disabled=true;
  $("show-password").textContent="Show password";
 }
 $("wifi-toggle").textContent=w.enabled?"Turn Wi-Fi OFF":"Turn Wi-Fi ON";$("wifi-toggle").className=w.enabled?"danger":"good";$("wifi-reconnect-form").style.display=w.enabled?"block":"none";
  $("txpower").value=w.tx;
- text("net-ip",w.connected?w.ip:"-");text("net-subnet",w.connected?w.subnet:"-");text("net-gateway",w.connected?w.gateway:"-");text("net-dns1",w.connected?n.dns1:"-");text("net-dns2",w.connected?n.dns2:"-");text("net-state",w.status);text("net-auth",w.connected?w.auth:"-");text("net-bssid",w.connected?w.bssid:"-");text("net-rssi",w.connected?w.rssi+" dBm":"-");
+ text("net-live-ip",w.connected?w.ip:"-");text("net-live-subnet",w.connected?w.subnet:"-");text("net-live-gateway",w.connected?w.gateway:"-");text("net-live-dns1",w.connected?n.dns1:"-");text("net-live-dns2",w.connected?n.dns2:"-");text("net-state",w.status);text("net-auth",w.connected?w.auth:"-");text("net-bssid",w.connected?w.bssid:"-");text("net-rssi",w.connected?w.rssi+" dBm":"-");
  if(!networkFormDirty){
- $("hostname").value=n.hostname;$("net-mode").value=n.mode;$("net-ip").value=n.ip;$("net-gateway").value=n.gateway;$("net-subnet").value=n.subnet;$("net-dns1").value=n.dns1;$("net-dns2").value=n.dns2;
+ $("hostname").value=n.hostname;$("net-mode").value=n.mode;$("net-ip-input").value=n.ip;$("net-gateway-input").value=n.gateway;$("net-subnet-input").value=n.subnet;$("net-dns1-input").value=n.dns1;$("net-dns2-input").value=n.dns2;
 }
 $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  text("diag-state",w.status);text("diag-auth",w.connected?w.auth:"-");text("diag-bssid",w.connected?w.bssid:"-");text("diag-rssi",w.connected?w.rssi+" dBm":"-");
@@ -64,7 +64,7 @@ $("password").addEventListener("input",()=>{
  wifiCredentialsDirty=true;
  $("show-password").disabled=false;
 });
-["hostname","net-mode","net-ip","net-gateway","net-subnet","net-dns1","net-dns2"].forEach(id=>{
+["hostname","net-mode","net-ip-input","net-gateway-input","net-subnet-input","net-dns1-input","net-dns2-input"].forEach(id=>{
  const e=$(id); e.addEventListener("input",()=>{networkFormDirty=true}); e.addEventListener("change",()=>{networkFormDirty=true});
 });
 $("show-password").addEventListener("click",()=>{
@@ -73,6 +73,16 @@ $("show-password").addEventListener("click",()=>{
  e.type=visible?"password":"text";
  $("show-password").textContent=visible?"Show password":"Hide password";
 });
+function setPageStatus(m,k){const e=$("page-status");if(e){e.textContent=m;e.className=k||""}}
+async function rd(r){const t=r.headers.get("content-type")||"";return t.includes("application/json")?await r.json():null}
+async function pf(f){const r=await fetch(f.action,{method:"POST",body:new FormData(f),cache:"no-store"});if(!r.ok)throw Error(r.status);return rd(r)}
+function renderScan(d){const e=$("wifi-scan-results");if(!e)return;if(!d||!d.networks||!d.networks.length){e.innerHTML='<div class="help">No networks found or scan failed.</div>';return}e.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>SSID</th><th>RSSI</th><th>Channel</th><th>Security</th><th>BSSID</th></tr></thead><tbody>'+d.networks.map((n,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(n.ssid||"(hidden)")+'</td><td>'+esc(n.rssi)+' dBm</td><td>'+esc(n.channel)+'</td><td>'+esc(n.security)+'</td><td class="mono">'+esc(n.bssid)+'</td></tr>').join("")+'</tbody></table></div><div class="help">'+d.networks.length+' access points found.</div>}
+async function scan(e){e.preventDefault();setPageStatus("Scanning…");try{renderScan(await pf(e.currentTarget));setPageStatus("Wi-Fi scan complete","ok")}catch(x){setPageStatus("Wi-Fi scan failed","bad")}}
+async function check(e){e.preventDefault();setPageStatus("Checking for updates…");const b=$("software-update-status");b.hidden=false;b.textContent="Checking…";try{const r=await fetch(e.currentTarget.action,{cache:"no-store"}),d=await rd(r);if(!r.ok)throw Error();b.textContent=d.message||"Update check complete.";setPageStatus("Update check complete","ok")}catch(x){b.textContent="Could not retrieve the GitHub release catalog.";setPageStatus("Update check failed","bad")}}
+async function latest(e){e.preventDefault();if(!confirm("Check for newer firmware and web interface components on GitHub, install any that are newer, then reboot the ESP32-C3?"))return;setPageStatus("Installing updates…");try{const d=await pf(e.currentTarget);setPageStatus(d?.message||"Update installed; rebooting.","ok")}catch(x){setPageStatus("Update request failed or the ESP32-C3 rebooted.","warn")}}
+async function upload(e,q){e.preventDefault();if(!confirm(q))return;setPageStatus("Uploading…");try{const d=await pf(e.currentTarget);setPageStatus(d?.message||"Operation completed.","ok")}catch(x){setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad")}}
+document.querySelectorAll('form[method="POST"]').forEach(f=>{if(["wifi-scan-form","update-latest-form","firmware-upload-form","config-restore-form"].includes(f.id))return;f.addEventListener("submit",async e=>{e.preventDefault();try{await pf(f);setPageStatus("Saved","ok");setTimeout(load,300)}catch(x){setPageStatus("Request failed","bad")}})});
+$("wifi-scan-form").addEventListener("submit",scan);$("check-update-form").addEventListener("submit",check);$("update-latest-form").addEventListener("submit",latest);$("firmware-upload-form").addEventListener("submit",e=>upload(e,"Upgrade firmware and reboot the ESP32-C3?"));$("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
 window.addEventListener("hashchange",currentTab);
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 load();
