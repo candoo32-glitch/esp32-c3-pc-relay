@@ -115,10 +115,10 @@ function renderNvsEntries(){
     root.innerHTML='<div class="empty-state"><strong>No matching NVS entries</strong><span>Try a different filter.</span></div>';
     return;
   }
-  root.innerHTML=names.map((ns,index)=>{
+  root.innerHTML=names.map(ns=>{
     const entries=groups[ns];
     const rows=entries.map(e=>'<tr><td class="mono">'+esc(e.key)+'</td><td>'+esc(e.type)+'</td><td class="mono nvs-value">'+esc(e.value)+'</td></tr>').join("");
-    return '<details class="nvs-namespace" '+(index<3||query?"open":"")+'><summary><span class="nvs-namespace-name">'+esc(ns)+'</span><span class="nvs-namespace-count">'+entries.length+' '+(entries.length===1?"entry":"entries")+'</span></summary><div class="table-wrap"><table><thead><tr><th>Key</th><th>Type</th><th>Value</th></tr></thead><tbody>'+rows+'</tbody></table></div></details>';
+    return '<details class="nvs-namespace">'+'<summary><span class="nvs-namespace-name">'+esc(ns)+'</span><span class="nvs-namespace-count">'+entries.length+' '+(entries.length===1?"entry":"entries")+'</span></summary><div class="table-wrap"><table><thead><tr><th>Key</th><th>Type</th><th>Value</th></tr></thead><tbody>'+rows+'</tbody></table></div></details>';
   }).join("");
 }
 
