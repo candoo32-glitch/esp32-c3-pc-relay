@@ -168,7 +168,7 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  setRelay(s.relays[0],0);setRelay(s.relays[1],1);
 
  text("dash-uptime",s.system.uptime+" seconds");text("dash-build",s.system.build);text("dash-idf",s.system.idf);text("dash-cpu",s.system.cpu+" MHz");
- text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
+ text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");const uiSelect=$("ui-selection");if(uiSelect)uiSelect.value=String(s.system.uiSelection??0);text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
  text("page-status",w.status);
 }
@@ -204,6 +204,17 @@ async function saveTheme(value){
    if(status){status.textContent="Theme saved";status.className="help ok";}
  }catch(e){
    if(status){status.textContent="Theme could not be saved";status.className="help bad";}
+ }
+}
+
+async function saveUiSelection(value){
+ const status=$("ui-selection-status");
+ try{
+   const r=await fetch("/system/ui-selection",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"ui="+encodeURIComponent(value),cache:"no-store"});
+   if(!r.ok)throw Error(r.status);
+   if(status){status.textContent="UI selection saved";status.className="help ok";}
+ }catch(e){
+   if(status){status.textContent="UI selection could not be saved";status.className="help bad";}
  }
 }
 let diagnosticPollTimer=null;
@@ -280,7 +291,7 @@ $("configfile")?.addEventListener("change",e=>{
   const label=$("configfile-name");
   if(label)label.textContent=file?file.name:"Choose backup file…";
 });
-$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
+$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});const uiSelect=$("ui-selection");if(uiSelect)uiSelect.addEventListener("change",()=>saveUiSelection(uiSelect.value));
 document.querySelectorAll(".theme-option").forEach(o=>o.addEventListener("click",async()=>{closeThemeOptions();await saveTheme(o.dataset.themeValue);}));
 document.addEventListener("click",e=>{const p=document.querySelector(".theme-picker");if(p&&!p.contains(e.target))closeThemeOptions();});
 $("ssid").addEventListener("input",()=>{wifiCredentialsDirty=true;filterSsidOptions();});$("wifi-ssid-toggle").addEventListener("click",()=>{const o=$("wifi-ssid-options");if(o.hidden){openSsidOptions()}else closeSsidOptions();});$("ssid").addEventListener("focus",()=>{if(document.querySelector(".ssid-option"))openSsidOptions();});document.addEventListener("click",e=>{const box=document.querySelector(".ssid-combobox");if(box&&!box.contains(e.target))closeSsidOptions();});
