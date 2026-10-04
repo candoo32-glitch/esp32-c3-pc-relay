@@ -1768,3 +1768,51 @@ input:focus,select:focus,textarea:focus{
 #tab-system::before{
   animation:none!important;
 }
+
+
+/* Vertical relay command rail — keeps relay control accessible without
+   covering the page content or hugging the bottom edge. */
+.relay-float{
+  top:50%;
+  right:14px;
+  bottom:auto;
+  transform:translateY(-50%);
+  width:142px;
+  padding:12px 9px 10px;
+  border-left:5px solid var(--lcars-orange);
+  border-top:0;
+  border-right:1px solid rgba(255,155,91,.24);
+  border-bottom:1px solid rgba(255,155,91,.18);
+  border-radius:3px 22px 22px 3px;
+}
+.relay-float-title{
+  padding:1px 8px 10px;
+  text-align:center;
+}
+.relay-float-buttons{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.relay-float form{
+  width:100%;
+}
+.relay-button{
+  width:100%;
+  min-height:50px;
+}
+.relay-float form:first-child .relay-button{
+  background:var(--lcars-orange)!important;
+}
+.relay-float form:nth-child(2) .relay-button{
+  background:var(--lcars-purple)!important;
+}
+@media (max-width:650px){
+  .relay-float{
+    top:auto;
+    right:8px;
+    bottom:8px;
+    transform:none;
+    width:132px;
+  }
+}
