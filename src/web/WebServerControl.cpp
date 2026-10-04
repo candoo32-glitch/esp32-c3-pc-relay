@@ -314,6 +314,7 @@ void failOta(const String& message) {
     otaBuffer = nullptr;
   }
   if (Update.isRunning()) Update.abort();
+  if (otaComponent == "web") SPIFFS.begin(false);
   otaError = message;
   setOtaStatus(OtaStage::ERROR, otaComponent.c_str(), message, otaReceived, otaTotal);
   otaActive = false;
@@ -408,6 +409,14 @@ bool serviceOtaWrite(const char* component) {
                  ").";
   }
 
+  if (otaTotal > 0 && otaReceived < otaTotal &&
+      !otaDownload.connected() && stream->available() == 0) {
+    otaDownload.end();
+    failOta(String("The ") + component + " download ended before all " +
+            String(otaTotal) + " bytes were received.");
+    return false;
+  }
+
   const bool transferFinished =
       otaTotal > 0 ? otaReceived >= otaTotal
                    : (!otaDownload.connected() && stream->available() == 0);
@@ -453,6 +462,7 @@ void prepareNextOtaComponent() {
     if (!beginOtaDownload(otaWebUrl, "web",
                           OtaStage::DOWNLOADING_WEB,
                           OtaStage::WRITING_WEB)) {
+      SPIFFS.begin(false);
       return;
     }
     return;
@@ -1014,7 +1024,7 @@ void begin() {
     json += jsonEscape(otaStageName());
     json += F("\",\"component\":\"");
     json += jsonEscape(otaComponent);
-    json += F(",\"currentFirmware\":");
+    json += F("\",\"currentFirmware\":");
     json += String(otaCurrentFirmwareVersion);
     json += F(",\"latestFirmware\":");
     json += String(otaFirmwareVersion);
