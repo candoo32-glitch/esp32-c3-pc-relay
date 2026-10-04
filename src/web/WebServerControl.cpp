@@ -1004,7 +1004,25 @@ void begin() {
   server.on("/nvs/format", HTTP_POST, handleNvsFormat);
   server.on("/system/update", HTTP_POST, handleFirmwareUpdateComplete, handleFirmwareUpdateUpload);
   server.on("/system/check-update", HTTP_GET, handleFirmwareUpdateCheck);
-  server.on("/system/update-latest", HTTP_POST, handleFirmwareUpdateLatest);\n  server.on("/system/update-status", HTTP_GET, []() {\n    String json = F("{\\\"active\\\":");\n    json += otaActive ? F("true") : F("false");\n    json += F(",\\\"stage\\\":\\\"");\n    json += jsonEscape(otaStageName());\n    json += F("\\",\\\"component\\\":\\\"");\n    json += jsonEscape(otaComponent);\n    json += F("\\",\\\"received\\\":");\n    json += String(otaReceived);\n    json += F(",\\\"total\\\":");\n    json += String(otaTotal);\n    json += F(",\\\"message\\\":\\\"");\n    json += jsonEscape(otaMessage);\n    json += F("\\",\\\"error\\\":\\\"");\n    json += jsonEscape(otaError);\n    json += F("\\"}");\n    server.send(200, "application/json; charset=utf-8", json);\n  });
+  server.on("/system/update-latest", HTTP_POST, handleFirmwareUpdateLatest);
+  server.on("/system/update-status", HTTP_GET, []() {
+    String json = F("{\"active\":");
+    json += otaActive ? F("true") : F("false");
+    json += F(",\"stage\":\"");
+    json += jsonEscape(otaStageName());
+    json += F("\",\"component\":\"");
+    json += jsonEscape(otaComponent);
+    json += F("\",\"received\":");
+    json += String(otaReceived);
+    json += F(",\"total\":");
+    json += String(otaTotal);
+    json += F(",\"message\":\"");
+    json += jsonEscape(otaMessage);
+    json += F("\",\"error\":\"");
+    json += jsonEscape(otaError);
+    json += F("\"}");
+    server.send(200, "application/json; charset=utf-8", json);
+  });
   server.on("/system/reboot", HTTP_POST, handleReboot);
   server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
   server.begin();
