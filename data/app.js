@@ -15,7 +15,7 @@ function uiAssetUrl(uiId,asset){
 }
 
 function removeExternalUi(){
-  document.querySelectorAll("[data-external-ui]").forEach(e=>e.remove());
+  document.querySelectorAll("[data-external-ui],[data-ui-pending]").forEach(e=>e.remove());
   document.body.classList.remove("external-ui-active","external-ui-fallback","lcars-ready");
   document.body.removeAttribute("data-lcars-tab");
   document.documentElement.removeAttribute("data-external-ui");
@@ -52,17 +52,22 @@ function installExternalUiScript(source){
 
 async function activateUi(uiId){
   const id=String(uiId||"builtin").trim();
+
   if(id==="builtin"){
     removeExternalUi();
     activeExternalUi="builtin";
     return true;
   }
+
   if(!/^[A-Za-z0-9._-]{1,63}$/.test(id))throw Error("Invalid UI id");
+
+  let pendingStyle=null;
 
   try{
     const manifestUrl=UI_ROOT_URL+"/"+encodeURIComponent(id)+"/manifest.json?t="+Date.now();
     const r=await fetch(manifestUrl,{cache:"no-store"});
     if(!r.ok)throw Error("Manifest HTTP "+r.status);
+
     const manifest=await r.json();
     if(Number(manifest?.version||0)!==UI_MANIFEST_VERSION)throw Error("Unsupported UI manifest");
     if(String(manifest?.id||"")!==id)throw Error("UI manifest ID mismatch");
@@ -71,18 +76,43 @@ async function activateUi(uiId){
     const assets=manifest.assets||{};
     if(!assets.stylesheet)throw Error("UI stylesheet missing");
 
+    /*
+     * IMPORTANT:
+     * Fetch the complete new package BEFORE touching the currently active
+     * theme.  The old implementation removed the active theme first and then
+     * attempted to load it, which produced a white screen and also called a
+     * removed loadExternalUiAsset() helper.
+     */
+    const stylesheetSource=await fetchExternalUiSource(uiAssetUrl(id,assets.stylesheet));
+    const scriptSource=assets.script
+      ? await fetchExternalUiSource(uiAssetUrl(id,assets.script))
+      : "";
+
+    /*
+     * Stage the new CSS while the old CSS is still active.  Only after all
+     * network fetches have succeeded do we remove the old package.
+     */
+    pendingStyle=installExternalUiStyle(stylesheetSource);
     removeExternalUi();
-    await loadExternalUiAsset("link",uiAssetUrl(id,assets.stylesheet));
-    if(assets.script)await loadExternalUiAsset("script",uiAssetUrl(id,assets.script));
+    promotePendingUiStyle(pendingStyle);
+    pendingStyle=null;
+
+    if(scriptSource)installExternalUiScript(scriptSource);
 
     activeExternalUi=id;
     document.documentElement.dataset.externalUi=id;
     document.body.classList.add("external-ui-active");
     return true;
   }catch(e){
+    if(pendingStyle)pendingStyle.remove();
+
+    /*
+     * A failed switch must never leave half a theme installed.  The caller
+     * keeps the saved NVS selection unchanged and the built-in DOM remains
+     * usable.
+     */
     removeExternalUi();
-    // GitHub UI packages are optional. Never overwrite the saved NVS choice
-    // just because the package cannot be reached during this page load.
+
     if(uiInitialLoad){
       uiInitialFallback=true;
       activeExternalUi="builtin";
@@ -91,6 +121,7 @@ async function activateUi(uiId){
     }else{
       activeExternalUi="";
     }
+
     console.warn("External UI could not be loaded; using Built-in for this session:",e);
     return false;
   }
