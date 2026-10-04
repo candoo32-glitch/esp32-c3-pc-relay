@@ -39,7 +39,7 @@ String escapeJson(const String& value) {
     const char c = value[i];
     switch (c) {
       case '\\': escaped += F("\\\\"); break;
-      case '"': escaped += F("\\""); break;
+      case '"': escaped += '\\'; escaped += '"'; break;
       case '\n': escaped += F("\\n"); break;
       case '\r': escaped += F("\\r"); break;
       case '\t': escaped += F("\\t"); break;
