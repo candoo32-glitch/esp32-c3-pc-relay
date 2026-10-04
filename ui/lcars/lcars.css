@@ -1014,3 +1014,489 @@ body[data-lcars-tab] .tabs::after{
   #tab-wifi .wifi-actions{flex-direction:column}
   #tab-system .theme-picker-button{min-width:0;width:100%}
 }
+
+
+/* -------------------------------------------------------------------------
+ * LCARS COMMAND-DECK GEOMETRY
+ * Decorative chrome only. These elements intentionally use pseudo-elements
+ * so the application's HTML does not need artificial presentation markup.
+ * ------------------------------------------------------------------------- */
+
+/* Left command spine */
+body::after{
+  width:88px;
+  background:
+    linear-gradient(90deg,var(--lcars-purple) 0 14px,transparent 14px 100%),
+    linear-gradient(180deg,
+      transparent 0 44px,
+      var(--lcars-orange) 44px 91px,
+      transparent 91px 106px,
+      var(--lcars-blue) 106px 150px,
+      transparent 150px 100%);
+  clip-path:polygon(
+    0 0,100% 0,100% 33px,62% 33px,62% 98px,100% 98px,
+    100% 157px,62% 157px,62% 100%,0 100%
+  );
+  opacity:.96;
+}
+
+/* A second, quieter rail makes the spine feel like a constructed console. */
+body::marker{display:none}
+body > h1::before{
+  content:"";
+  position:absolute;
+  left:-82px;
+  top:0;
+  width:38px;
+  height:7px;
+  background:var(--lcars-orange);
+  border-radius:0 9px 9px 0;
+  box-shadow:
+    0 15px 0 var(--lcars-purple),
+    0 30px 0 var(--lcars-blue),
+    0 45px 0 rgba(229,140,255,.72);
+  opacity:.85;
+}
+
+/* Header becomes a proper command-deck title plate. */
+body > h1{
+  padding-left:2px;
+  text-shadow:0 0 24px rgba(169,202,255,.08);
+}
+body > h1::after{
+  width:min(760px,76vw);
+  height:10px;
+  background:
+    linear-gradient(90deg,
+      var(--lcars-orange) 0 46%,
+      var(--lcars-purple) 46% 61%,
+      var(--lcars-blue) 61% 78%,
+      transparent 78%);
+  border-radius:0 16px 16px 0;
+  clip-path:polygon(0 0,92% 0,100% 50%,92% 100%,0 100%);
+}
+
+/* Tiny system designation beneath the title without adding markup. */
+body > .muted{
+  position:relative;
+  max-width:820px;
+  padding-left:14px;
+  font-family:var(--lcars-mono);
+  font-size:.67rem;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+body > .muted::before{
+  content:"SYS";
+  display:inline-block;
+  margin-right:9px;
+  padding:2px 7px;
+  color:#080a0f;
+  background:var(--lcars-orange);
+  border-radius:2px 9px 9px 2px;
+  font-weight:900;
+}
+
+/* Navigation becomes a horizontal LCARS control bank. */
+.tabs{
+  border:0;
+  border-radius:5px 24px 24px 5px;
+  background:
+    linear-gradient(90deg,rgba(179,140,255,.11),rgba(7,10,17,.88) 18%),
+    rgba(7,10,17,.88);
+  padding:6px 8px 6px 12px;
+  box-shadow:
+    0 14px 42px rgba(0,0,0,.34),
+    inset 0 1px 0 rgba(255,255,255,.035);
+}
+.tabs::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:5px;
+  border-radius:5px 0 0 5px;
+  background:var(--lcars-purple);
+  box-shadow:0 0 18px rgba(179,140,255,.18);
+}
+.tabs a{
+  border-radius:4px 15px 15px 4px;
+  overflow:hidden;
+}
+.tabs a::before{
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:0;
+  width:26%;
+  height:3px;
+  background:currentColor;
+  opacity:.28;
+  transition:width .25s ease;
+}
+.tabs a:hover::before,.tabs a.active::before{width:72%}
+
+/* Active panel has a small LCARS corner/elbow marker. */
+.tab::after{
+  content:"";
+  position:absolute;
+  right:0;
+  top:0;
+  width:74px;
+  height:32px;
+  border-top:4px solid var(--tab-accent);
+  border-right:4px solid var(--tab-accent);
+  border-radius:0 16px 0 0;
+  opacity:.55;
+  pointer-events:none;
+}
+
+/* Cards gain the classic stepped left edge. */
+.card{
+  border-left-width:9px;
+  border-radius:3px 20px 20px 3px;
+}
+.card::before{
+  width:45%;
+  height:5px;
+  clip-path:polygon(0 0,94% 0,100% 50%,94% 100%,0 100%);
+}
+.card::after{
+  width:150px;
+  height:150px;
+  right:-78px;
+  bottom:-78px;
+  border-color:rgba(177,194,222,.035);
+}
+
+/* Eyebrows become LCARS section labels. */
+.eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+}
+.eyebrow::before{
+  content:"";
+  display:inline-block;
+  width:19px;
+  height:6px;
+  background:currentColor;
+  border-radius:2px 8px 8px 2px;
+  box-shadow:8px 0 0 color-mix(in srgb,currentColor 28%,transparent);
+}
+
+/* Section headings get an asymmetric elbow. */
+.section-heading{
+  position:relative;
+  padding-bottom:8px;
+}
+.section-heading::after{
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:0;
+  width:46%;
+  height:2px;
+  background:linear-gradient(90deg,var(--tab-accent),transparent);
+}
+
+/* Status capsules are now instrument lamps rather than generic badges. */
+.status{
+  position:relative;
+  padding-left:27px;
+  border-radius:4px 14px 14px 4px;
+}
+.status::before{
+  content:"";
+  position:absolute;
+  left:9px;
+  top:50%;
+  width:7px;
+  height:7px;
+  transform:translateY(-50%);
+  border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 10px currentColor;
+  animation:lcarsLamp 1.8s ease-in-out infinite;
+}
+@keyframes lcarsLamp{
+  0%,100%{opacity:.55}
+  50%{opacity:1}
+}
+
+/* Tables read like system displays. */
+.kv{
+  border-left:3px solid rgba(111,168,255,.10);
+}
+.kv td:first-child{
+  position:relative;
+}
+.kv td:first-child::before{
+  content:"";
+  display:inline-block;
+  width:10px;
+  height:4px;
+  margin-right:7px;
+  vertical-align:2px;
+  background:var(--lcars-purple);
+  border-radius:1px 6px 6px 1px;
+  opacity:.7;
+}
+
+/* Form rows get command-deck spacing. */
+.row{
+  gap:12px;
+}
+.row>div{
+  min-width:0;
+}
+
+/* Inputs have a subtle segmented left rail. */
+input,select,textarea{
+  border-radius:4px 13px 13px 4px;
+}
+input:focus,select:focus,textarea:focus{
+  transform:translateY(-1px);
+}
+
+/* Buttons receive a second colored LCARS bar. */
+button,.config-backup-button,.recovery-link{
+  overflow:hidden;
+}
+button:not(.secondary):not(.danger)::before,
+.config-backup-button.good::before{
+  content:"";
+  position:absolute;
+  left:7px;
+  top:7px;
+  bottom:7px;
+  width:4px;
+  border-radius:2px;
+  background:rgba(255,255,255,.45);
+}
+button.secondary::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:7px;
+  bottom:7px;
+  width:4px;
+  border-radius:0 4px 4px 0;
+  background:var(--lcars-blue);
+}
+
+/* Relay float becomes the physical command station. */
+.relay-float{
+  width:min(340px,calc(100vw - 36px));
+  border-top:0;
+  border-left:7px solid var(--lcars-orange);
+  border-radius:4px 24px 24px 4px;
+}
+.relay-float::before{
+  content:"";
+  position:absolute;
+  left:-7px;
+  top:0;
+  width:36%;
+  height:5px;
+  background:var(--lcars-orange);
+  border-radius:0 0 10px 0;
+}
+.relay-float-title{
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+.relay-float-title::before{
+  content:"";
+  width:26px;
+  height:7px;
+  background:var(--lcars-orange);
+  border-radius:2px 10px 10px 2px;
+}
+.relay-button{
+  border-radius:4px 16px 16px 4px;
+}
+
+/* Live signal quality display. */
+[data-lcars-signal="0"]{--signal-opacity:.18}
+[data-lcars-signal="1"]{--signal-opacity:.38}
+[data-lcars-signal="2"]{--signal-opacity:.58}
+[data-lcars-signal="3"]{--signal-opacity:.78}
+[data-lcars-signal="4"]{--signal-opacity:1}
+#wifi-rssi,#dash-rssi,#net-rssi,#diag-rssi{
+  position:relative;
+}
+#wifi-rssi::after,#dash-rssi::after,#net-rssi::after,#diag-rssi::after{
+  content:"";
+  display:inline-block;
+  width:36px;
+  height:12px;
+  margin-left:9px;
+  vertical-align:-1px;
+  background:
+    linear-gradient(to top,var(--lcars-blue) 0 100%) 0 100%/5px calc(var(--signal-opacity,0) * 100%) no-repeat,
+    linear-gradient(to top,var(--lcars-blue) 0 100%) 8px 100%/5px 75% no-repeat,
+    linear-gradient(to top,var(--lcars-blue) 0 100%) 16px 100%/5px 50% no-repeat,
+    linear-gradient(to top,var(--lcars-blue) 0 100%) 24px 100%/5px 25% no-repeat;
+  opacity:.82;
+}
+
+/* Dashboard gets a large command-center visual hierarchy. */
+#tab-dashboard>.grid>.card{
+  background:
+    linear-gradient(90deg,rgba(111,168,255,.045),transparent 48%),
+    linear-gradient(180deg,var(--lcars-panel-2),var(--lcars-panel));
+}
+#tab-dashboard>.grid>.card:first-child::after{
+  content:"COMM / RF";
+  width:auto;
+  height:auto;
+  right:18px;
+  bottom:13px;
+  border:0;
+  color:rgba(111,168,255,.25);
+  font:800 .55rem var(--lcars-mono);
+  letter-spacing:.18em;
+}
+#tab-dashboard>.grid>.card:nth-child(2)::after{
+  content:"CORE / STATUS";
+  width:auto;
+  height:auto;
+  right:18px;
+  bottom:13px;
+  border:0;
+  color:rgba(179,140,255,.25);
+  font:800 .55rem var(--lcars-mono);
+  letter-spacing:.18em;
+}
+
+/* Wi-Fi signal cards get an animated communication sweep. */
+#tab-wifi .wifi-connection-card::after{
+  content:"";
+  width:70%;
+  height:1px;
+  right:-20%;
+  bottom:22%;
+  border:0;
+  border-radius:0;
+  background:linear-gradient(90deg,transparent,var(--lcars-blue),transparent);
+  animation:lcarsSweep 4.5s linear infinite;
+}
+@keyframes lcarsSweep{
+  from{transform:translateX(-100%)}
+  to{transform:translateX(240%)}
+}
+
+/* Network live panel has a topology-like trunk line. */
+#tab-network .network-live-card{
+  overflow:visible;
+}
+#tab-network .network-live-card::after{
+  content:"";
+  right:-1px;
+  top:72px;
+  bottom:34px;
+  width:3px;
+  border:0;
+  border-radius:0;
+  background:linear-gradient(var(--lcars-blue),transparent 18%,var(--lcars-purple) 50%,transparent 82%,var(--lcars-blue));
+  opacity:.5;
+}
+
+/* Diagnostics gets scanline discipline without expensive animation. */
+#tab-diagnostics .diagnostic-console{
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(115,226,164,.018) 0,
+      rgba(115,226,164,.018) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    #030509;
+}
+#tab-diagnostics .diagnostic-console::selection{
+  background:rgba(115,226,164,.24);
+}
+
+/* Relay cards get an unmistakable physical-channel identity. */
+#tab-relays>form .card:first-child::after{
+  content:"CHANNEL 01";
+  width:auto;
+  height:auto;
+  right:16px;
+  bottom:13px;
+  border:0;
+  color:rgba(255,155,91,.24);
+  font:800 .55rem var(--lcars-mono);
+  letter-spacing:.18em;
+}
+#tab-relays>form .card:last-child::after{
+  content:"CHANNEL 02";
+  width:auto;
+  height:auto;
+  right:16px;
+  bottom:13px;
+  border:0;
+  color:rgba(255,102,125,.24);
+  font:800 .55rem var(--lcars-mono);
+  letter-spacing:.18em;
+}
+
+/* Storage/NVS rows become data-bank modules. */
+#tab-storage .table-wrap,
+#tab-storage .nvs-browser{
+  border-radius:3px 18px 18px 3px;
+}
+#tab-storage .table-wrap th{
+  position:sticky;
+  top:0;
+  z-index:1;
+}
+#tab-storage .nvs-toolbar{
+  padding-left:10px;
+  border-left:4px solid var(--lcars-purple);
+}
+
+/* System firmware card gets a core readout treatment. */
+#tab-system .card:first-child::after{
+  content:"CORE";
+  width:auto;
+  height:auto;
+  right:20px;
+  bottom:14px;
+  border:0;
+  color:rgba(111,168,255,.24);
+  font:900 .58rem var(--lcars-mono);
+  letter-spacing:.24em;
+}
+#tab-system .card:nth-child(2)::after{
+  content:"CONFIG / VISUAL";
+  width:auto;
+  height:auto;
+  right:20px;
+  bottom:14px;
+  border:0;
+  color:rgba(255,155,91,.24);
+  font:900 .58rem var(--lcars-mono);
+  letter-spacing:.18em;
+}
+
+/* Prevent decorative additions from compromising compact screens. */
+@media (max-width:900px){
+  body{padding-left:92px}
+  body > h1::before{left:-72px}
+  #tab-dashboard>.grid>.card{min-height:0}
+}
+@media (max-width:650px){
+  body{padding-left:62px}
+  body::after{width:58px}
+  body > h1::before{left:-48px}
+  body > h1::after{width:100%}
+  .tab::after{width:44px;height:24px}
+  .card{border-left-width:7px}
+  .relay-float{border-left-width:5px}
+  #wifi-rssi::after,#dash-rssi::after,#net-rssi::after,#diag-rssi::after{display:none}
+}
