@@ -18,6 +18,7 @@
 #include "../wifi/WiFiDiagnostics.h"
 #include "../network/NetConfig.h"
 #include "../relay/Relay.h"
+#include "../diagnostics/DiagnosticsLog.h"
 
 namespace WebControl {
 namespace {
@@ -354,21 +355,21 @@ void failOta(const String& message) {
   otaError = message;
   setOtaStatus(OtaStage::ERROR, otaComponent.c_str(), message, otaReceived, otaTotal);
   otaActive = false;
-  Serial.print("OTA failed: ");
-  Serial.println(message);
+  DiagnosticsLog::line(String("OTA | FAILED | ") + message);
 }
 
 void completeOta() {
   otaActive = false;
   setOtaStatus(OtaStage::COMPLETE, "", "Firmware and Web UI updates are complete.",
                otaReceived, otaTotal);
-  Serial.println("OTA operation complete.");
+  DiagnosticsLog::line("OTA | COMPLETE | Firmware and Web UI updates are complete.");
 }
 
 bool beginOtaDownload(const String& url, const char* component, OtaStage downloadStage,
                       OtaStage writeStage) {
   setOtaStatus(downloadStage, component,
                String("Downloading ") + component + ".");
+  DiagnosticsLog::line(String("OTA | START ") + component + " | " + url);
 
   otaDownloadClient.setInsecure();
   otaDownload.setTimeout(15000);
@@ -394,6 +395,8 @@ bool beginOtaDownload(const String& url, const char* component, OtaStage downloa
   setOtaStatus(writeStage, component,
                String("Writing ") + component + " as data is received.",
                0, otaTotal);
+  DiagnosticsLog::line(String("OTA | WRITING ") + component +
+                       " | TOTAL=" + String(otaTotal) + " bytes");
 
   if (!Update.begin(otaTotal > 0 ? otaTotal : UPDATE_SIZE_UNKNOWN,
                     strcmp(component, "firmware") == 0 ? U_FLASH : U_SPIFFS)) {
@@ -456,6 +459,11 @@ bool serviceOtaWrite(const char* component) {
   }
 
   if (bytesThisService > 0) {
+    const size_t previousReceived = otaReceived - bytesThisService;
+    if (otaTotal > 0 && ((previousReceived * 4) / otaTotal) != ((otaReceived * 4) / otaTotal)) {
+      DiagnosticsLog::line(String("OTA | PROGRESS ") + component + " | " +
+                           String(otaReceived) + "/" + String(otaTotal) + " bytes");
+    }
     otaMessage = String("Writing ") + component + " (" +
                  String(otaReceived) +
                  (otaTotal > 0 ? String(" / ") + String(otaTotal) : String(" bytes")) +
@@ -493,6 +501,8 @@ bool serviceOtaWrite(const char* component) {
   setOtaStatus(OtaStage::COMPLETE, component,
                String(component) + " update written successfully.",
                otaReceived, otaTotal);
+  DiagnosticsLog::line(String("OTA | WRITTEN ") + component + " | " +
+                       String(otaReceived) + "/" + String(otaTotal) + " bytes");
   return true;
 }
 
@@ -526,7 +536,7 @@ void prepareNextOtaComponent() {
   setOtaStatus(OtaStage::REBOOTING, "",
                "Updates installed successfully. Rebooting the ESP32-C3.");
   otaActive = false;
-  Serial.println("OTA updates installed successfully; rebooting.");
+  DiagnosticsLog::line("OTA | SUCCESS | updates installed; rebooting");
   delay(1000);
   ESP.restart();
 }
@@ -558,18 +568,17 @@ void serviceOta() {
 
       if (!otaFirmwarePending && !otaWebPending) {
         otaActive = false;
+        DiagnosticsLog::line("OTA | UP TO DATE | firmware and Web UI");
         setOtaStatus(OtaStage::COMPLETE, "",
                      "Firmware and Web UI are already up to date.");
         return;
       }
 
       if (otaFirmwarePending) {
-        Serial.print("OTA firmware update found: build ");
-        Serial.println(otaFirmwareVersion);
+        DiagnosticsLog::line(String("OTA | AVAILABLE | firmware build ") + String(otaFirmwareVersion));
       }
       if (otaWebPending) {
-        Serial.print("OTA Web UI update found: build ");
-        Serial.println(otaWebVersion);
+        DiagnosticsLog::line(String("OTA | AVAILABLE | Web UI build ") + String(otaWebVersion));
       }
 
       prepareNextOtaComponent();
@@ -624,6 +633,7 @@ void handleFirmwareUpdateLatest() {
   }
 
   otaActive = true;
+  DiagnosticsLog::line("OTA | CHECK | GitHub for firmware and Web UI updates");
   setOtaStatus(OtaStage::CHECKING, "",
                "Checking GitHub for firmware and Web UI updates.");
 
@@ -638,6 +648,7 @@ void handleFirmwareUpdateUpload() {
     case UPLOAD_FILE_START:
       firmwareUpdateFailed = false;
       firmwareUpdateBytes = 0;
+      DiagnosticsLog::line(String("OTA | UPLOAD START | ") + upload.filename);
       if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
         firmwareUpdateFailed = true;
         Serial.print("Firmware OTA begin failed: ");
@@ -666,12 +677,13 @@ void handleFirmwareUpdateUpload() {
         Serial.print("Firmware OTA finalize failed: ");
         Serial.println(Update.errorString());
       }
+      DiagnosticsLog::line(String("OTA | UPLOAD COMPLETE | ") + String(firmwareUpdateBytes) + " bytes");
       break;
 
     case UPLOAD_FILE_ABORTED:
       firmwareUpdateFailed = true;
       Update.abort();
-      Serial.println("Firmware OTA upload aborted.");
+      DiagnosticsLog::line("OTA | UPLOAD ABORTED");
       break;
 
     default:
@@ -1049,9 +1061,11 @@ void begin() {
   if (serverStarted) return;
 
   if (!SPIFFS.begin(false)) {
+    DiagnosticsLog::line("WEB | SPIFFS MOUNT FAILED");
     Serial.println("Web UI filesystem mount failed.");
   } else {
     loadWebInterfaceBuild();
+    DiagnosticsLog::line(String("WEB | SPIFFS MOUNTED | build=") + cachedWebInterfaceBuild);
     Serial.println("Web UI filesystem mounted.");
   }
 
@@ -1060,7 +1074,7 @@ void begin() {
   server.on("/app.js", HTTP_GET, handleAppJs);
   server.on("/api/state", HTTP_GET, handlePageState);
   server.on("/api/diagnostics", HTTP_GET, []() {
-    server.send(200, "application/json; charset=utf-8", WiFiDiagnostics::recentLogJson());
+    server.send(200, "application/json; charset=utf-8", DiagnosticsLog::recentJson());
   });
   server.on("/wifi/toggle", HTTP_POST, handleToggle);
   server.on("/wifi/reconnect", HTTP_POST, handleReconnect);
@@ -1118,6 +1132,7 @@ void begin() {
   server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
   server.begin();
   serverStarted = true;
+  DiagnosticsLog::line("WEB | SERVER STARTED | port=80");
   Serial.println("Web server started on port 80.");
 }
 
