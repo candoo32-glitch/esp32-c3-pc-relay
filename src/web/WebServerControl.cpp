@@ -163,6 +163,36 @@ bool restoreFailed = false;
 bool firmwareUpdateFailed = false;
 size_t firmwareUpdateBytes = 0;
 
+enum class OtaStage : uint8_t {
+  IDLE,
+  CHECKING,
+  DOWNLOADING_FIRMWARE,
+  WRITING_FIRMWARE,
+  DOWNLOADING_WEB,
+  WRITING_WEB,
+  FINALIZING,
+  REBOOTING,
+  COMPLETE,
+  ERROR
+};
+
+bool otaActive = false;
+OtaStage otaStage = OtaStage::IDLE;
+String otaComponent;
+String otaMessage;
+String otaError;
+size_t otaReceived = 0;
+size_t otaTotal = 0;
+String otaFirmwareUrl;
+String otaWebUrl;
+bool otaFirmwarePending = false;
+bool otaWebPending = false;
+long otaFirmwareVersion = -1;
+long otaWebVersion = -1;
+uint8_t* otaBuffer = nullptr;
+HTTPClient otaDownload;
+WiFiClientSecure otaDownloadClient;
+
 String releaseAssetBuild(const String& url, const String& suffix) {
   const int suffixPos = url.lastIndexOf(suffix);
   if (suffixPos < 0) return "";
@@ -252,233 +282,287 @@ String jsonEscape(const String& input);
 
 void handleFirmwareUpdateCheck(){if(!WiFiControl::isEnabled()||WiFi.status()!=WL_CONNECTED){server.send(503,"application/json; charset=utf-8","{\"message\":\"The ESP32-C3 is not connected to Wi-Fi.\"}");return;}String j;if(!fetchReleaseCatalog(j)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not retrieve the GitHub release catalog.\"}");return;}const long cf=firmwareBuild().toInt(),cw=webInterfaceBuild().toInt();long lf=-1,lw=-1;const String fu=firmwareReleaseUrl(j,lf),wu=webReleaseUrl(j,lw);const bool fa=!fu.isEmpty()&&lf>cf,wa=!wu.isEmpty()&&lw>cw;String m;if(!fa&&!wa)m="Firmware and web interface are up to date.";else{m="Firmware "+String(cf)+" → "+String(lf)+(fa?" available. ":" is current. ");m+="Web UI "+String(cw)+" → "+String(lw)+(wa?" available.":" is current.");}String o=F("{\"message\":\"");o+=jsonEscape(m);o+=F("\",\"currentFirmware\":");o+=String(cf);o+=F(",\"latestFirmware\":");o+=String(lf);o+=F(",\"currentWeb\":");o+=String(cw);o+=F(",\"latestWeb\":");o+=String(lw);o+=F(",\"firmwareAvailable\":");o+=fa?"true":"false";o+=F(",\"webAvailable\":");o+=wa?"true":"false";o+='}';server.send(200,"application/json; charset=utf-8",o);}
 
-void sendOtaEvent(const char* type, const char* stage, size_t received, size_t total, const String& message, const char* component = "") {
-  String event = F("{\"type\":\"");
-  event += jsonEscape(type);
-  event += F("\",\"stage\":\"");
-  event += jsonEscape(stage);
-  event += F("\",\"received\":");
-  event += String(received);
-  event += F(",\"total\":");
-  event += String(total);
-  event += F(",\"component\":\"");
-  event += jsonEscape(component);
-  event += F("\",\"message\":\"");
-  event += jsonEscape(message);
-  event += F("\"}\n");
-  server.sendContent(event);
+String jsonEscape(const String& input);
+
+const char* otaStageName() {
+  switch (otaStage) {
+    case OtaStage::CHECKING: return "checking";
+    case OtaStage::DOWNLOADING_FIRMWARE: return "downloading";
+    case OtaStage::WRITING_FIRMWARE: return "writing";
+    case OtaStage::DOWNLOADING_WEB: return "downloading";
+    case OtaStage::WRITING_WEB: return "writing";
+    case OtaStage::FINALIZING: return "finalizing";
+    case OtaStage::REBOOTING: return "rebooting";
+    case OtaStage::COMPLETE: return "complete";
+    case OtaStage::ERROR: return "error";
+    default: return "idle";
+  }
 }
 
-bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* description) {
-  const char* component = strcmp(description, "firmware") == 0 ? "firmware" : "web";
-  const int contentLength = download.getSize();
-  const size_t total = contentLength > 0 ? static_cast<size_t>(contentLength) : 0;
+void setOtaStatus(OtaStage stage, const char* component, const String& message,
+                  size_t received = 0, size_t total = 0) {
+  otaStage = stage;
+  otaComponent = component != nullptr ? component : "";
+  otaMessage = message;
+  otaReceived = received;
+  otaTotal = total;
+}
 
-  sendOtaEvent("progress", "writing", 0, total,
-               String("Writing ") + description + " as data is received.", component);
+void failOta(const String& message) {
+  if (otaDownload.connected()) otaDownload.end();
+  if (otaBuffer != nullptr) {
+    free(otaBuffer);
+    otaBuffer = nullptr;
+  }
+  if (Update.isRunning()) Update.abort();
+  otaError = message;
+  setOtaStatus(OtaStage::ERROR, otaComponent.c_str(), message, otaReceived, otaTotal);
+  otaActive = false;
+  Serial.print("OTA failed: ");
+  Serial.println(message);
+}
 
-  if (!Update.begin(total > 0 ? total : UPDATE_SIZE_UNKNOWN, command)) {
-    Serial.print("OTA ");
-    Serial.print(description);
-    Serial.print(" begin failed: ");
-    Serial.println(Update.errorString());
+void completeOta() {
+  otaActive = false;
+  setOtaStatus(OtaStage::COMPLETE, "", "Firmware and Web UI updates are complete.",
+               otaReceived, otaTotal);
+  Serial.println("OTA operation complete.");
+}
+
+bool beginOtaDownload(const String& url, const char* component, OtaStage downloadStage,
+                      OtaStage writeStage) {
+  setOtaStatus(downloadStage, component,
+               String("Downloading ") + component + ".");
+
+  otaDownloadClient.setInsecure();
+  otaDownload.setTimeout(15000);
+  otaDownload.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+  otaDownload.addHeader("User-Agent", "ESP32-C3-PC-Relay");
+
+  if (!otaDownload.begin(otaDownloadClient, url)) {
+    failOta(String("Could not connect to the ") + component + " download.");
     return false;
   }
 
-  WiFiClient* stream = download.getStreamPtr();
-  uint8_t* buffer = static_cast<uint8_t*>(malloc(4096));
-  if (buffer == nullptr) {
-    Update.abort();
-    Serial.print("OTA ");
-    Serial.print(description);
-    Serial.println(" failed: insufficient RAM for download buffer.");
+  const int responseCode = otaDownload.GET();
+  if (responseCode != HTTP_CODE_OK) {
+    otaDownload.end();
+    failOta(String("GitHub ") + component + " download returned HTTP " +
+            String(responseCode) + ".");
     return false;
   }
 
-  size_t totalWritten = 0;
-  bool failed = false;
-  uint32_t lastYield = millis();
-  uint32_t lastProgressEvent = 0;
+  const int contentLength = otaDownload.getSize();
+  otaTotal = contentLength > 0 ? static_cast<size_t>(contentLength) : 0;
+  otaReceived = 0;
+  setOtaStatus(writeStage, component,
+               String("Writing ") + component + " as data is received.",
+               0, otaTotal);
 
-  // Consume the declared Content-Length when available. If the server did
-  // not provide one, consume until the HTTP stream closes and report an
-  // indeterminate progress bar to the browser.
-  while (total > 0 ? totalWritten < total : (download.connected() || stream->available() > 0)) {
-    const size_t available = stream->available();
-    if (available == 0) {
-      if (!download.connected() || millis() - lastYield > 10000) {
-        if (total == 0 && !download.connected()) break;
-        failed = true;
-        break;
-      }
-      delay(1);
-      yield();
-      continue;
-    }
-
-    const size_t remaining = total > 0 ? total - totalWritten : static_cast<size_t>(4096);
-    const size_t toRead = min(available, min(remaining, static_cast<size_t>(4096)));
-    const int readBytes = stream->readBytes(buffer, toRead);
-    if (readBytes <= 0 ||
-        Update.write(buffer, static_cast<size_t>(readBytes)) != static_cast<size_t>(readBytes)) {
-      failed = true;
-      break;
-    }
-
-    totalWritten += static_cast<size_t>(readBytes);
-    lastYield = millis();
-
-    if (millis() - lastProgressEvent >= 150 || (total > 0 && totalWritten == total)) {
-      sendOtaEvent("progress", "writing", totalWritten, total,
-                   String("Writing ") + description + " (" +
-                   String(totalWritten) + (total > 0 ? String(" / ") + String(total) : String(" bytes")) +
-                   ").", component);
-      lastProgressEvent = millis();
-    }
-    yield();
-  }
-
-  const bool finished =
-      !failed &&
-      (total == 0 || totalWritten == total) &&
-      Update.end(true);
-
-  free(buffer);
-
-  if (!finished) {
-    Serial.print("OTA ");
-    Serial.print(description);
-    Serial.print(" failed: ");
-    Serial.println(Update.errorString());
-    Update.abort();
+  if (!Update.begin(otaTotal > 0 ? otaTotal : UPDATE_SIZE_UNKNOWN,
+                    strcmp(component, "firmware") == 0 ? U_FLASH : U_SPIFFS)) {
+    const String error = Update.errorString();
+    otaDownload.end();
+    failOta(String("Could not start the ") + component + " update: " + error);
     return false;
   }
 
-  sendOtaEvent("progress", "complete", totalWritten, total,
-               String(description) + " complete.", component);
-  Serial.print("OTA ");
-  Serial.print(description);
-  Serial.print(" complete: ");
-  Serial.print(totalWritten);
-  Serial.println(" bytes.");
+  if (otaBuffer == nullptr) {
+    otaBuffer = static_cast<uint8_t*>(malloc(4096));
+    if (otaBuffer == nullptr) {
+      otaDownload.end();
+      Update.abort();
+      failOta(String("Insufficient RAM for the ") + component + " update buffer.");
+      return false;
+    }
+  }
+
   return true;
 }
 
-void handleFirmwareUpdateLatest() {
-  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  server.send(200, "application/x-ndjson; charset=utf-8", "");
+bool serviceOtaWrite(const char* component) {
+  if (otaBuffer == nullptr) {
+    failOta(String("The ") + component + " update buffer is unavailable.");
+    return false;
+  }
 
-  sendOtaEvent("progress", "checking", 0, 0,
-               "Checking GitHub for firmware and Web UI updates.");
+  WiFiClient* stream = otaDownload.getStreamPtr();
+  const size_t available = stream->available();
 
-  if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
-    sendOtaEvent("error", "error", 0, 0,
-                 "The ESP32-C3 is not connected to Wi-Fi.");
+  if (available > 0) {
+    const size_t remaining = otaTotal > 0 ? otaTotal - otaReceived : 4096;
+    const size_t toRead = min(available, min(remaining, static_cast<size_t>(4096)));
+    const int readBytes = stream->read(otaBuffer, toRead);
+
+    if (readBytes <= 0 ||
+        Update.write(otaBuffer, static_cast<size_t>(readBytes)) != static_cast<size_t>(readBytes)) {
+      const String error = Update.errorString();
+      otaDownload.end();
+      failOta(String("Writing ") + component + " failed: " + error);
+      return false;
+    }
+
+    otaReceived += static_cast<size_t>(readBytes);
+    otaMessage = String("Writing ") + component + " (" +
+                 String(otaReceived) +
+                 (otaTotal > 0 ? String(" / ") + String(otaTotal) : String(" bytes")) +
+                 ").";
+  }
+
+  const bool transferFinished =
+      otaTotal > 0 ? otaReceived >= otaTotal
+                   : (!otaDownload.connected() && stream->available() == 0);
+
+  if (!transferFinished) {
+    yield();
+    return true;
+  }
+
+  if (!Update.end(true)) {
+    const String error = Update.errorString();
+    otaDownload.end();
+    failOta(String("Finalizing ") + component + " failed: " + error);
+    return false;
+  }
+
+  otaDownload.end();
+  free(otaBuffer);
+  otaBuffer = nullptr;
+
+  setOtaStatus(OtaStage::COMPLETE, component,
+               String(component) + " update written successfully.",
+               otaReceived, otaTotal);
+  return true;
+}
+
+void prepareNextOtaComponent() {
+  if (otaFirmwarePending) {
+    otaFirmwarePending = false;
+    otaActive = true;
+    if (!beginOtaDownload(otaFirmwareUrl, "firmware",
+                          OtaStage::DOWNLOADING_FIRMWARE,
+                          OtaStage::WRITING_FIRMWARE)) {
+      return;
+    }
     return;
   }
 
-  String j;
-  if (!fetchReleaseCatalog(j)) {
-    sendOtaEvent("error", "error", 0, 0,
-                 "Could not retrieve the GitHub release catalog.");
-    return;
-  }
-
-  const long cf = firmwareBuild().toInt();
-  const long cw = webInterfaceBuild().toInt();
-  long lf = -1;
-  long lw = -1;
-  const String fu = firmwareReleaseUrl(j, lf);
-  const String wu = webReleaseUrl(j, lw);
-  const bool fi = !fu.isEmpty() && lf > cf;
-  const bool wi = !wu.isEmpty() && lw > cw;
-
-  if (!fi && !wi) {
-    sendOtaEvent("complete", "complete", 0, 0,
-                 "Firmware and web interface are already up to date.");
-    return;
-  }
-
-  if (fi) {
-    sendOtaEvent("progress", "found", 0, 0,
-                 String("Found firmware update: build ") + String(lf) +
-                 " (current " + String(cf) + ").", "firmware");
-  }
-  if (wi) {
-    sendOtaEvent("progress", "found", 0, 0,
-                 String("Found Web UI update: build ") + String(lw) +
-                 " (current " + String(cw) + ").", "web");
-  }
-
-  WiFiClientSecure dc;
-  dc.setInsecure();
-  HTTPClient d;
-  d.setTimeout(15000);
-  d.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-  d.addHeader("User-Agent", "ESP32-C3-PC-Relay");
-
-  if (fi) {
-    sendOtaEvent("progress", "downloading", 0, 0, "Downloading firmware.", "firmware");
-    if (!d.begin(dc, fu)) {
-      sendOtaEvent("error", "error", 0, 0,
-                   "Could not connect to the firmware download.");
-      return;
-    }
-    const int s = d.GET();
-    if (s != HTTP_CODE_OK) {
-      d.end();
-      sendOtaEvent("error", "error", 0, 0,
-                   String("GitHub firmware download returned HTTP ") + String(s) + ".");
-      return;
-    }
-
-    if (!downloadAndWriteUpdate(d, U_FLASH, "firmware")) {
-      d.end();
-      sendOtaEvent("error", "error", 0, 0,
-                   "The firmware image could not be downloaded or installed.");
-      return;
-    }
-    d.end();
-  }
-
-  if (wi) {
-    sendOtaEvent("progress", "downloading", 0, 0, "Downloading Web UI.", "web");
+  if (otaWebPending) {
+    otaWebPending = false;
     SPIFFS.end();
-    if (!d.begin(dc, wu)) {
-      sendOtaEvent("error", "error", 0, 0,
-                   "Could not connect to the SPIFFS Web UI download.");
+    otaActive = true;
+    if (!beginOtaDownload(otaWebUrl, "web",
+                          OtaStage::DOWNLOADING_WEB,
+                          OtaStage::WRITING_WEB)) {
       return;
     }
-    const int s = d.GET();
-    if (s != HTTP_CODE_OK) {
-      d.end();
-      sendOtaEvent("error", "error", 0, 0,
-                   String("GitHub SPIFFS download returned HTTP ") + String(s) + ".");
-      return;
-    }
-
-    if (!downloadAndWriteUpdate(d, U_SPIFFS, "Web UI")) {
-      d.end();
-      sendOtaEvent("error", "error", 0, 0,
-                   "The SPIFFS Web UI could not be installed.");
-      return;
-    }
-    d.end();
+    return;
   }
 
-  String installed;
-  if (fi) installed = "firmware";
-  if (wi) {
-    if (!installed.isEmpty()) installed += " and ";
-    installed += "Web UI";
-  }
-
-  sendOtaEvent("progress", "finalizing", 0, 0, "Finalizing updates.");
-  sendOtaEvent("complete", "rebooting", 0, 0,
-               installed + " update installed successfully. Rebooting the ESP32-C3.");
-  server.client().flush();
+  setOtaStatus(OtaStage::FINALIZING, "",
+               "Finalizing updates.");
+  setOtaStatus(OtaStage::REBOOTING, "",
+               "Updates installed successfully. Rebooting the ESP32-C3.");
+  otaActive = false;
+  Serial.println("OTA updates installed successfully; rebooting.");
   delay(1000);
   ESP.restart();
+}
+
+void serviceOta() {
+  if (!otaActive) return;
+
+  switch (otaStage) {
+    case OtaStage::CHECKING: {
+      if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
+        failOta("The ESP32-C3 is not connected to Wi-Fi.");
+        return;
+      }
+
+      String json;
+      if (!fetchReleaseCatalog(json)) {
+        failOta("Could not retrieve the GitHub release catalog.");
+        return;
+      }
+
+      const long currentFirmware = firmwareBuild().toInt();
+      const long currentWeb = webInterfaceBuild().toInt();
+      otaFirmwareUrl = firmwareReleaseUrl(json, otaFirmwareVersion);
+      otaWebUrl = webReleaseUrl(json, otaWebVersion);
+      otaFirmwarePending = !otaFirmwareUrl.isEmpty() && otaFirmwareVersion > currentFirmware;
+      otaWebPending = !otaWebUrl.isEmpty() && otaWebVersion > currentWeb;
+
+      if (!otaFirmwarePending && !otaWebPending) {
+        otaActive = false;
+        setOtaStatus(OtaStage::COMPLETE, "",
+                     "Firmware and Web UI are already up to date.");
+        return;
+      }
+
+      if (otaFirmwarePending) {
+        Serial.print("OTA firmware update found: build ");
+        Serial.println(otaFirmwareVersion);
+      }
+      if (otaWebPending) {
+        Serial.print("OTA Web UI update found: build ");
+        Serial.println(otaWebVersion);
+      }
+
+      prepareNextOtaComponent();
+      return;
+    }
+
+    case OtaStage::WRITING_FIRMWARE:
+      if (serviceOtaWrite("firmware")) {
+        if (otaStage == OtaStage::COMPLETE) prepareNextOtaComponent();
+      }
+      return;
+
+    case OtaStage::WRITING_WEB:
+      if (serviceOtaWrite("web")) {
+        if (otaStage == OtaStage::COMPLETE) prepareNextOtaComponent();
+      }
+      return;
+
+    default:
+      return;
+  }
+}
+
+void handleFirmwareUpdateLatest() {
+  if (otaActive || otaStage == OtaStage::REBOOTING) {
+    server.send(409, "application/json; charset=utf-8",
+                "{\"message\":\"An OTA update is already in progress.\"}");
+    return;
+  }
+
+  if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
+    server.send(503, "application/json; charset=utf-8",
+                "{\"message\":\"The ESP32-C3 is not connected to Wi-Fi.\"}");
+    return;
+  }
+
+  otaFirmwarePending = false;
+  otaWebPending = false;
+  otaFirmwareUrl = "";
+  otaWebUrl = "";
+  otaFirmwareVersion = -1;
+  otaWebVersion = -1;
+  otaReceived = 0;
+  otaTotal = 0;
+  otaComponent = "";
+  otaError = "";
+  if (otaBuffer != nullptr) {
+    free(otaBuffer);
+    otaBuffer = nullptr;
+  }
+
+  otaActive = true;
+  setOtaStatus(OtaStage::CHECKING, "",
+               "Checking GitHub for firmware and Web UI updates.");
+
+  server.send(202, "application/json; charset=utf-8",
+              "{\"message\":\"OTA update started.\"}");
 }
 
 void handleFirmwareUpdateUpload() {
@@ -920,7 +1004,7 @@ void begin() {
   server.on("/nvs/format", HTTP_POST, handleNvsFormat);
   server.on("/system/update", HTTP_POST, handleFirmwareUpdateComplete, handleFirmwareUpdateUpload);
   server.on("/system/check-update", HTTP_GET, handleFirmwareUpdateCheck);
-  server.on("/system/update-latest", HTTP_POST, handleFirmwareUpdateLatest);
+  server.on("/system/update-latest", HTTP_POST, handleFirmwareUpdateLatest);\n  server.on("/system/update-status", HTTP_GET, []() {\n    String json = F("{\\\"active\\\":");\n    json += otaActive ? F("true") : F("false");\n    json += F(",\\\"stage\\\":\\\"");\n    json += jsonEscape(otaStageName());\n    json += F("\\",\\\"component\\\":\\\"");\n    json += jsonEscape(otaComponent);\n    json += F("\\",\\\"received\\\":");\n    json += String(otaReceived);\n    json += F(",\\\"total\\\":");\n    json += String(otaTotal);\n    json += F(",\\\"message\\\":\\\"");\n    json += jsonEscape(otaMessage);\n    json += F("\\",\\\"error\\\":\\\"");\n    json += jsonEscape(otaError);\n    json += F("\\"}");\n    server.send(200, "application/json; charset=utf-8", json);\n  });
   server.on("/system/reboot", HTTP_POST, handleReboot);
   server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
   server.begin();
@@ -931,5 +1015,6 @@ void begin() {
 void service() {
   if (!serverStarted) return;
   server.handleClient();
+  serviceOta();
 }
 }
