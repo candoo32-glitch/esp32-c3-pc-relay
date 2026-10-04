@@ -4,6 +4,7 @@
 #include <ESPmDNS.h>
 #include "NetConfig.h"
 #include "../interface/Console.h"
+#include "../diagnostics/DiagnosticsLog.h"
 
 namespace NetConfig {
 Preferences preferences;
@@ -92,12 +93,14 @@ void service() {
       MDNS.addService("http", "tcp", 80);
       MDNS.addServiceTxt("http", "tcp", "hostname", host.c_str());
       mdnsStarted = true;
+      DiagnosticsLog::line(String("NETWORK | MDNS STARTED | http://") + host + ".local/");
       Serial.print("mDNS: started as http://");
       Serial.print(host);
       Serial.println(".local/");
       Serial.print("mDNS: IP ");
       Serial.println(WiFi.localIP());
     } else {
+      DiagnosticsLog::line(String("NETWORK | MDNS FAILED | HOST=") + host);
       Serial.print("mDNS: failed to start for hostname ");
       Serial.println(host);
     }
@@ -148,8 +151,10 @@ bool loadStatic(IPAddress& ip, IPAddress& gateway, IPAddress& subnet,
 void configureDHCP() {
   if (mode() != Mode::DHCP) {
     preferences.putUChar(MODE_KEY, static_cast<uint8_t>(Mode::DHCP));
+    DiagnosticsLog::line("NETWORK | MODE SAVED | DHCP");
     Serial.println("Network mode saved: DHCP.");
   } else {
+    DiagnosticsLog::line("NETWORK | MODE | DHCP (already saved)");
     Serial.println("Network mode: DHCP (already saved).");
   }
 }
@@ -216,6 +221,9 @@ bool saveStatic(const String& ip, const String& gateway, const String& subnet,
   preferences.putString(DNS1_KEY, dns1);
   preferences.putString(DNS2_KEY, dns2);
   preferences.putUChar(MODE_KEY, static_cast<uint8_t>(Mode::STATIC));
+  DiagnosticsLog::line(String("NETWORK | STATIC SAVED | IP=") + ip +
+                       " GW=" + gateway + " MASK=" + subnet +
+                       " DNS1=" + dns1 + " DNS2=" + dns2);
   return true;
 }
 
@@ -317,6 +325,8 @@ bool apply() {
       return false;
     }
 
+    DiagnosticsLog::line(String("NETWORK | APPLY STATIC | IP=") + ip +
+                         " GW=" + gateway + " MASK=" + subnet);
     Serial.println("Network: using manual/static IPv4.");
     return WiFi.config(ip, gateway, subnet, dns1, dns2);
   }
@@ -325,10 +335,12 @@ bool apply() {
   // Selecting DHCP must be able to undo a prior manual/static address in the
   // live network interface, not merely change the saved NVS mode.
   if (!WiFi.config(IPAddress(), IPAddress(), IPAddress(), IPAddress(), IPAddress())) {
+    DiagnosticsLog::line("NETWORK | ERROR | failed to switch live interface back to DHCP");
     Serial.println("ERROR: failed to switch live interface back to DHCP.");
     return false;
   }
 
+  DiagnosticsLog::line("NETWORK | APPLY | DHCP");
   Serial.println("Network: using DHCP.");
   return true;
 }
