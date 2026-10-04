@@ -190,6 +190,9 @@ bool restoreFailed = false;
 bool firmwareUpdateFailed = false;
 size_t firmwareUpdateBytes = 0;
 
+bool webUpdateFailed = false;
+size_t webUpdateBytes = 0;
+
 enum class OtaStage : uint8_t {
   IDLE,
   CHECKING,
@@ -692,6 +695,104 @@ void handleFirmwareUpdateUpload() {
 }
 
 void handleFirmwareUpdateComplete(){if(firmwareUpdateFailed||firmwareUpdateBytes==0){if(Update.isRunning())Update.abort();server.send(400,"application/json; charset=utf-8","{\"message\":\"The firmware image could not be uploaded or verified. The existing firmware was not replaced.\"}");return;}server.send(200,"application/json; charset=utf-8","{\"message\":\"Firmware upgraded successfully. The ESP32-C3 is rebooting now.\"}");server.client().flush();delay(1000);ESP.restart();}
+
+void handleWebFilesystemUpdateUpload() {
+  HTTPUpload& upload = server.upload();
+
+  switch (upload.status) {
+    case UPLOAD_FILE_START: {
+      webUpdateFailed = false;
+      webUpdateBytes = 0;
+
+      const esp_partition_t* partition =
+          esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
+                                   ESP_PARTITION_SUBTYPE_DATA_SPIFFS,
+                                   nullptr);
+      String filename = upload.filename;
+      filename.toLowerCase();
+
+      if (partition == nullptr) {
+        webUpdateFailed = true;
+        DiagnosticsLog::line("OTA | WEB UPLOAD REJECTED | SPIFFS partition unavailable");
+        break;
+      }
+
+      // Manual Web UI images are the raw SPIFFS partition image produced by
+      // the build. Require the project's published -spiffs.bin naming so a
+      // firmware image cannot be accidentally sent to U_SPIFFS.
+      if (!filename.endsWith("-spiffs.bin")) {
+        webUpdateFailed = true;
+        DiagnosticsLog::line(String("OTA | WEB UPLOAD REJECTED | invalid image name | ") + upload.filename);
+        break;
+      }
+
+      if (!Update.begin(partition->size, U_SPIFFS)) {
+        webUpdateFailed = true;
+        DiagnosticsLog::line(String("OTA | WEB UPLOAD REJECTED | Update.begin failed | ") +
+                             Update.errorString());
+        break;
+      }
+
+      DiagnosticsLog::line(String("OTA | WEB UPLOAD START | ") + upload.filename +
+                           " | MAX=" + String(partition->size) + " bytes");
+      break;
+    }
+
+    case UPLOAD_FILE_WRITE:
+      if (webUpdateFailed) break;
+      if (webUpdateBytes > SIZE_MAX - upload.currentSize ||
+          webUpdateBytes + upload.currentSize > Update.size()) {
+        webUpdateFailed = true;
+        Update.abort();
+        DiagnosticsLog::line("OTA | WEB UPLOAD REJECTED | image exceeds SPIFFS partition");
+        break;
+      }
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        webUpdateFailed = true;
+        DiagnosticsLog::line(String("OTA | WEB UPLOAD FAILED | ") + Update.errorString());
+      } else {
+        webUpdateBytes += upload.currentSize;
+      }
+      break;
+
+    case UPLOAD_FILE_END:
+      if (webUpdateFailed) break;
+      if (webUpdateBytes == 0 || !Update.end(true)) {
+        webUpdateFailed = true;
+        if (Update.isRunning()) Update.abort();
+        DiagnosticsLog::line(String("OTA | WEB UPLOAD FAILED | ") +
+                             (Update.errorString()));
+        break;
+      }
+      DiagnosticsLog::line(String("OTA | WEB UPLOAD COMPLETE | ") +
+                           String(webUpdateBytes) + " bytes");
+      break;
+
+    case UPLOAD_FILE_ABORTED:
+      webUpdateFailed = true;
+      if (Update.isRunning()) Update.abort();
+      DiagnosticsLog::line("OTA | WEB UPLOAD ABORTED");
+      break;
+
+    default:
+      break;
+  }
+}
+
+void handleWebFilesystemUpdateComplete() {
+  if (webUpdateFailed || webUpdateBytes == 0) {
+    if (Update.isRunning()) Update.abort();
+    server.send(400, "application/json; charset=utf-8",
+                "{\"message\":\"The Web UI filesystem image could not be uploaded or verified. The existing Web UI was not replaced.\"}");
+    return;
+  }
+
+  server.send(200, "application/json; charset=utf-8",
+              "{\"message\":\"Web UI filesystem upgraded successfully. The ESP32-C3 is rebooting now.\"}");
+  server.client().flush();
+  delay(1000);
+  ESP.restart();
+}
 
 void handleConfigRestoreUpload() {
   HTTPUpload& upload = server.upload();
@@ -1461,6 +1562,7 @@ void begin() {
   server.on("/config/restore", HTTP_POST, handleConfigRestoreComplete, handleConfigRestoreUpload);
   server.on("/nvs/format", HTTP_POST, handleNvsFormat);
   server.on("/system/update", HTTP_POST, handleFirmwareUpdateComplete, handleFirmwareUpdateUpload);
+  server.on("/system/update-web", HTTP_POST, handleWebFilesystemUpdateComplete, handleWebFilesystemUpdateUpload);
   server.on("/system/update-latest", HTTP_POST, handleFirmwareUpdateLatest);
   server.on("/system/update-status", HTTP_GET, []() {
     String json = F("{\"active\":");
