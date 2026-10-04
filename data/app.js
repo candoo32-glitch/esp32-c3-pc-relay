@@ -2,6 +2,38 @@
 "use strict";
 const $=id=>document.getElementById(id);
 let wifiCredentialsDirty=false;
+const UI_CATALOG_URL="https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/ui/catalog.json";
+let uiCatalogLoaded=false;
+
+async function loadUiCatalog(){
+  const select=$("ui-selection");
+  if(!select)return;
+  try{
+    const r=await fetch(UI_CATALOG_URL+"?t="+Date.now(),{cache:"no-store"});
+    if(!r.ok)throw Error(r.status);
+    const catalog=await r.json();
+    const entries=Array.isArray(catalog?.uis)?catalog.uis:[];
+    const seen=new Set(["builtin"]);
+    entries.forEach(ui=>{
+      const id=String(ui?.id||"").trim();
+      const name=String(ui?.name||"").trim();
+      if(!id||!name||seen.has(id)||!/^[A-Za-z0-9._-]{1,63}$/.test(id))return;
+      seen.add(id);
+      const option=document.createElement("option");
+      option.value=id;
+      option.textContent=name;
+      select.appendChild(option);
+    });
+    uiCatalogLoaded=true;
+    const selected=String(select.dataset.savedSelection||"builtin");
+    select.value=seen.has(selected)?selected:"builtin";
+  }catch(e){
+    uiCatalogLoaded=false;
+    select.value="builtin";
+  }
+}
+
+
 let networkFormDirty=false;
 let stateFailureCount=0;
 const STATE_FAILURE_THRESHOLD=3;
@@ -168,7 +200,7 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  setRelay(s.relays[0],0);setRelay(s.relays[1],1);
 
  text("dash-uptime",s.system.uptime+" seconds");text("dash-build",s.system.build);text("dash-idf",s.system.idf);text("dash-cpu",s.system.cpu+" MHz");
- text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");const uiSelect=$("ui-selection");if(uiSelect)uiSelect.value=String(s.system.uiSelection??0);text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
+ text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");const uiSelect=$("ui-selection");if(uiSelect){const selected=String(s.system.uiSelection||"builtin");uiSelect.dataset.savedSelection=selected;if(uiCatalogLoaded)uiSelect.value=[...uiSelect.options].some(o=>o.value===selected)?selected:"builtin";}text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
  text("page-status",w.status);
 }
@@ -655,6 +687,7 @@ window.addEventListener("hashchange",currentTab);
 currentTab();
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 async function bootstrapPage(){
+ await loadUiCatalog();
  await load();
  await resumeOtaStatus();
 }
