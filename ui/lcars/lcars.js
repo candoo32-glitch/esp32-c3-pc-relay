@@ -5,24 +5,10 @@
   const boot=()=>{
     document.body.classList.add("lcars-ready");
 
-    document.querySelectorAll(".card").forEach((card,i)=>{
-      card.style.setProperty("--lcars-delay",(Math.min(i,18)*24)+"ms");
-      card.animate(
-        [{opacity:0,transform:"translateY(9px)"},{opacity:1,transform:"translateY(0)"}],
-        {duration:360,delay:Math.min(i,18)*24,easing:"cubic-bezier(.2,.8,.2,1)",fill:"both"}
-      );
-    });
-
-    const links=[...document.querySelectorAll("[data-tab-link]")];
-    links.forEach(link=>{
-      link.addEventListener("click",()=>{
-        document.querySelectorAll(".tab").forEach(tab=>{
-          if(!tab.hidden) tab.animate(
-            [{opacity:.55,transform:"translateX(5px)"},{opacity:1,transform:"translateX(0)"}],
-            {duration:220,easing:"ease-out"}
-          );
-        });
-      },{passive:true});
+    /* LCARS is a control console, not a presentation animation. Keep the
+       panels stable so live data and controls remain visually anchored. */
+    document.querySelectorAll(".card").forEach(card=>{
+      card.style.removeProperty("--lcars-delay");
     });
 
     const statusObserver=new MutationObserver(records=>{
