@@ -618,14 +618,24 @@ bool connect() {
 void reconnectTask(void*) {
   for (;;) {
     if (wifiEnabled && !reconnectSuppressed && !connectionAttemptActive &&
-        WiFi.status() != WL_CONNECTED &&
-        !preferences.getString(SSID_KEY, "").isEmpty()) {
-      esp_wifi_set_ps(WIFI_PS_NONE);
-      const esp_err_t result = esp_wifi_connect();
-      if (result == ESP_OK) {
-        WiFiDiagnostics::printText("AUTO_RECONNECT=REQUESTED", "1;33m");
-      } else if (result != ESP_ERR_WIFI_CONN) {
-        WiFiDiagnostics::printFailure("AUTO_RECONNECT", esp_err_to_name(result));
+        WiFi.status() != WL_CONNECTED) {
+      const String ssid = preferences.getString(SSID_KEY, "");
+      const String password = preferences.getString(PASSWORD_KEY, "");
+
+      if (!ssid.isEmpty()) {
+        // Use the same complete connection path as the interactive Wi-Fi
+        // menu. Calling esp_wifi_connect() by itself is not sufficient here:
+        // after reboot the ESP-IDF station configuration may not contain the
+        // saved SSID/password. The menu path works because it rebuilds the
+        // station config and applies NetConfig before connecting.
+        const ConnectResult result = connectWithCredentials(ssid, password);
+        if (result == ConnectResult::SUCCESS) {
+          WiFiDiagnostics::printText("AUTO_RECONNECT=CONNECTED", "1;32m");
+        } else {
+          WiFiDiagnostics::printText(
+              String("AUTO_RECONNECT=RETRY | ") + connectResultName(result),
+              "1;33m");
+        }
       }
     }
 
