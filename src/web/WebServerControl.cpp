@@ -252,7 +252,7 @@ String jsonEscape(const String& input);
 
 void handleFirmwareUpdateCheck(){if(!WiFiControl::isEnabled()||WiFi.status()!=WL_CONNECTED){server.send(503,"application/json; charset=utf-8","{\"message\":\"The ESP32-C3 is not connected to Wi-Fi.\"}");return;}String j;if(!fetchReleaseCatalog(j)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not retrieve the GitHub release catalog.\"}");return;}const long cf=firmwareBuild().toInt(),cw=webInterfaceBuild().toInt();long lf=-1,lw=-1;const String fu=firmwareReleaseUrl(j,lf),wu=webReleaseUrl(j,lw);const bool fa=!fu.isEmpty()&&lf>cf,wa=!wu.isEmpty()&&lw>cw;String m;if(!fa&&!wa)m="Firmware and web interface are up to date.";else{m="Firmware "+String(cf)+" → "+String(lf)+(fa?" available. ":" is current. ");m+="Web UI "+String(cw)+" → "+String(lw)+(wa?" available.":" is current.");}String o=F("{\"message\":\"");o+=jsonEscape(m);o+=F("\",\"currentFirmware\":");o+=String(cf);o+=F(",\"latestFirmware\":");o+=String(lf);o+=F(",\"currentWeb\":");o+=String(cw);o+=F(",\"latestWeb\":");o+=String(lw);o+=F(",\"firmwareAvailable\":");o+=fa?"true":"false";o+=F(",\"webAvailable\":");o+=wa?"true":"false";o+='}';server.send(200,"application/json; charset=utf-8",o);}
 
-void sendOtaEvent(const char* type, const char* stage, size_t received, size_t total, const String& message) {
+void sendOtaEvent(const char* type, const char* stage, size_t received, size_t total, const String& message, const char* component = "") {
   String event = F("{\"type\":\"");
   event += jsonEscape(type);
   event += F("\",\"stage\":\"");
@@ -261,18 +261,21 @@ void sendOtaEvent(const char* type, const char* stage, size_t received, size_t t
   event += String(received);
   event += F(",\"total\":");
   event += String(total);
-  event += F(",\"message\":\"");
+  event += F(",\"component\":\"");
+  event += jsonEscape(component);
+  event += F("\",\"message\":\"");
   event += jsonEscape(message);
   event += F("\"}\n");
   server.sendContent(event);
 }
 
 bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* description) {
+  const char* component = strcmp(description, "firmware") == 0 ? "firmware" : "web";
   const int contentLength = download.getSize();
   const size_t total = contentLength > 0 ? static_cast<size_t>(contentLength) : 0;
 
   sendOtaEvent("progress", "writing", 0, total,
-               String("Writing ") + description + " as data is received.");
+               String("Writing ") + description + " as data is received.", component);
 
   if (!Update.begin(total > 0 ? total : UPDATE_SIZE_UNKNOWN, command)) {
     Serial.print("OTA ");
@@ -329,7 +332,7 @@ bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* descr
       sendOtaEvent("progress", "writing", totalWritten, total,
                    String("Writing ") + description + " (" +
                    String(totalWritten) + (total > 0 ? String(" / ") + String(total) : String(" bytes")) +
-                   ").");
+                   ").", component);
       lastProgressEvent = millis();
     }
     yield();
@@ -352,7 +355,7 @@ bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* descr
   }
 
   sendOtaEvent("progress", "complete", totalWritten, total,
-               String(description) + " complete.");
+               String(description) + " complete.", component);
   Serial.print("OTA ");
   Serial.print(description);
   Serial.print(" complete: ");
