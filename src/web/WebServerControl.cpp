@@ -43,7 +43,7 @@ String firmwareBuild() {
 constexpr const char* THEME_NVS_NAMESPACE = "web";
 constexpr const char* THEME_NVS_KEY = "theme";
 constexpr uint8_t DEFAULT_THEME = 0;
-constexpr uint8_t THEME_COUNT = 20;
+constexpr uint8_t THEME_COUNT = 21;
 
 uint8_t savedTheme() {
   nvs_handle_t handle = 0;
