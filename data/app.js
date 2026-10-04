@@ -121,7 +121,7 @@ async function load(){
  try{
    const r=await fetch("/api/state",{cache:"no-store"});
    if(!r.ok)throw new Error(r.status);
-   const state=await r.json(); render(state); loadNvs()
+   const state=await r.json(); render(state); loadNvsContents()
  }catch(e){text("page-status","UNAVAILABLE")}
 }
 document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
