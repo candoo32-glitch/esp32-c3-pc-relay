@@ -4,7 +4,7 @@
   "version": 1,
   "description": "Animated LCARS visual system for the ESP32-C3 PC Relay web interface.",
   "assets": {
-    "stylesheet": "lcars-v12.css",
+    "stylesheet": "lcars-v13.css",
     "script": "lcars.js"
   },
   "requires": "builtin-dom-v1"
