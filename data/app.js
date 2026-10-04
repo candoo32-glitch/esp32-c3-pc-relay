@@ -19,21 +19,22 @@ function removeExternalUi(){
   activeExternalUi="";
 }
 
-function loadExternalUiAsset(tag,url){
-  return new Promise((resolve,reject)=>{
-    const el=document.createElement(tag);
-    el.dataset.externalUi="true";
-    if(tag==="link"){
-      el.rel="stylesheet";
-      el.href=url;
-    }else{
-      el.src=url;
-      el.async=false;
-    }
-    el.onload=()=>resolve(el);
-    el.onerror=()=>reject(new Error("UI asset failed: "+url));
-    document.head.appendChild(el);
-  });
+async function loadExternalUiAsset(tag,url){
+  const r=await fetch(url,{cache:"no-store"});
+  if(!r.ok)throw new Error("UI asset HTTP "+r.status+": "+url);
+  const source=await r.text();
+  const el=document.createElement(tag);
+  el.dataset.externalUi="true";
+  if(tag==="link"){
+    const style=document.createElement("style");
+    style.dataset.externalUi="true";
+    style.textContent=source;
+    document.head.appendChild(style);
+    return style;
+  }
+  el.textContent=source;
+  document.head.appendChild(el);
+  return el;
 }
 
 async function activateUi(uiId){
