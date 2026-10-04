@@ -17,7 +17,7 @@ location.hash=tab;
 if(tab==="storage"){loadNvsContents();loadStorageFiles();}
 return tab}
 function currentTab(){const hash=(location.hash||"").slice(1);const query=new URLSearchParams(location.search).get("tab");return showTab(hash||query||"dashboard")}
-function statusClass(e,v){e.className=v==="CONNECTED"?"ok":v==="OFF"?"muted":"warn";e.textContent=v}
+function statusClass(e,v){if(!e)return;e.className="status "+(v==="CONNECTED"?"ok":v==="OFF"?"muted":"warn");e.textContent=v}
 function fmt(v,s){return v===null||v===undefined||v===""?"-":String(v)+(s||"")}
 function setRelay(r,i){
  text("relay-title-"+i,r.name); text("relay-state-"+i,r.state?"ACTIVE":"NORMAL"); text("relay-normal-"+i,r.normal);
