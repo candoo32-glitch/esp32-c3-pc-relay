@@ -26,6 +26,22 @@ namespace {
 WebServer server(80);
 bool serverStarted = false;
 
+void addNoCacheHeaders() {
+  server.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  server.sendHeader("Pragma", "no-cache");
+  server.sendHeader("Expires", "0");
+}
+
+void sendNoCache(int code) {
+  addNoCacheHeaders();
+  server.send(code);
+}
+
+void sendNoCache(int code, const char* contentType, const String& content) {
+  addNoCacheHeaders();
+  server.send(code, contentType, content);
+}
+
 String statusText() {
   if (!WiFiControl::isEnabled()) return "OFF";
   if (WiFi.status() == WL_CONNECTED) return "CONNECTED";
@@ -159,7 +175,7 @@ const esp_partition_t* nvsPartition() {
 bool sendNvsBackup() {
   const esp_partition_t* partition = nvsPartition();
   if (partition == nullptr || partition->size == 0) {
-    server.send(500, "text/plain", "NVS partition not found");
+    sendNoCache(500, "text/plain", "NVS partition not found");
     return false;
   }
 
@@ -169,7 +185,7 @@ bool sendNvsBackup() {
   filename += F("-ESP32-C3-Config.backup");
   server.sendHeader("Content-Disposition", String("attachment; filename=\"") + filename + "\"");
   server.setContentLength(partition->size);
-  server.send(200, "application/octet-stream", "");
+  sendNoCache(200, "application/octet-stream", "");
   WiFiClient& client = server.client();
 
   uint8_t buffer[4096];
@@ -608,13 +624,13 @@ void serviceOta() {
 
 void handleFirmwareUpdateLatest() {
   if (otaActive || otaStage == OtaStage::REBOOTING) {
-    server.send(409, "application/json; charset=utf-8",
+    sendNoCache(409, "application/json; charset=utf-8",
                 "{\"message\":\"An OTA update is already in progress.\"}");
     return;
   }
 
   if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
-    server.send(503, "application/json; charset=utf-8",
+    sendNoCache(503, "application/json; charset=utf-8",
                 "{\"message\":\"The ESP32-C3 is not connected to Wi-Fi.\"}");
     return;
   }
@@ -641,7 +657,7 @@ void handleFirmwareUpdateLatest() {
   setOtaStatus(OtaStage::CHECKING, "",
                "Checking GitHub for firmware and Web UI updates.");
 
-  server.send(202, "application/json; charset=utf-8",
+  sendNoCache(202, "application/json; charset=utf-8",
               "{\"message\":\"OTA update started.\"}");
 }
 
@@ -705,7 +721,7 @@ void handleFirmwareUpdateUpload() {
   }
 }
 
-void handleFirmwareUpdateComplete(){if(firmwareUpdateFailed||firmwareUpdateBytes==0){if(Update.isRunning())Update.abort();server.send(400,"application/json; charset=utf-8","{\"message\":\"The firmware image could not be uploaded or verified. The existing firmware was not replaced.\"}");return;}server.send(200,"application/json; charset=utf-8","{\"message\":\"Firmware upgraded successfully. The ESP32-C3 is rebooting now.\"}");server.client().flush();delay(1000);ESP.restart();}
+void handleFirmwareUpdateComplete(){if(firmwareUpdateFailed||firmwareUpdateBytes==0){if(Update.isRunning())Update.abort();sendNoCache(400,"application/json; charset=utf-8","{\"message\":\"The firmware image could not be uploaded or verified. The existing firmware was not replaced.\"}");return;}sendNoCache(200,"application/json; charset=utf-8","{\"message\":\"Firmware upgraded successfully. The ESP32-C3 is rebooting now.\"}");server.client().flush();delay(1000);ESP.restart();}
 
 void handleWebFilesystemUpdateUpload() {
   HTTPUpload& upload = server.upload();
@@ -795,12 +811,12 @@ void handleWebFilesystemUpdateUpload() {
 void handleWebFilesystemUpdateComplete() {
   if (webUpdateFailed || webUpdateBytes == 0) {
     if (Update.isRunning()) Update.abort();
-    server.send(400, "application/json; charset=utf-8",
+    sendNoCache(400, "application/json; charset=utf-8",
                 "{\"message\":\"The Web UI filesystem image could not be uploaded or verified. The existing Web UI was not replaced.\"}");
     return;
   }
 
-  server.send(200, "application/json; charset=utf-8",
+  sendNoCache(200, "application/json; charset=utf-8",
               "{\"message\":\"Web UI filesystem upgraded successfully. The ESP32-C3 is rebooting now.\"}");
   server.client().flush();
   delay(1000);
@@ -854,7 +870,7 @@ void handleConfigRestoreUpload() {
   }
 }
 
-void handleConfigRestoreComplete(){const esp_partition_t* p=nvsPartition();const bool v=!restoreFailed&&p&&restoreBuffer&&restoreBytes==restoreCapacity;if(!v){if(restoreBuffer)free(restoreBuffer);restoreBuffer=nullptr;restoreCapacity=0;restoreBytes=0;server.send(400,"application/json; charset=utf-8","{\"message\":\"The uploaded NVS backup was incomplete or invalid. No configuration was changed.\"}");return;}esp_err_t r=esp_partition_erase_range(p,0,p->size);if(r==ESP_OK)r=esp_partition_write(p,0,restoreBuffer,p->size);free(restoreBuffer);restoreBuffer=nullptr;restoreCapacity=0;restoreBytes=0;if(r!=ESP_OK){server.send(500,"application/json; charset=utf-8","{\"message\":\"NVS configuration restore failed.\"}");return;}server.send(200,"application/json; charset=utf-8","{\"message\":\"Configuration restored successfully. The ESP32-C3 is rebooting now.\"}");server.client().flush();delay(1000);ESP.restart();}
+void handleConfigRestoreComplete(){const esp_partition_t* p=nvsPartition();const bool v=!restoreFailed&&p&&restoreBuffer&&restoreBytes==restoreCapacity;if(!v){if(restoreBuffer)free(restoreBuffer);restoreBuffer=nullptr;restoreCapacity=0;restoreBytes=0;sendNoCache(400,"application/json; charset=utf-8","{\"message\":\"The uploaded NVS backup was incomplete or invalid. No configuration was changed.\"}");return;}esp_err_t r=esp_partition_erase_range(p,0,p->size);if(r==ESP_OK)r=esp_partition_write(p,0,restoreBuffer,p->size);free(restoreBuffer);restoreBuffer=nullptr;restoreCapacity=0;restoreBytes=0;if(r!=ESP_OK){sendNoCache(500,"application/json; charset=utf-8","{\"message\":\"NVS configuration restore failed.\"}");return;}sendNoCache(200,"application/json; charset=utf-8","{\"message\":\"Configuration restored successfully. The ESP32-C3 is rebooting now.\"}");server.client().flush();delay(1000);ESP.restart();}
 
 String jsonEscape(const String& input) {
   String out;
@@ -968,7 +984,7 @@ void handlePageState() {
   json += String(savedTheme());
   json += F("}}");
 
-  server.send(200, "application/json; charset=utf-8", json);
+  sendNoCache(200, "application/json; charset=utf-8", json);
 }
 
 void handleNvsState() {
@@ -999,7 +1015,7 @@ void handleNvsState() {
   }
   if (iterator != nullptr) nvs_release_iterator(iterator);
   json += F("]}");
-  server.send(200, "application/json; charset=utf-8", json);
+  sendNoCache(200, "application/json; charset=utf-8", json);
 }
 
 
@@ -1008,7 +1024,7 @@ void handleNvsStats() {
   nvs_stats_t stats{};
   const esp_err_t result = nvs_get_stats("nvs", &stats);
   if (result != ESP_OK) {
-    server.send(503, "application/json; charset=utf-8", "{\"message\":\"NVS statistics unavailable.\"}");
+    sendNoCache(503, "application/json; charset=utf-8", "{\"message\":\"NVS statistics unavailable.\"}");
     return;
   }
 
@@ -1023,7 +1039,7 @@ void handleNvsStats() {
   json += F(",\"namespaceCount\":");
   json += String(stats.namespace_count);
   json += F("}");
-  server.send(200, "application/json; charset=utf-8", json);
+  sendNoCache(200, "application/json; charset=utf-8", json);
 }
 
 
@@ -1065,7 +1081,7 @@ void handleStorageFiles() {
   json += F(",\"files\":[");
   File root = SPIFFS.open("/");
   if (!root) {
-    server.send(500, "application/json; charset=utf-8", "{\"message\":\"Web storage could not be opened.\"}");
+    sendNoCache(500, "application/json; charset=utf-8", "{\"message\":\"Web storage could not be opened.\"}");
     return;
   }
 
@@ -1087,19 +1103,19 @@ void handleStorageFiles() {
   }
   root.close();
   json += F("]}");
-  server.send(200, "application/json; charset=utf-8", json);
+  sendNoCache(200, "application/json; charset=utf-8", json);
 }
 
 void handleStorageView() {
   const String path = storagePath(server.arg("path"));
   if (path.isEmpty() || !SPIFFS.exists(path)) {
-    server.send(404, "text/plain; charset=utf-8", "File not found.");
+    sendNoCache(404, "text/plain; charset=utf-8", "File not found.");
     return;
   }
   File file = SPIFFS.open(path, FILE_READ);
   if (!file || file.isDirectory()) {
     if (file) file.close();
-    server.send(400, "text/plain; charset=utf-8", "Not a file.");
+    sendNoCache(400, "text/plain; charset=utf-8", "Not a file.");
     return;
   }
   server.sendHeader("Cache-Control", "no-store");
@@ -1110,13 +1126,13 @@ void handleStorageView() {
 void handleStorageDownload() {
   const String path = storagePath(server.arg("path"));
   if (path.isEmpty() || !SPIFFS.exists(path)) {
-    server.send(404, "text/plain; charset=utf-8", "File not found.");
+    sendNoCache(404, "text/plain; charset=utf-8", "File not found.");
     return;
   }
   File file = SPIFFS.open(path, FILE_READ);
   if (!file || file.isDirectory()) {
     if (file) file.close();
-    server.send(400, "text/plain; charset=utf-8", "Not a file.");
+    sendNoCache(400, "text/plain; charset=utf-8", "Not a file.");
     return;
   }
   String filename = path.substring(path.lastIndexOf('/') + 1);
@@ -1129,15 +1145,15 @@ void handleStorageDownload() {
 void handleStorageDelete() {
   const String path = storagePath(server.arg("path"));
   if (path.isEmpty() || !SPIFFS.exists(path)) {
-    server.send(404, "application/json; charset=utf-8", "{\"message\":\"File not found.\"}");
+    sendNoCache(404, "application/json; charset=utf-8", "{\"message\":\"File not found.\"}");
     return;
   }
   if (!SPIFFS.remove(path)) {
-    server.send(500, "application/json; charset=utf-8", "{\"message\":\"File could not be erased.\"}");
+    sendNoCache(500, "application/json; charset=utf-8", "{\"message\":\"File could not be erased.\"}");
     return;
   }
   DiagnosticsLog::line(String("WEB | STORAGE ERASE | ") + path);
-  server.send(200, "application/json; charset=utf-8", "{\"message\":\"File erased.\"}");
+  sendNoCache(200, "application/json; charset=utf-8", "{\"message\":\"File erased.\"}");
 }
 
 
@@ -1189,11 +1205,11 @@ void handleStorageUpload() {
 
 void handleStorageUploadComplete() {
   if (storageUploadFailed || storageUploadPath.isEmpty() || storageUploadBytes == 0) {
-    server.send(400, "application/json; charset=utf-8", "{\"message\":\"The Web UI file could not be uploaded.\"}");
+    sendNoCache(400, "application/json; charset=utf-8", "{\"message\":\"The Web UI file could not be uploaded.\"}");
     return;
   }
   DiagnosticsLog::line(String("WEB | STORAGE UPLOAD | ") + storageUploadPath + " | " + String(storageUploadBytes) + " bytes");
-  server.send(200, "application/json; charset=utf-8", "{\"message\":\"File uploaded.\"}");
+  sendNoCache(200, "application/json; charset=utf-8", "{\"message\":\"File uploaded.\"}");
 }
 
 const char RECOVERY_PAGE[] PROGMEM = R"RECOVERY(
@@ -1311,13 +1327,13 @@ setInterval(poll,500);
 
 void handleStaticAsset(const char* path, const char* contentType) {
   if (!SPIFFS.exists(path)) {
-    server.send(404, "text/plain; charset=utf-8", "Web UI asset not found.");
+    sendNoCache(404, "text/plain; charset=utf-8", "Web UI asset not found.");
     return;
   }
 
   File file = SPIFFS.open(path, FILE_READ);
   if (!file) {
-    server.send(500, "text/plain; charset=utf-8",
+    sendNoCache(500, "text/plain; charset=utf-8",
                 "Web UI asset could not be opened.");
     return;
   }
@@ -1328,7 +1344,7 @@ void handleStaticAsset(const char* path, const char* contentType) {
 
 void handleRecoveryPage() {
   server.sendHeader("Cache-Control", "no-store");
-  server.send(200, "text/html; charset=utf-8", RECOVERY_PAGE);
+  sendNoCache(200, "text/html; charset=utf-8", RECOVERY_PAGE);
 }
 
 void handleRoot() {
@@ -1347,17 +1363,17 @@ void handleAppJs() {
 }
 
 void handleToggle(){const bool enable=!WiFiControl::isEnabled();
-  DiagnosticsLog::line(String("WEB | WIFI TOGGLE | ") + (enable ? "ON" : "OFF"));if(!enable){server.send(204);delay(100);WiFiControl::setEnabled(false);return;}WiFiControl::setEnabled(true);server.send(204);}
+  DiagnosticsLog::line(String("WEB | WIFI TOGGLE | ") + (enable ? "ON" : "OFF"));if(!enable){sendNoCache(204);delay(100);WiFiControl::setEnabled(false);return;}WiFiControl::setEnabled(true);sendNoCache(204);}
 
 void handleReconnect() {
   DiagnosticsLog::line("WEB | WIFI RECONNECT");
   WiFiControl::connect();
-  server.send(204);
+  sendNoCache(204);
 }
 
 void handleWifiSave() {
   if (!server.hasArg("ssid") || !server.hasArg("password")) {
-    server.send(204);
+    sendNoCache(204);
     return;
   }
   const String ssid = server.arg("ssid");
@@ -1368,10 +1384,10 @@ void handleWifiSave() {
   } else {
     WiFiControl::configureCredentials(ssid, password);
   }
-  server.send(204);
+  sendNoCache(204);
 }
 
-void handleWifiScan(){DiagnosticsLog::line("WEB | WIFI SCAN");if(!WiFiControl::isEnabled()){server.send(409,"application/json; charset=utf-8","{\"networks\":[]}");return;}WiFiControl::service();WiFi.scanDelete();const int count=WiFi.scanNetworks();String j=F("{\"networks\":[");for(int n=0;n<count;++n){if(n)j+=',';j+=F("{\"ssid\":\"");j+=jsonEscape(WiFi.SSID(n));j+=F("\",\"rssi\":");j+=String(WiFi.RSSI(n));j+=F(",\"channel\":");j+=String(WiFi.channel(n));j+=F(",\"security\":\"");j+=jsonEscape(WiFiControl::authModeName(WiFi.encryptionType(n)));j+=F("\",\"bssid\":\"");j+=jsonEscape(WiFi.BSSIDstr(n));j+=F("\"}");}j+=F("]}");WiFi.scanDelete();server.send(200,"application/json; charset=utf-8",j);}
+void handleWifiScan(){DiagnosticsLog::line("WEB | WIFI SCAN");if(!WiFiControl::isEnabled()){sendNoCache(409,"application/json; charset=utf-8","{\"networks\":[]}");return;}WiFiControl::service();WiFi.scanDelete();const int count=WiFi.scanNetworks();String j=F("{\"networks\":[");for(int n=0;n<count;++n){if(n)j+=',';j+=F("{\"ssid\":\"");j+=jsonEscape(WiFi.SSID(n));j+=F("\",\"rssi\":");j+=String(WiFi.RSSI(n));j+=F(",\"channel\":");j+=String(WiFi.channel(n));j+=F(",\"security\":\"");j+=jsonEscape(WiFiControl::authModeName(WiFi.encryptionType(n)));j+=F("\",\"bssid\":\"");j+=jsonEscape(WiFi.BSSIDstr(n));j+=F("\"}");}j+=F("]}");WiFi.scanDelete();sendNoCache(200,"application/json; charset=utf-8",j);}
 
 void handleTxPower() {
   if (server.hasArg("dbm")) {
@@ -1379,21 +1395,21 @@ void handleTxPower() {
     const float value = server.arg("dbm").toFloat();
     WiFiControl::setTxPowerDbm(value);
   }
-  server.send(204);
+  sendNoCache(204);
 }
 
 void handleDiagnosticsToggle() {
   const bool desired = !WiFiDiagnostics::enabled();
   DiagnosticsLog::line(String("WEB | WIFI DIAGNOSTICS | ") + (desired ? "ON" : "OFF"));
   if (desired != WiFiDiagnostics::enabled()) WiFiDiagnostics::toggle();
-  server.send(204);
+  sendNoCache(204);
 }
 
 void handleNetworkSave() {
   DiagnosticsLog::line("WEB | NETWORK SAVE");
   if (server.hasArg("hostname")) {
     if (!NetConfig::setHostname(server.arg("hostname"))) {
-      server.send(204);
+      sendNoCache(204);
       return;
     }
   }
@@ -1407,18 +1423,18 @@ void handleNetworkSave() {
                           server.arg("dns2"));
   }
   WiFiControl::connect();
-  server.send(204);
+  sendNoCache(204);
 }
 
 void handleRelayAction() {
   DiagnosticsLog::line(String("WEB | RELAY ACTION | id=") + server.arg("id") + " action=" + server.arg("action"));
   if (!server.hasArg("id") || !server.hasArg("action")) {
-    server.send(204);
+    sendNoCache(204);
     return;
   }
   const int id = server.arg("id").toInt();
   if (id < 0 || id > 1) {
-    server.send(204);
+    sendNoCache(204);
     return;
   }
   const Relay::Id relay = static_cast<Relay::Id>(id);
@@ -1429,7 +1445,7 @@ void handleRelayAction() {
       returnTab != "diagnostics" && returnTab != "relays" && returnTab != "storage" && returnTab != "system") {
     returnTab = "relays";
   }
-  server.send(204);
+  sendNoCache(204);
 }
 
 void handleRelayConfig() {
@@ -1455,7 +1471,7 @@ void handleRelayConfig() {
     name.trim();
     if (name.isEmpty()) name = defaults[i].name;
     if (!Relay::setName(relay, name)) {
-      server.send(204);
+      sendNoCache(204);
       return;
     }
 
@@ -1465,7 +1481,7 @@ void handleRelayConfig() {
     if (normal == "open") Relay::setNormalState(relay, Relay::NormalState::OPEN);
     else if (normal == "closed") Relay::setNormalState(relay, Relay::NormalState::CLOSED);
     else {
-      server.send(204);
+      sendNoCache(204);
       return;
     }
 
@@ -1475,7 +1491,7 @@ void handleRelayConfig() {
     if (mode == "latched") Relay::setActivationMode(relay, Relay::ActivationMode::LATCHED);
     else if (mode == "pulse") Relay::setActivationMode(relay, Relay::ActivationMode::PULSE);
     else {
-      server.send(204);
+      sendNoCache(204);
       return;
     }
 
@@ -1486,22 +1502,22 @@ void handleRelayConfig() {
       const long parsed = pulseText.toInt();
       if (parsed >= 10 && parsed <= 60000) pulse = static_cast<uint32_t>(parsed);
       else {
-        server.send(204);
+        sendNoCache(204);
         return;
       }
     }
     if (!Relay::setPulseMs(relay, pulse)) {
-      server.send(204);
+      sendNoCache(204);
       return;
     }
   }
 
-  server.send(204);
+  sendNoCache(204);
 }
 
-void handleNvsFormat(){server.send(204);delay(300);const esp_err_t r=nvs_flash_erase_partition("nvs");if(r==ESP_OK)nvs_flash_init_partition("nvs");delay(300);ESP.restart();}
+void handleNvsFormat(){sendNoCache(204);delay(300);const esp_err_t r=nvs_flash_erase_partition("nvs");if(r==ESP_OK)nvs_flash_init_partition("nvs");delay(300);ESP.restart();}
 
-void handleReboot(){server.send(204);delay(300);ESP.restart();}
+void handleReboot(){sendNoCache(204);delay(300);ESP.restart();}
 
 } // namespace
 
@@ -1545,7 +1561,7 @@ void begin() {
     json += DiagnosticsLog::recentOtaJson();
     json += '}';
     server.sendHeader("Cache-Control", "no-store");
-    server.send(200, "application/json; charset=utf-8", json);
+    sendNoCache(200, "application/json; charset=utf-8", json);
   });
   server.on("/recovery/update", HTTP_POST, handleFirmwareUpdateLatest);
   server.on("/", HTTP_GET, handleRoot);
@@ -1560,7 +1576,7 @@ void begin() {
   server.on("/storage/delete", HTTP_POST, handleStorageDelete);
   server.on("/storage/upload", HTTP_POST, handleStorageUploadComplete, handleStorageUpload);
   server.on("/api/diagnostics", HTTP_GET, []() {
-    server.send(200, "application/json; charset=utf-8", DiagnosticsLog::recentJson());
+    sendNoCache(200, "application/json; charset=utf-8", DiagnosticsLog::recentJson());
   });
   server.on("/wifi/toggle", HTTP_POST, handleToggle);
   server.on("/wifi/reconnect", HTTP_POST, handleReconnect);
@@ -1601,23 +1617,23 @@ void begin() {
     json += F("\",\"error\":\"");
     json += jsonEscape(otaError);
     json += F("\"}");
-    server.send(200, "application/json; charset=utf-8", json);
+    sendNoCache(200, "application/json; charset=utf-8", json);
   });
   server.on("/system/theme", HTTP_POST, []() {
     if (!server.hasArg("theme")) {
-      server.send(400, "application/json; charset=utf-8", "{\"message\":\"Theme is required.\"}");
+      sendNoCache(400, "application/json; charset=utf-8", "{\"message\":\"Theme is required.\"}");
       return;
     }
     const long value = server.arg("theme").toInt();
     DiagnosticsLog::line(String("WEB | THEME SAVE | ") + String(value));
     if (value < 0 || value >= THEME_COUNT || !saveTheme(static_cast<uint8_t>(value))) {
-      server.send(400, "application/json; charset=utf-8", "{\"message\":\"Invalid theme.\"}");
+      sendNoCache(400, "application/json; charset=utf-8", "{\"message\":\"Invalid theme.\"}");
       return;
     }
-    server.send(204);
+    sendNoCache(204);
   });
   server.on("/system/reboot", HTTP_POST, []() { DiagnosticsLog::line("WEB | REBOOT REQUEST"); handleReboot(); });
-  server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
+  server.onNotFound([]() { sendNoCache(404, "text/plain", "Not found"); });
   server.begin();
   serverStarted = true;
   DiagnosticsLog::line("WEB | SERVER STARTED | port=80");
