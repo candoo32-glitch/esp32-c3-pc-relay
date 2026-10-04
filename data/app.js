@@ -74,6 +74,12 @@ $("show-password").addEventListener("click",()=>{
  $("show-password").textContent=visible?"Show password":"Hide password";
 });
 function setPageStatus(m,k){const e=$("page-status");if(e){e.textContent=m;e.className=k||""}}
+function setOtaUpdateButtonDisabled(disabled){
+ const b=$("update-latest-button");
+ if(!b)return;
+ b.disabled=disabled;
+ b.textContent=disabled?"Update in progress…":"Check for and install updates";
+}
 async function rd(r){const t=r.headers.get("content-type")||"";return t.includes("application/json")?await r.json():null}
 async function pf(f){const r=await fetch(f.action,{method:"POST",body:new URLSearchParams(new FormData(f)),cache:"no-store"});if(!r.ok)throw Error(r.status);return rd(r)}
 async function pfu(f){const r=await fetch(f.action,{method:"POST",body:new FormData(f),cache:"no-store"});if(!r.ok)throw Error(r.status);return rd(r)}
@@ -257,7 +263,10 @@ async function monitorOtaStatus(){
        }
 
        renderOtaStatus(d);
-       if(d.stage==="error"||d.stage==="complete"||d.stage==="rebooting")return d;
+       if(d.stage==="error"||d.stage==="complete"||d.stage==="rebooting"){
+       setOtaUpdateButtonDisabled(d.stage==="rebooting");
+       return d;
+     }
      }catch(x){
        setPageStatus("ESP32-C3 connection lost — waiting for it to reconnect…","warn");
        await new Promise(resolve=>setTimeout(resolve,1000));
@@ -271,6 +280,9 @@ async function monitorOtaStatus(){
 }
 async function latest(e){
  e.preventDefault();
+ const button=$("update-latest-button");
+ if(button?.disabled)return;
+ setOtaUpdateButtonDisabled(true);
  setPageStatus("Installing updates…","warn");
  showUpdateStatus("", "warn");
  $("software-update-message").hidden=true;
@@ -293,6 +305,7 @@ async function latest(e){
    try{d=await r.json()}catch(x){}
    if(!r.ok)throw new Error(d?.message||"OTA request failed (HTTP "+r.status+").");
  }catch(x){
+   setOtaUpdateButtonDisabled(false);
    showUpdateStatus(x.message||"Update request failed.","bad");
    setPageStatus("Update request failed","bad");
    return;
@@ -303,6 +316,7 @@ async function resumeOtaStatus(){
  try{
    const d=await readOtaStatus();
    if(d.active||["rebooting","complete","error"].includes(d.stage)){
+     setOtaUpdateButtonDisabled(d.active||d.stage==="rebooting");
      $("software-update-message").hidden=true;
      $("software-update-details").hidden=false;
      $("software-update-progress").hidden=false;
