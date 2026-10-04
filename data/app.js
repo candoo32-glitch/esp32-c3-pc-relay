@@ -14,8 +14,9 @@ function uiAssetUrl(uiId,asset){
   return UI_ROOT_URL+"/"+encodeURIComponent(uiId)+"/"+String(asset||"").split("/").map(encodeURIComponent).join("/");
 }
 
-function removeExternalUi(){
-  document.querySelectorAll("[data-external-ui],[data-ui-pending]").forEach(e=>e.remove());
+function removeExternalUi(keepPending=false){
+  const selector=keepPending?"[data-external-ui]":"[data-external-ui],[data-ui-pending]";
+  document.querySelectorAll(selector).forEach(e=>e.remove());
   document.body.classList.remove("external-ui-active","external-ui-fallback","lcars-ready");
   document.body.removeAttribute("data-lcars-tab");
   document.documentElement.removeAttribute("data-external-ui");
@@ -93,7 +94,7 @@ async function activateUi(uiId){
      * network fetches have succeeded do we remove the old package.
      */
     pendingStyle=installExternalUiStyle(stylesheetSource);
-    removeExternalUi();
+    removeExternalUi(true);
     promotePendingUiStyle(pendingStyle);
     pendingStyle=null;
 
