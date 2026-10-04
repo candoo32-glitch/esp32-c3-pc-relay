@@ -67,6 +67,7 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
 .theme-swatch.swatch-text{background:var(--fg)}
 .theme-swatch.swatch-accent{background:var(--accent)}
 .theme-option-name{min-width:74px}
+[data-theme="20"]{--bg:#111;--fg:#eee;--card:#1c1c1c;--border:#414141;--input:#111;--text-muted:#999;--heading-muted:#bbb;--line:#333;--tab:#191919;--tab-active:#303030;--accent:#315f93;--good:#286a39;--danger:#7b3030;--secondary:#454545;--notice:#252525;--track:#111;--shadow:rgba(0,0,0,.45)}
 .theme-option[data-theme-value="0"] .swatch-bg{background:#111827}.theme-option[data-theme-value="0"] .swatch-card{background:#1f2937}.theme-option[data-theme-value="0"] .swatch-text{background:#f8fafc}.theme-option[data-theme-value="0"] .swatch-accent{background:#3b82f6}
 .theme-option[data-theme-value="1"] .swatch-bg{background:#061b2d}.theme-option[data-theme-value="1"] .swatch-card{background:#0d2b43}.theme-option[data-theme-value="1"] .swatch-text{background:#e8f7ff}.theme-option[data-theme-value="1"] .swatch-accent{background:#22a7e8}
 .theme-option[data-theme-value="2"] .swatch-bg{background:#0b1b12}.theme-option[data-theme-value="2"] .swatch-card{background:#14291c}.theme-option[data-theme-value="2"] .swatch-text{background:#edf9f0}.theme-option[data-theme-value="2"] .swatch-accent{background:#4caf50}
@@ -91,3 +92,4 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
 
 .diagnostic-console{display:block;width:100%;height:420px;min-height:280px;resize:vertical;overflow:auto;padding:12px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fg);background:var(--input);border:1px solid var(--border);border-radius:8px;white-space:pre;tab-size:4}.diagnostic-console:focus{outline:2px solid var(--accent);border-color:var(--accent)}
 @media(max-width:700px){.diagnostic-console{height:320px;min-height:220px}}
+.theme-option[data-theme-value="20"] .swatch-bg{background:#111}.theme-option[data-theme-value="20"] .swatch-card{background:#1c1c1c}.theme-option[data-theme-value="20"] .swatch-text{background:#eee}.theme-option[data-theme-value="20"] .swatch-accent{background:#315f93}
