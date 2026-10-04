@@ -26,3 +26,5 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
 .firmware-update-actions{display:flex;justify-content:center;align-items:center;gap:24px;flex-wrap:wrap;margin-top:8px}.firmware-update-actions form{margin:0}
 @media(max-width:700px){body{padding:10px}.relay-float{position:static;margin:10px 0 14px}.relay-float-buttons{justify-content:center}.relay-float .relay-button{min-width:0;flex:1}}
 .password-field{display:flex;gap:8px;align-items:stretch}.password-field input{flex:1}.password-toggle{margin:0;white-space:nowrap}
+
+.spinner{display:inline-block;width:1em;height:1em;margin-right:8px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-0.15em;animation:spin .7s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
