@@ -161,16 +161,80 @@ async function latest(e){
  e.preventDefault();
  if(!confirm("Check for newer firmware and web interface components on GitHub, install any that are newer, then reboot the ESP32-C3?"))return;
  setPageStatus("Installing updates…","warn");
- showUpdateStatus("Checking for newer components and installing any updates…","warn");
+ showUpdateStatus("Checking for newer components…","warn");
  $("software-update-details").hidden=true;
+ $("software-update-progress").hidden=false;
+ const progress=$("ota-progress-bar"),stage=$("ota-progress-stage"),info=$("ota-progress-info");
+ progress.style.width="0%";
+ progress.classList.add("indeterminate");
+ stage.textContent="Checking GitHub";
+ info.textContent="";
  try{
-   const d=await pf(e.currentTarget);
-   showUpdateStatus(d?.message||"Update installed; rebooting the ESP32-C3.","ok");
-   setPageStatus(d?.message||"Update installed; rebooting.","ok");
+   const r=await fetch(e.currentTarget.action,{method:"POST",cache:"no-store"});
+   if(!r.ok)throw new Error("OTA request failed (HTTP "+r.status+").");
+   if(!r.body)throw new Error("OTA progress streaming is not available in this browser.");
+   const reader=r.body.pipeThrough(new TextDecoderStream()).getReader();
+   let buffer="";
+   while(true){
+     const part=await reader.read();
+     if(part.done)break;
+     buffer+=part.value;
+     const lines=buffer.split(/\r?\n/);
+     buffer=lines.pop()||"";
+     for(const line of lines){
+       if(!line.trim())continue;
+       let d;
+       try{d=JSON.parse(line)}catch(x){continue}
+       if(d.type==="error"){
+         showUpdateStatus(d.message||"OTA update failed.","bad");
+         setPageStatus(d.message||"OTA update failed.","bad");
+         progress.classList.remove("indeterminate");
+         progress.style.width="0%";
+         throw new Error(d.message||"OTA update failed.");
+       }
+       if(d.type==="complete"&&d.stage==="complete"){
+         progress.classList.remove("indeterminate");
+         progress.style.width="100%";
+         stage.textContent="Complete";
+         info.textContent=d.message||"No updates were required.";
+         showUpdateStatus(d.message||"Update check complete.","ok");
+         setPageStatus("Update complete","ok");
+         continue;
+       }
+       if(d.type==="complete"&&d.stage==="rebooting"){
+         progress.classList.remove("indeterminate");
+         progress.style.width="100%";
+         stage.textContent="Rebooting";
+         info.textContent=d.message||"Rebooting the ESP32-C3…";
+         showUpdateStatus(d.message||"Rebooting the ESP32-C3…","ok");
+         setPageStatus("Rebooting…","ok");
+         continue;
+       }
+       if(d.type==="progress"){
+         stage.textContent=d.message||d.stage||"Updating";
+         if(d.total>0){
+           progress.classList.remove("indeterminate");
+           progress.style.width=Math.min(100,(d.received/d.total)*100)+"%";
+           info.textContent=Math.round((d.received/d.total)*100)+"% — "+d.received.toLocaleString()+" / "+d.total.toLocaleString()+" bytes";
+         }else{
+           progress.classList.add("indeterminate");
+           info.textContent=d.received?d.received.toLocaleString()+" bytes received":"Waiting for download size…";
+         }
+         if(d.stage==="found")showUpdateStatus(d.message||"Update available.","warn");
+         else showUpdateStatus(d.message||"Updating…","warn");
+       }
+     }
+   }
+   if(buffer.trim()){
+     const d=JSON.parse(buffer);
+     if(d.type==="error")throw new Error(d.message||"OTA update failed.");
+   }
  }catch(x){
-   const message=x?.message||"Update request failed or the ESP32-C3 rebooted.";
-   showUpdateStatus(message,"bad");
-   setPageStatus(message,"bad");
+   if(x.name==="AbortError")setPageStatus("Update cancelled","warn");
+   else if(x.message)setPageStatus(x.message,"bad");
+   showUpdateStatus(x.message||"Update request failed or the ESP32-C3 rebooted.","bad");
+   progress.classList.remove("indeterminate");
+   progress.style.width="0%";
  }
 }
 async function upload(e,q){e.preventDefault();if(!confirm(q))return;setPageStatus("Uploading…");try{const d=await pfu(e.currentTarget);setPageStatus(d?.message||"Operation completed.","ok")}catch(x){setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad")}}
