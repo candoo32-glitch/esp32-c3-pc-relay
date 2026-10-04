@@ -140,28 +140,37 @@ void begin() {
   }
   waitForConnection();
 
-  Serial.println();
-  Serial.println("Terminal display mode");
-  Serial.println("---------------------");
-  Serial.println("Use ANSI colors and boxed menus?");
-  Serial.println("Y = ANSI");
-  Serial.println("N = Plain text");
-  Serial.print("Select [Y/N]: ");
+  while (true) {
+    Serial.println();
+    Serial.println("Terminal display mode");
+    Serial.println("---------------------");
+    Serial.println("Use ANSI colors and boxed menus?");
+    Serial.println("Y = ANSI");
+    Serial.println("N = Plain text");
+    Serial.print("Select [Y/N]: ");
 
-  while (!Serial.available()) {
-    WebControl::service();
-    delay(10);
+    String choice = readLine();
+    choice.trim();
+    choice.toUpperCase();
+
+    if (choice == "Y" || choice == "YES") {
+      ansiSupported = true;
+      break;
+    }
+
+    if (choice == "N" || choice == "NO") {
+      ansiSupported = false;
+      break;
+    }
+
+    // Boot diagnostics may still be arriving while the terminal is being
+    // opened. An invalid response must never fall through to plain mode,
+    // because that leaves the operator without a usable indication that the
+    // ANSI question is still waiting for a valid answer. Reprint the complete
+    // question and wait for a new answer.
+    Serial.println();
+    Serial.println("Invalid selection. Please answer Y or N.");
   }
-
-  String choice = readLine();
-  choice.trim();
-  choice.toUpperCase();
-
-  ansiSupported = (choice == "Y" || choice == "YES");
-
-  Serial.println();
-  Serial.print("Terminal mode: ");
-  Serial.println(ansiSupported ? "ANSI" : "plain text");
 }
 void ansi(const char* sequence) {
   if (ansiSupported) {
