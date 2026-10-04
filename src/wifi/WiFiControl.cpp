@@ -632,9 +632,9 @@ void reconnectTask(void*) {
         if (result == ConnectResult::SUCCESS) {
           WiFiDiagnostics::printText("AUTO_RECONNECT=CONNECTED", "1;32m");
         } else {
-          WiFiDiagnostics::printText(
-              String("AUTO_RECONNECT=RETRY | ") + connectResultName(result),
-              "1;33m");
+          const String retryMessage =
+              String("AUTO_RECONNECT=RETRY | ") + connectResultName(result);
+          WiFiDiagnostics::printText(retryMessage.c_str(), "1;33m");
         }
       }
     }
