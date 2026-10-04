@@ -25,43 +25,13 @@ namespace {
 WebServer server(80);
 bool serverStarted = false;
 
-String htmlEscape(const String& input) {
-  String out;
-  out.reserve(input.length() + 16);
-  for (size_t i = 0; i < input.length(); ++i) {
-    switch (input[i]) {
-      case '&': out += F("&amp;"); break;
-      case '<': out += F("&lt;"); break;
-      case '>': out += F("&gt;"); break;
-      case '"': out += F("&quot;"); break;
-      case '\'': out += F("&#39;"); break;
-      default: out += input[i]; break;
-    }
-  }
-  return out;
-}
+void htmlEscape() {}
 
-String statusText() {
-  if (!WiFiControl::isEnabled()) return "OFF";
-  if (WiFi.status() == WL_CONNECTED) return "CONNECTED";
-  return "DISCONNECTED";
-}
+void statusText() {}
 
-String tabName() {
-  String tab = server.hasArg("tab") ? server.arg("tab") : "dashboard";
-  if (tab != "dashboard" && tab != "wifi" && tab != "network" &&
-      tab != "diagnostics" && tab != "relays" && tab != "storage" && tab != "system") {
-    tab = "dashboard";
-  }
-  return tab;
-}
+void tabName() {}
 
-void redirect(const char* tab) {
-  String location = "/?tab=";
-  location += tab;
-  server.sendHeader("Location", location, true);
-  server.send(303, "text/plain", "Redirecting");
-}
+void redirect() {}
 
 String txPowerText() {
   int8_t txPower = 0;
@@ -333,64 +303,7 @@ bool fetchReleaseCatalog(String& json) {
   return !json.isEmpty();
 }
 
-void handleFirmwareUpdateCheck() {
-  if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
-    server.send(503, "text/html; charset=utf-8",
-                updatePage("Update check unavailable", "The ESP32-C3 is not connected to Wi-Fi."));
-    return;
-  }
-
-  String json;
-  if (!fetchReleaseCatalog(json)) {
-    server.send(502, "text/html; charset=utf-8",
-                updatePage("Update check failed", "Could not retrieve the GitHub release catalog."));
-    return;
-  }
-
-  const long currentFirmware = firmwareBuild().toInt();
-  const long currentWeb = webInterfaceBuild().toInt();
-  long latestFirmware = -1;
-  long latestWeb = -1;
-  const String firmwareUrl = firmwareReleaseUrl(json, latestFirmware);
-  const String webUrl = webReleaseUrl(json, latestWeb);
-  const bool firmwareAvailable = !firmwareUrl.isEmpty() && latestFirmware > currentFirmware;
-  const bool webAvailable = !webUrl.isEmpty() && latestWeb > currentWeb;
-
-  String html = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Update check</h2>";
-
-  if (!firmwareAvailable && !webAvailable) {
-    html += F("<p>Firmware and web interface are up to date.</p>");
-  } else {
-    if (firmwareAvailable) {
-      html += F("<p><b>Firmware update available:</b> ");
-      html += String(currentFirmware);
-      html += F(" → ");
-      html += String(latestFirmware);
-      html += F("</p>");
-    } else {
-      html += F("<p>Firmware is up to date (");
-      html += String(currentFirmware);
-      html += F(").</p>");
-    }
-
-    if (webAvailable) {
-      html += F("<p><b>Web interface update available:</b> ");
-      html += String(currentWeb);
-      html += F(" → ");
-      html += String(latestWeb);
-      html += F("</p>");
-    } else {
-      html += F("<p>Web interface is up to date (");
-      html += String(currentWeb);
-      html += F(").</p>");
-    }
-
-    html += F("<p>Download and install will update only the component or components that are newer.</p>");
-  }
-
-  html += F("<p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body></html>");
-  server.send(200, "text/html; charset=utf-8", html);
-}
+void handleFirmwareUpdateCheck(){if(!WiFiControl::isEnabled()||WiFi.status()!=WL_CONNECTED){server.send(503,"application/json; charset=utf-8","{\"message\":\"The ESP32-C3 is not connected to Wi-Fi.\"}");return;}String j;if(!fetchReleaseCatalog(j)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not retrieve the GitHub release catalog.\"}");return;}const long cf=firmwareBuild().toInt(),cw=webInterfaceBuild().toInt();long lf=-1,lw=-1;const String fu=firmwareReleaseUrl(j,lf),wu=webReleaseUrl(j,lw);const bool fa=!fu.isEmpty()&&lf>cf,wa=!wu.isEmpty()&&lw>cw;String m;if(!fa&&!wa)m="Firmware and web interface are up to date.";else{m="Firmware "+String(cf)+" → "+String(lf)+(fa?" available. ":" is current. ");m+="Web UI "+String(cw)+" → "+String(lw)+(wa?" available.":" is current.");}String o=F("{\"message\":\"");o+=jsonEscape(m);o+=F("\",\"currentFirmware\":");o+=String(cf);o+=F(",\"latestFirmware\":");o+=String(lf);o+=F(",\"currentWeb\":");o+=String(cw);o+=F(",\"latestWeb\":");o+=String(lw);o+=F(",\"firmwareAvailable\":");o+=fa?"true":"false";o+=F(",\"webAvailable\":");o+=wa?"true":"false";o+='}';server.send(200,"application/json; charset=utf-8",o);}
 
 bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* description) {
   const int contentLength = download.getSize();
@@ -476,105 +389,7 @@ bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* descr
   return true;
 }
 
-void handleFirmwareUpdateLatest() {
-  if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
-    server.send(503, "text/html; charset=utf-8",
-                updatePage("Update unavailable", "The ESP32-C3 is not connected to Wi-Fi."));
-    return;
-  }
-
-  String json;
-  if (!fetchReleaseCatalog(json)) {
-    server.send(502, "text/html; charset=utf-8",
-                updatePage("Update failed", "Could not retrieve the GitHub release catalog."));
-    return;
-  }
-
-  const long currentFirmware = firmwareBuild().toInt();
-  const long currentWeb = webInterfaceBuild().toInt();
-  long latestFirmware = -1;
-  long latestWeb = -1;
-  const String firmwareUrl = firmwareReleaseUrl(json, latestFirmware);
-  const String webUrl = webReleaseUrl(json, latestWeb);
-  const bool installFirmware = !firmwareUrl.isEmpty() && latestFirmware > currentFirmware;
-  const bool installWeb = !webUrl.isEmpty() && latestWeb > currentWeb;
-
-  if (!installFirmware && !installWeb) {
-    server.send(200, "text/html; charset=utf-8",
-                updatePage("No update installed", "Firmware and web interface are already up to date."));
-    return;
-  }
-
-  WiFiClientSecure downloadClient;
-  downloadClient.setInsecure();
-  HTTPClient download;
-  download.setTimeout(15000);
-  download.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-  download.addHeader("User-Agent", "ESP32-C3-PC-Relay");
-
-  if (installFirmware) {
-    if (!download.begin(downloadClient, firmwareUrl)) {
-      server.send(502, "text/html; charset=utf-8",
-                  updatePage("Update failed", "Could not connect to the firmware download."));
-      return;
-    }
-
-    const int status = download.GET();
-    if (status != HTTP_CODE_OK) {
-      download.end();
-      server.send(502, "text/html; charset=utf-8",
-                  updatePage("Update failed", String("GitHub firmware download returned HTTP ") + String(status) + "."));
-      return;
-    }
-
-    const bool finished = downloadAndWriteUpdate(download, U_FLASH, "firmware");
-    download.end();
-    if (!finished) {
-      server.send(500, "text/html; charset=utf-8",
-                  updatePage("Update failed", "The firmware image could not be downloaded or installed."));
-      return;
-    }
-  }
-
-  if (installWeb) {
-    SPIFFS.end();
-
-    if (!download.begin(downloadClient, webUrl)) {
-      server.send(502, "text/html; charset=utf-8",
-                  updatePage("Update failed", "Could not connect to the SPIFFS web interface download."));
-      return;
-    }
-
-    const int status = download.GET();
-    if (status != HTTP_CODE_OK) {
-      download.end();
-      server.send(502, "text/html; charset=utf-8",
-                  updatePage("Update failed", String("GitHub SPIFFS download returned HTTP ") + String(status) + "."));
-      return;
-    }
-
-    const bool finished = downloadAndWriteUpdate(download, U_SPIFFS, "SPIFFS web interface");
-    download.end();
-    if (!finished) {
-      server.send(500, "text/html; charset=utf-8",
-                  updatePage("Update failed", "The SPIFFS web interface could not be installed."));
-      return;
-    }
-  }
-
-  String installed;
-  if (installFirmware) installed = "firmware";
-  if (installWeb) {
-    if (!installed.isEmpty()) installed += " and ";
-    installed += "web interface";
-  }
-
-  server.send(200, "text/html; charset=utf-8",
-              updatePage("Update installed", "The " + installed + " update was installed successfully. The ESP32-C3 will reboot now."));
-  server.client().flush();
-  delay(1000);
-  ESP.restart();
-}
+void handleFirmwareUpdateLatest(){if(!WiFiControl::isEnabled()||WiFi.status()!=WL_CONNECTED){server.send(503,"application/json; charset=utf-8","{\"message\":\"The ESP32-C3 is not connected to Wi-Fi.\"}");return;}String j;if(!fetchReleaseCatalog(j)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not retrieve the GitHub release catalog.\"}");return;}const long cf=firmwareBuild().toInt(),cw=webInterfaceBuild().toInt();long lf=-1,lw=-1;const String fu=firmwareReleaseUrl(j,lf),wu=webReleaseUrl(j,lw);const bool fi=!fu.isEmpty()&&lf>cf,wi=!wu.isEmpty()&&lw>cw;if(!fi&&!wi){server.send(200,"application/json; charset=utf-8","{\"message\":\"Firmware and web interface are already up to date.\"}");return;}WiFiClientSecure dc;dc.setInsecure();HTTPClient d;d.setTimeout(15000);d.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);d.addHeader("User-Agent","ESP32-C3-PC-Relay");if(fi){if(!d.begin(dc,fu)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not connect to the firmware download.\"}");return;}int s=d.GET();if(s!=HTTP_CODE_OK){d.end();server.send(502,"application/json; charset=utf-8",(String("{\"message\":\"GitHub firmware download returned HTTP ")+String(s)+"\"}"));return;}bool ok=downloadAndWriteUpdate(d,U_FLASH,"firmware");d.end();if(!ok){server.send(500,"application/json; charset=utf-8","{\"message\":\"The firmware image could not be downloaded or installed.\"}");return;}}if(wi){SPIFFS.end();if(!d.begin(dc,wu)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not connect to the SPIFFS web interface download.\"}");return;}int s=d.GET();if(s!=HTTP_CODE_OK){d.end();server.send(502,"application/json; charset=utf-8",(String("{\"message\":\"GitHub SPIFFS download returned HTTP ")+String(s)+"\"}"));return;}bool ok=downloadAndWriteUpdate(d,U_SPIFFS,"SPIFFS web interface");d.end();if(!ok){server.send(500,"application/json; charset=utf-8","{\"message\":\"The SPIFFS web interface could not be installed.\"}");return;}}String installed;if(fi)installed="firmware";if(wi){if(!installed.isEmpty())installed+=" and ";installed+="web interface";}String o=F("{\"message\":\"");o+=installed;o+=F(" update installed successfully. The ESP32-C3 will reboot now.\"}");server.send(200,"application/json; charset=utf-8",o);server.client().flush();delay(1000);ESP.restart();}
 
 void handleFirmwareUpdateUpload() {
   HTTPUpload& upload = server.upload();
@@ -624,22 +439,7 @@ void handleFirmwareUpdateUpload() {
   }
 }
 
-void handleFirmwareUpdateComplete() {
-  if (firmwareUpdateFailed || firmwareUpdateBytes == 0) {
-    if (Update.isRunning()) Update.abort();
-    server.send(400, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Firmware upgrade failed</h2><p>The firmware image could not be uploaded or verified. The existing firmware was not replaced.</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body>");
-    return;
-  }
-
-  Serial.print("Firmware OTA complete: ");
-  Serial.print(firmwareUpdateBytes);
-  Serial.println(" bytes. Rebooting.");
-  server.send(200, "text/html; charset=utf-8",
-              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><meta http-equiv='refresh' content='8;url=/?tab=system'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Firmware upgraded</h2><p>The new firmware was written successfully. The ESP32-C3 is rebooting now.</p></body>");
-  delay(300);
-  ESP.restart();
-}
+void handleFirmwareUpdateComplete(){if(firmwareUpdateFailed||firmwareUpdateBytes==0){if(Update.isRunning())Update.abort();server.send(400,"application/json; charset=utf-8","{\"message\":\"The firmware image could not be uploaded or verified. The existing firmware was not replaced.\"}");return;}server.send(200,"application/json; charset=utf-8","{\"message\":\"Firmware upgraded successfully. The ESP32-C3 is rebooting now.\"}");server.client().flush();delay(1000);ESP.restart();}
 
 void handleConfigRestoreUpload() {
   HTTPUpload& upload = server.upload();
@@ -688,42 +488,7 @@ void handleConfigRestoreUpload() {
   }
 }
 
-void handleConfigRestoreComplete() {
-  const esp_partition_t* partition = nvsPartition();
-  const bool valid = !restoreFailed && partition != nullptr &&
-                     restoreBuffer != nullptr && restoreBytes == restoreCapacity;
-
-  if (!valid) {
-    if (restoreBuffer != nullptr) free(restoreBuffer);
-    restoreBuffer = nullptr;
-    restoreCapacity = 0;
-    restoreBytes = 0;
-    server.send(400, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Restore failed</h2><p>The uploaded NVS backup was incomplete or invalid. No configuration was changed.</p><p><a href='/?tab=storage' style='color:#7eb6ff'>Back to Storage</a></p></body>");
-    return;
-  }
-
-  server.send(200, "text/html; charset=utf-8",
-              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Configuration restored</h2><p>The NVS configuration backup was written successfully. The ESP32-C3 will reboot now.</p></body>");
-  delay(300);
-
-  esp_err_t result = esp_partition_erase_range(partition, 0, partition->size);
-  if (result == ESP_OK) result = esp_partition_write(partition, 0, restoreBuffer, partition->size);
-
-  free(restoreBuffer);
-  restoreBuffer = nullptr;
-  restoreCapacity = 0;
-  restoreBytes = 0;
-
-  if (result != ESP_OK) {
-    Serial.print("NVS restore failed: ");
-    Serial.println(esp_err_to_name(result));
-  } else {
-    Serial.println("NVS configuration restored from web backup.");
-  }
-  delay(300);
-  ESP.restart();
-}
+void handleConfigRestoreComplete(){const esp_partition_t* p=nvsPartition();const bool v=!restoreFailed&&p&&restoreBuffer&&restoreBytes==restoreCapacity;if(!v){if(restoreBuffer)free(restoreBuffer);restoreBuffer=nullptr;restoreCapacity=0;restoreBytes=0;server.send(400,"application/json; charset=utf-8","{\"message\":\"The uploaded NVS backup was incomplete or invalid. No configuration was changed.\"}");return;}esp_err_t r=esp_partition_erase_range(p,0,p->size);if(r==ESP_OK)r=esp_partition_write(p,0,restoreBuffer,p->size);free(restoreBuffer);restoreBuffer=nullptr;restoreCapacity=0;restoreBytes=0;if(r!=ESP_OK){server.send(500,"application/json; charset=utf-8","{\"message\":\"NVS configuration restore failed.\"}");return;}server.send(200,"application/json; charset=utf-8","{\"message\":\"Configuration restored successfully. The ESP32-C3 is rebooting now.\"}");server.client().flush();delay(1000);ESP.restart();}
 
 String nvsTable() {
   String html;
@@ -819,6 +584,7 @@ void handlePageState() {
   addString("status", statusText());
   addString("ssid", connected ? WiFi.SSID() : "");
   addString("savedSsid", WiFiControl::savedSSID());
+  addBool("passwordSaved", WiFiControl::hasSavedPassword());
   addString("ip", connected ? WiFi.localIP().toString() : "");
   addString("gateway", connected ? WiFi.gatewayIP().toString() : "");
   addString("subnet", connected ? WiFi.subnetMask().toString() : "");
@@ -922,29 +688,16 @@ void handleAppJs() {
   handleStaticAsset("/app.js", "application/javascript; charset=utf-8");
 }
 
-void handleToggle() {
-  const bool enable = !WiFiControl::isEnabled();
-  if (!enable) {
-    // Return the HTTP response before shutting down the interface so the
-    // browser receives confirmation even though Wi-Fi will immediately vanish.
-    server.send(200, "text/html; charset=utf-8",
-                "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Wi-Fi disabled</h2><p>The ESP32-C3 Wi-Fi interface is now OFF. Re-enable it from the serial console or a future local management interface.</p></body>");
-    delay(100);
-    WiFiControl::setEnabled(false);
-    return;
-  }
-  WiFiControl::setEnabled(true);
-  redirect("wifi");
-}
+void handleToggle(){const bool enable=!WiFiControl::isEnabled();if(!enable){server.send(204);delay(100);WiFiControl::setEnabled(false);return;}WiFiControl::setEnabled(true);server.send(204);}
 
 void handleReconnect() {
   WiFiControl::connect();
-  redirect("wifi");
+  server.send(204);
 }
 
 void handleWifiSave() {
   if (!server.hasArg("ssid") || !server.hasArg("password")) {
-    redirect("wifi");
+    server.send(204);
     return;
   }
   const String ssid = server.arg("ssid");
@@ -954,75 +707,29 @@ void handleWifiSave() {
   } else {
     WiFiControl::configureCredentials(ssid, password);
   }
-  redirect("wifi");
+  server.send(204);
 }
 
-void handleWifiScan() {
-  if (!WiFiControl::isEnabled()) {
-    redirect("wifi");
-    return;
-  }
-
-  // Scan while remaining associated with the current access point.
-  // Do not force a disconnect or change the station mode: the ESP32 can
-  // perform the scan without intentionally dropping the active connection.
-  WiFiControl::service();
-  WiFi.scanDelete();
-  const int count = WiFi.scanNetworks();
-
-  String html;
-  html.reserve(9000);
-  html += F("<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>Wi-Fi scan</title><style>");
-  html += F("body{font-family:system-ui,sans-serif;background:#111;color:#eee;margin:0;padding:16px;max-width:1100px;margin:auto}.card{background:#1c1c1c;border:1px solid #414141;border-radius:10px;padding:16px;margin:12px 0}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 7px;border-bottom:1px solid #333}.muted{color:#999}a,button{display:inline-block;font:inherit;padding:10px 14px;border:0;border-radius:7px;background:#315f93;color:#fff;text-decoration:none;margin-top:12px}</style></head><body>");
-  html += F("<div class='card'><h2>Nearby Wi-Fi networks</h2>");
-
-  if (count <= 0) {
-    html += F("<div class='muted'>No networks found or scan failed.</div>");
-  } else {
-    html += F("<div style='overflow:auto'><table><thead><tr><th>#</th><th>SSID</th><th>RSSI</th><th>Channel</th><th>Security</th><th>BSSID</th></tr></thead><tbody>");
-    for (int i = 0; i < count; ++i) {
-      html += F("<tr><td>");
-      html += String(i + 1);
-      html += F("</td><td>");
-      html += WiFi.SSID(i).isEmpty() ? F("<span class='muted'>(hidden)</span>") : htmlEscape(WiFi.SSID(i));
-      html += F("</td><td>");
-      html += String(WiFi.RSSI(i));
-      html += F(" dBm</td><td>");
-      html += String(WiFi.channel(i));
-      html += F("</td><td>");
-      html += WiFiControl::authModeName(WiFi.encryptionType(i));
-      html += F("</td><td class='mono'>");
-      html += htmlEscape(WiFi.BSSIDstr(i));
-      html += F("</td></tr>");
-    }
-    html += F("</tbody></table></div><div class='muted'>");
-    html += String(count);
-    html += F(" access points found.</div>");
-  }
-
-  html += F("<a href='/?tab=wifi'>Back to Wi-Fi</a></div></body></html>");
-  WiFi.scanDelete();
-  server.send(200, "text/html; charset=utf-8", html);
-}
+void handleWifiScan(){if(!WiFiControl::isEnabled()){server.send(409,"application/json; charset=utf-8","{\"networks\":[]}");return;}WiFiControl::service();WiFi.scanDelete();const int count=WiFi.scanNetworks();String j=F("{\"networks\":[");for(int n=0;n<count;++n){if(n)j+=',';j+=F("{\"ssid\":\"");j+=jsonEscape(WiFi.SSID(n));j+=F("\",\"rssi\":");j+=String(WiFi.RSSI(n));j+=F(",\"channel\":");j+=String(WiFi.channel(n));j+=F(",\"security\":\"");j+=jsonEscape(WiFiControl::authModeName(WiFi.encryptionType(n)));j+=F("\",\"bssid\":\"");j+=jsonEscape(WiFi.BSSIDstr(n));j+=F("\"}");}j+=F("]}");WiFi.scanDelete();server.send(200,"application/json; charset=utf-8",j);}
 
 void handleTxPower() {
   if (server.hasArg("dbm")) {
     const float value = server.arg("dbm").toFloat();
     WiFiControl::setTxPowerDbm(value);
   }
-  redirect("wifi");
+  server.send(204);
 }
 
 void handleDiagnosticsToggle() {
   const bool desired = !WiFiDiagnostics::enabled();
   if (desired != WiFiDiagnostics::enabled()) WiFiDiagnostics::toggle();
-  redirect("diagnostics");
+  server.send(204);
 }
 
 void handleNetworkSave() {
   if (server.hasArg("hostname")) {
     if (!NetConfig::setHostname(server.arg("hostname"))) {
-      redirect("network");
+      server.send(204);
       return;
     }
   }
@@ -1036,17 +743,17 @@ void handleNetworkSave() {
                           server.arg("dns2"));
   }
   WiFiControl::connect();
-  redirect("network");
+  server.send(204);
 }
 
 void handleRelayAction() {
   if (!server.hasArg("id") || !server.hasArg("action")) {
-    redirect("relays");
+    server.send(204);
     return;
   }
   const int id = server.arg("id").toInt();
   if (id < 0 || id > 1) {
-    redirect("relays");
+    server.send(204);
     return;
   }
   const Relay::Id relay = static_cast<Relay::Id>(id);
@@ -1057,7 +764,7 @@ void handleRelayAction() {
       returnTab != "diagnostics" && returnTab != "relays" && returnTab != "storage" && returnTab != "system") {
     returnTab = "relays";
   }
-  redirect(returnTab.c_str());
+  server.send(204);
 }
 
 void handleRelayConfig() {
@@ -1082,7 +789,7 @@ void handleRelayConfig() {
     name.trim();
     if (name.isEmpty()) name = defaults[i].name;
     if (!Relay::setName(relay, name)) {
-      redirect("relays");
+      server.send(204);
       return;
     }
 
@@ -1092,7 +799,7 @@ void handleRelayConfig() {
     if (normal == "open") Relay::setNormalState(relay, Relay::NormalState::OPEN);
     else if (normal == "closed") Relay::setNormalState(relay, Relay::NormalState::CLOSED);
     else {
-      redirect("relays");
+      server.send(204);
       return;
     }
 
@@ -1102,7 +809,7 @@ void handleRelayConfig() {
     if (mode == "latched") Relay::setActivationMode(relay, Relay::ActivationMode::LATCHED);
     else if (mode == "pulse") Relay::setActivationMode(relay, Relay::ActivationMode::PULSE);
     else {
-      redirect("relays");
+      server.send(204);
       return;
     }
 
@@ -1113,37 +820,22 @@ void handleRelayConfig() {
       const long parsed = pulseText.toInt();
       if (parsed >= 10 && parsed <= 60000) pulse = static_cast<uint32_t>(parsed);
       else {
-        redirect("relays");
+        server.send(204);
         return;
       }
     }
     if (!Relay::setPulseMs(relay, pulse)) {
-      redirect("relays");
+      server.send(204);
       return;
     }
   }
 
-  redirect("relays");
+  server.send(204);
 }
 
-void handleNvsFormat() {
-  server.send(200, "text/html; charset=utf-8",
-              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>NVS format requested</h2><p>The ESP32-C3 is erasing NVS and will reboot.</p></body>");
-  delay(300);
-  const esp_err_t eraseResult = nvs_flash_erase_partition("nvs");
-  if (eraseResult == ESP_OK) {
-    nvs_flash_init_partition("nvs");
-  }
-  delay(300);
-  ESP.restart();
-}
+void handleNvsFormat(){server.send(204);delay(300);const esp_err_t r=nvs_flash_erase_partition("nvs");if(r==ESP_OK)nvs_flash_init_partition("nvs");delay(300);ESP.restart();}
 
-void handleReboot() {
-  server.send(200, "text/html; charset=utf-8",
-              "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>Rebooting</h2><p>The ESP32-C3 is restarting.</p></body>");
-  delay(300);
-  ESP.restart();
-}
+void handleReboot(){server.send(204);delay(300);ESP.restart();}
 
 } // namespace
 
