@@ -1003,9 +1003,6 @@ void handleStorageDelete() {
   server.send(200, "application/json; charset=utf-8", "{\"message\":\"File erased.\"}");
 }
 
-HTTPUpload& storageUpload() {
-  return server.upload();
-}
 
 String storageUploadPath;
 File storageUploadFile;
@@ -1308,6 +1305,11 @@ void begin() {
   server.on("/app.js", HTTP_GET, handleAppJs);
   server.on("/api/state", HTTP_GET, handlePageState);
   server.on("/api/nvs", HTTP_GET, handleNvsState);
+  server.on("/api/storage/files", HTTP_GET, handleStorageFiles);
+  server.on("/storage/view", HTTP_GET, handleStorageView);
+  server.on("/storage/download", HTTP_GET, handleStorageDownload);
+  server.on("/storage/delete", HTTP_POST, handleStorageDelete);
+  server.on("/storage/upload", HTTP_POST, handleStorageUploadComplete, handleStorageUpload);
   server.on("/api/diagnostics", HTTP_GET, []() {
     server.send(200, "application/json; charset=utf-8", DiagnosticsLog::recentJson());
   });
