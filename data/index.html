@@ -32,27 +32,75 @@
 </section>
 
 <section id="tab-wifi" class="tab">
-<div class="card"><h2>Wi-Fi</h2><div class="status" id="wifi-status"></div><table class="kv">
-<tr><td>SSID</td><td id="wifi-ssid">-</td></tr><tr><td>IP address</td><td class="mono" id="wifi-ip">-</td></tr>
-<tr><td>Gateway</td><td class="mono" id="wifi-gateway">-</td></tr><tr><td>Subnet</td><td class="mono" id="wifi-subnet">-</td></tr>
-<tr><td>DNS</td><td class="mono" id="wifi-dns">-</td></tr><tr><td>RSSI</td><td id="wifi-rssi">-</td></tr>
-<tr><td>Channel</td><td id="wifi-channel">-</td></tr><tr><td>BSSID</td><td class="mono" id="wifi-bssid">-</td></tr><tr><td>TX power</td><td id="wifi-tx">-</td></tr></table>
-<form method="POST" action="/wifi/toggle"><button id="wifi-toggle"></button></form>
-<form method="POST" action="/wifi/reconnect" id="wifi-reconnect-form"><button>Reconnect now</button></form></div>
-<div class="card"><h2>Wi-Fi credentials</h2><div class="muted">Credentials are saved only after a successful connection. SSID is limited to 32 characters and password to 63.</div>
-<form method="POST" action="/wifi/save"><div class="row"><div><label for="ssid">SSID</label><div class="ssid-picker"><div class="ssid-combobox"><input id="ssid" name="ssid" maxlength="32" autocomplete="off" required aria-autocomplete="list" aria-controls="wifi-ssid-options" aria-expanded="false"><button id="wifi-ssid-toggle" class="secondary" type="button" aria-label="Show scanned Wi-Fi networks" aria-expanded="false">▾</button><div id="wifi-ssid-options" class="ssid-options" role="listbox" hidden></div></div></div></div>
-<div><label for="password">Password</label><div class="password-field"><input id="password" name="password" type="password" maxlength="63" autocomplete="off" placeholder="********"><button id="show-password" class="secondary password-toggle" type="button">Show password</button></div><div class="help">Leave empty only for an open network.</div></div></div><button class="good">Test and save credentials</button></form></div>
-<div class="card"><h2>Nearby networks</h2><form id="wifi-scan-form" method="POST" action="/wifi/scan"><button id="wifi-scan-button" class="secondary" type="submit"><span id="wifi-scan-spinner" class="spinner" hidden aria-hidden="true"></span><span id="wifi-scan-label">Scan now</span></button></form><div class="help">A scan temporarily pauses normal Wi-Fi connection activity while results are collected.</div><div id="wifi-scan-results"></div></div>
-<div class="card"><h2>TX power</h2><form method="POST" action="/wifi/txpower"><div class="row"><div><label for="txpower">Power (dBm)</label><input id="txpower" name="dbm" type="number" min="2" max="18" step="0.25"><div class="help">Allowed: 2.00–18.00 dBm in 0.25 dBm increments.</div></div></div><button>Save TX power</button></form></div>
+<div class="card wifi-connection-card">
+  <div class="section-heading"><div><div class="eyebrow">WIRELESS CONNECTION</div><h2>Wi-Fi connection</h2></div><div class="status" id="wifi-status"></div></div>
+  <div class="wifi-overview">
+    <div class="wifi-primary"><span class="wifi-primary-label">Connected network</span><strong id="wifi-ssid">-</strong></div>
+    <div class="wifi-stat"><span>IP address</span><strong class="mono" id="wifi-ip">-</strong></div>
+    <div class="wifi-stat"><span>Signal</span><strong id="wifi-rssi">-</strong></div>
+    <div class="wifi-stat"><span>Channel</span><strong id="wifi-channel">-</strong></div>
+  </div>
+  <div class="wifi-details">
+    <div class="eyebrow">CONNECTION DETAILS</div>
+    <table class="kv">
+      <tr><td>Gateway</td><td class="mono" id="wifi-gateway">-</td></tr>
+      <tr><td>Subnet</td><td class="mono" id="wifi-subnet">-</td></tr>
+      <tr><td>DNS</td><td class="mono" id="wifi-dns">-</td></tr>
+      <tr><td>BSSID</td><td class="mono" id="wifi-bssid">-</td></tr>
+      <tr><td>TX power</td><td id="wifi-tx">-</td></tr>
+    </table>
+  </div>
+  <div class="wifi-actions">
+    <form method="POST" action="/wifi/toggle"><button id="wifi-toggle"></button></form>
+    <form method="POST" action="/wifi/reconnect" id="wifi-reconnect-form"><button>Reconnect now</button></form>
+  </div>
+</div>
+<div class="card">
+  <div class="eyebrow">NETWORK ACCESS</div><h2>Wi-Fi credentials</h2>
+  <div class="muted">Credentials are saved only after a successful connection. SSID is limited to 32 characters and password to 63.</div>
+  <form method="POST" action="/wifi/save"><div class="row">
+    <div><label for="ssid">SSID</label><div class="ssid-picker"><div class="ssid-combobox"><input id="ssid" name="ssid" maxlength="32" autocomplete="off" required aria-autocomplete="list" aria-controls="wifi-ssid-options" aria-expanded="false"><button id="wifi-ssid-toggle" class="secondary" type="button" aria-label="Show scanned Wi-Fi networks" aria-expanded="false">▾</button><div id="wifi-ssid-options" class="ssid-options" role="listbox" hidden></div></div></div></div>
+    <div><label for="password">Password</label><div class="password-field"><input id="password" name="password" type="password" maxlength="63" autocomplete="off" placeholder="********"><button id="show-password" class="secondary password-toggle" type="button">Show password</button></div><div class="help">Leave empty only for an open network.</div></div>
+  </div><button class="good">Test and save credentials</button></form>
+</div>
+<div class="grid wifi-tools">
+  <div class="card"><div class="eyebrow">DISCOVERY</div><h2>Nearby networks</h2><form id="wifi-scan-form" method="POST" action="/wifi/scan"><button id="wifi-scan-button" class="secondary" type="submit"><span id="wifi-scan-spinner" class="spinner" hidden aria-hidden="true"></span><span id="wifi-scan-label">Scan now</span></button></form><div class="help">A scan temporarily pauses normal Wi-Fi connection activity while results are collected.</div><div id="wifi-scan-results"></div></div>
+  <div class="card"><div class="eyebrow">RADIO</div><h2>TX power</h2><form method="POST" action="/wifi/txpower"><div class="row"><div><label for="txpower">Power (dBm)</label><input id="txpower" name="dbm" type="number" min="2" max="18" step="0.25"><div class="help">Allowed: 2.00–18.00 dBm in 0.25 dBm increments.</div></div></div><button>Save TX power</button></form></div>
+</div>
 </section>
 
 <section id="tab-network" class="tab">
-<div class="card"><h2>Network configuration</h2><form method="POST" action="/network/save">
-<div class="row"><div><label for="hostname">Host name</label><input id="hostname" name="hostname" maxlength="32" pattern="[A-Za-z0-9-]+"><div class="help">Letters, numbers, and hyphens only.</div></div>
-<div><label for="net-mode">Address mode</label><select id="net-mode" name="mode"><option value="dhcp">DHCP</option><option value="static">STATIC</option></select></div></div>
-<div id="static-fields" class="row"><div><label>IP address</label><input id="net-ip-input" name="ip"></div><div><label>Gateway</label><input id="net-gateway-input" name="gateway"></div><div><label>Subnet</label><input id="net-subnet-input" name="subnet"></div><div><label>DNS 1</label><input id="net-dns1-input" name="dns1"></div><div><label>DNS 2</label><input id="net-dns2-input" name="dns2"></div></div>
-<button class="good">Save network settings</button></form></div>
-<div class="card"><h2>Live connection data</h2><table class="kv"><tr><td>IP address</td><td class="mono" id="net-live-ip"></td></tr><tr><td>Subnet mask</td><td class="mono" id="net-live-subnet"></td></tr><tr><td>Gateway</td><td class="mono" id="net-live-gateway"></td></tr><tr><td>DNS 1</td><td class="mono" id="net-live-dns1"></td></tr><tr><td>DNS 2</td><td class="mono" id="net-live-dns2"></td></tr><tr><td>Wi-Fi state</td><td id="net-state"></td></tr><tr><td>Authentication</td><td id="net-auth"></td></tr><tr><td>BSSID</td><td class="mono" id="net-bssid"></td></tr><tr><td>RSSI</td><td id="net-rssi"></td></tr></table></div>
+<div class="network-grid">
+  <div class="card network-config-card">
+    <div class="eyebrow">DEVICE NETWORK SETTINGS</div><h2>Network configuration</h2>
+    <div class="muted">Configure the hostname and how the ESP32-C3 receives its IPv4 network settings.</div>
+    <form method="POST" action="/network/save">
+      <div class="row"><div><label for="hostname">Host name</label><input id="hostname" name="hostname" maxlength="32" pattern="[A-Za-z0-9-]+"><div class="help">Letters, numbers, and hyphens only.</div></div>
+      <div><label for="net-mode">Address mode</label><select id="net-mode" name="mode"><option value="dhcp">DHCP</option><option value="static">STATIC</option></select><div class="help">DHCP is recommended unless the device needs a fixed address.</div></div></div>
+      <div id="static-fields" class="row network-static-fields">
+        <div><label>IP address</label><input id="net-ip-input" name="ip"></div><div><label>Gateway</label><input id="net-gateway-input" name="gateway"></div>
+        <div><label>Subnet</label><input id="net-subnet-input" name="subnet"></div><div><label>DNS 1</label><input id="net-dns1-input" name="dns1"></div><div><label>DNS 2</label><input id="net-dns2-input" name="dns2"></div>
+      </div>
+      <button class="good">Save network settings</button>
+    </form>
+  </div>
+  <div class="card network-live-card">
+    <div class="section-heading"><div><div class="eyebrow">ACTUAL CONNECTION</div><h2>Live connection data</h2></div><div class="status" id="net-state"></div></div>
+    <div class="network-live-primary">
+      <div><span>IP address</span><strong class="mono" id="net-live-ip">-</strong></div>
+      <div><span>Gateway</span><strong class="mono" id="net-live-gateway">-</strong></div>
+      <div><span>RSSI</span><strong id="net-rssi">-</strong></div>
+    </div>
+    <table class="kv">
+      <tr><td>Subnet mask</td><td class="mono" id="net-live-subnet">-</td></tr>
+      <tr><td>DNS 1</td><td class="mono" id="net-live-dns1">-</td></tr>
+      <tr><td>DNS 2</td><td class="mono" id="net-live-dns2">-</td></tr>
+      <tr><td>Authentication</td><td id="net-auth">-</td></tr>
+      <tr><td>BSSID</td><td class="mono" id="net-bssid">-</td></tr>
+    </table>
+    <div class="help">Live values reflect the active connection, not necessarily the values waiting to be saved.</div>
+  </div>
+</div>
 </section>
 
 <section id="tab-diagnostics" class="tab">
