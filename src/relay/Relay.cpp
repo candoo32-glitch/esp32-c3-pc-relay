@@ -137,6 +137,14 @@ void setPower(bool on) { setState(Id::POWER, on); }
 void setReset(bool on) { setState(Id::RESET, on); }
 
 void begin() {
+  // Establish the inactive electrical level before touching NVS. The relay
+  // inputs are active-low, so preloading HIGH before switching the pins to
+  // OUTPUT prevents a floating GPIO from producing a boot-time pulse.
+  for (const auto& c : configs) {
+    digitalWrite(c.pin, OFF);
+    pinMode(c.pin, OUTPUT);
+  }
+
   preferences.begin("relay", false);
   // Seed the relay-name NVS entries with the user-facing defaults. Migrate
   // the legacy POWER/RESET defaults, but preserve any custom names.
@@ -145,10 +153,6 @@ void begin() {
   }
   if (!preferences.isKey(configs[1].nameKey) || preferences.getString(configs[1].nameKey, "") == "RESET") {
     preferences.putString(configs[1].nameKey, configs[1].defaultName);
-  }
-  for (const auto& c : configs) {
-    digitalWrite(c.pin, OFF);
-    pinMode(c.pin, OUTPUT);
   }
   // Defaults are inactive, so both contacts are OPEN on a fresh device.
   deactivate(Id::POWER);
