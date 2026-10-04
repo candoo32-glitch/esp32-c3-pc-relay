@@ -554,3 +554,463 @@ body[data-theme]{transition:background .35s ease}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}
 }
+
+
+/* -------------------------------------------------------------------------
+ * TAB-SPECIFIC LCARS SYSTEMS
+ * The selectors below bind presentation to the existing application DOM.
+ * No application state or endpoint behavior is implemented here.
+ * ------------------------------------------------------------------------- */
+
+/* Shared LCARS structural language */
+#tab-dashboard,#tab-wifi,#tab-network,#tab-diagnostics,#tab-relays,#tab-storage,#tab-system{
+  position:relative;
+}
+#tab-dashboard::before,#tab-wifi::before,#tab-network::before,
+#tab-diagnostics::before,#tab-relays::before,#tab-storage::before,#tab-system::before{
+  content:"";
+  display:block;
+  height:5px;
+  margin:0 0 12px;
+  background:linear-gradient(90deg,var(--tab-accent),var(--tab-accent) 24%,transparent 24%);
+  border-radius:0 10px 10px 0;
+  box-shadow:0 0 16px color-mix(in srgb,var(--tab-accent) 24%,transparent);
+}
+#tab-dashboard{--tab-accent:var(--lcars-orange);--tab-secondary:var(--lcars-purple)}
+#tab-wifi{--tab-accent:var(--lcars-blue);--tab-secondary:var(--lcars-orange)}
+#tab-network{--tab-accent:var(--lcars-purple);--tab-secondary:var(--lcars-blue)}
+#tab-diagnostics{--tab-accent:var(--lcars-green);--tab-secondary:var(--lcars-blue)}
+#tab-relays{--tab-accent:var(--lcars-orange);--tab-secondary:var(--lcars-red)}
+#tab-storage{--tab-accent:var(--lcars-purple);--tab-secondary:var(--lcars-magenta)}
+#tab-system{--tab-accent:var(--lcars-blue);--tab-secondary:var(--lcars-orange)}
+
+#tab-dashboard .card,#tab-wifi .card,#tab-network .card,#tab-diagnostics .card,
+#tab-relays .card,#tab-storage .card,#tab-system .card{
+  border-left-color:var(--tab-accent);
+}
+#tab-dashboard .card::before,#tab-wifi .card::before,#tab-network .card::before,
+#tab-diagnostics .card::before,#tab-relays .card::before,#tab-storage .card::before,
+#tab-system .card::before{
+  background:linear-gradient(90deg,transparent,var(--tab-secondary));
+}
+
+/* DASHBOARD — command/status overview */
+#tab-dashboard{
+  --dash-lamp:var(--lcars-green);
+}
+#tab-dashboard>.grid{
+  grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
+}
+#tab-dashboard>.grid>.card{
+  min-height:184px;
+}
+#tab-dashboard>.grid>.card:first-child{
+  border-top:5px solid var(--lcars-blue);
+  border-radius:4px 20px 20px 4px;
+}
+#tab-dashboard>.grid>.card:nth-child(2){
+  border-top:5px solid var(--lcars-purple);
+  border-radius:4px 20px 20px 4px;
+}
+#tab-dashboard>.card:last-child{
+  border-top:5px solid var(--lcars-orange);
+}
+#tab-dashboard .kv td:last-child{
+  font-family:var(--lcars-mono);
+  letter-spacing:.035em;
+}
+#tab-dashboard #dash-wifi-status,
+#tab-dashboard #dash-relay0-state,
+#tab-dashboard #dash-relay1-state{
+  position:relative;
+  font-family:var(--lcars-font);
+}
+#tab-dashboard #dash-wifi-status::before,
+#tab-dashboard #dash-relay0-state::before,
+#tab-dashboard #dash-relay1-state::before{
+  content:"";
+  display:inline-block;
+  width:8px;
+  height:8px;
+  margin-right:8px;
+  border-radius:50%;
+  background:var(--dash-lamp);
+  box-shadow:0 0 10px currentColor;
+  vertical-align:1px;
+}
+#tab-dashboard #dash-relay0-state,
+#tab-dashboard #dash-relay1-state{
+  color:var(--lcars-orange-hot);
+}
+#tab-dashboard .kv tr:nth-child(1) td:first-child::after{content:"  // LINK"}
+#tab-dashboard .kv tr:nth-child(2) td:first-child::after{content:"  // NODE"}
+#tab-dashboard .kv tr:nth-child(3) td:first-child::after{content:"  // ADDRESS"}
+#tab-dashboard .kv tr:nth-child(4) td:first-child::after{content:"  // RF"}
+#tab-dashboard .kv tr:nth-child(5) td:first-child::after{content:"  // CH"}
+
+/* WI-FI — communications console */
+#tab-wifi .wifi-connection-card{
+  border-top:6px solid var(--lcars-blue);
+  background:
+    radial-gradient(circle at 92% 15%,rgba(111,168,255,.13),transparent 13rem),
+    linear-gradient(180deg,var(--lcars-panel-2),var(--lcars-panel));
+}
+#tab-wifi .wifi-overview{
+  grid-template-columns:2fr repeat(3,minmax(100px,1fr));
+}
+#tab-wifi .wifi-primary{
+  border-top-color:var(--lcars-blue);
+  border-left:5px solid var(--lcars-blue);
+  background:linear-gradient(90deg,rgba(111,168,255,.08),#0a0e17);
+}
+#tab-wifi .wifi-stat{
+  border-top-color:var(--lcars-purple);
+}
+#tab-wifi .wifi-stat:nth-child(3){border-top-color:var(--lcars-green)}
+#tab-wifi .wifi-stat:nth-child(4){border-top-color:var(--lcars-orange)}
+#tab-wifi .wifi-primary strong{
+  font-size:1.25rem;
+  letter-spacing:.04em;
+}
+#tab-wifi .wifi-details{
+  position:relative;
+  margin-top:14px;
+  padding:14px;
+  border:1px solid rgba(111,168,255,.15);
+  border-radius:4px 18px 18px 4px;
+  background:rgba(4,8,15,.42);
+}
+#tab-wifi .wifi-details::after{
+  content:"COMM ARRAY";
+  position:absolute;
+  right:14px;
+  top:12px;
+  color:rgba(169,202,255,.38);
+  font:700 .58rem var(--lcars-mono);
+  letter-spacing:.16em;
+}
+#tab-wifi .wifi-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:14px;
+}
+#tab-wifi .wifi-tools .card:first-child{border-top:5px solid var(--lcars-blue)}
+#tab-wifi .wifi-tools .card:last-child{border-top:5px solid var(--lcars-orange)}
+#tab-wifi .ssid-combobox{
+  position:relative;
+}
+#tab-wifi .ssid-combobox input{
+  padding-right:48px;
+}
+#tab-wifi #wifi-ssid-toggle{
+  position:absolute;
+  right:4px;
+  top:4px;
+  min-width:36px;
+  min-height:34px;
+  padding:5px 10px;
+  border-radius:4px 13px 13px 4px;
+}
+#tab-wifi #wifi-toggle{
+  min-width:150px;
+}
+#tab-wifi #wifi-reconnect-form button{
+  background:var(--lcars-blue);
+}
+
+/* NETWORK — topology/configuration console */
+#tab-network .network-grid{
+  grid-template-columns:minmax(0,1.15fr) minmax(330px,.85fr);
+  align-items:start;
+}
+#tab-network .network-config-card{
+  border-top:6px solid var(--lcars-purple);
+}
+#tab-network .network-live-card{
+  border-top:6px solid var(--lcars-blue);
+}
+#tab-network .network-live-primary{
+  grid-template-columns:1.35fr 1fr .72fr;
+}
+#tab-network .network-live-primary>div{
+  border-top-color:var(--lcars-blue);
+  border-left:3px solid rgba(111,168,255,.28);
+}
+#tab-network .network-live-primary>div:nth-child(2){border-top-color:var(--lcars-purple)}
+#tab-network .network-live-primary>div:nth-child(3){border-top-color:var(--lcars-green)}
+#tab-network .network-config-card form{
+  position:relative;
+}
+#tab-network .network-static-fields{
+  margin-top:10px;
+  padding:12px;
+  border-left:4px solid var(--lcars-purple);
+  border-radius:3px 14px 14px 3px;
+  background:rgba(179,140,255,.035);
+}
+#tab-network .network-static-fields>div{
+  min-width:0;
+}
+#tab-network #net-mode{
+  border-color:rgba(179,140,255,.35);
+}
+#tab-network .network-live-card .kv{
+  margin-top:12px;
+}
+#tab-network .network-live-card .kv td:last-child{
+  font-family:var(--lcars-mono);
+}
+#tab-network .network-live-card .help{
+  padding:10px 12px;
+  border-left:3px solid var(--lcars-blue);
+  background:rgba(111,168,255,.04);
+}
+
+/* DIAGNOSTICS — dedicated LCARS engineering terminal */
+#tab-diagnostics .card:first-child{
+  border-top:6px solid var(--lcars-green);
+}
+#tab-diagnostics .card:nth-child(2){
+  border-top:6px solid var(--lcars-green);
+  background:
+    radial-gradient(circle at 85% 10%,rgba(115,226,164,.08),transparent 18rem),
+    linear-gradient(180deg,#0c1514,#070b0d);
+}
+#tab-diagnostics .card:nth-child(3){
+  border-top:5px solid var(--lcars-blue);
+}
+#tab-diagnostics .diagnostic-console{
+  position:relative;
+  min-height:430px;
+  border-radius:4px 20px 20px 4px;
+  box-shadow:
+    inset 0 0 38px rgba(0,0,0,.58),
+    inset 0 1px 0 rgba(115,226,164,.08),
+    0 0 28px rgba(115,226,164,.045);
+}
+#tab-diagnostics .diagnostic-console-status,
+#tab-diagnostics #diagnostic-console-status{
+  margin-top:8px;
+  color:var(--lcars-green);
+  font-family:var(--lcars-mono);
+  font-size:.68rem;
+}
+#tab-diagnostics #diagnostics-toggle{
+  background:var(--lcars-green);
+}
+#tab-diagnostics .kv td:last-child{
+  font-family:var(--lcars-mono);
+}
+#tab-diagnostics .kv tr:nth-child(1) td:first-child::before{content:"01  "}
+#tab-diagnostics .kv tr:nth-child(2) td:first-child::before{content:"02  "}
+#tab-diagnostics .kv tr:nth-child(3) td:first-child::before{content:"03  "}
+#tab-diagnostics .kv tr:nth-child(4) td:first-child::before{content:"04  "}
+
+/* RELAYS — physical actuator console */
+#tab-relays>form{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+#tab-relays>form .card{
+  margin:0;
+}
+#tab-relays>form .card:first-child{
+  border-top:7px solid var(--lcars-orange);
+}
+#tab-relays>form .card:last-child{
+  border-top:7px solid var(--lcars-red);
+}
+#tab-relays>form .card h2{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+#tab-relays>form .card h2::before{
+  content:"";
+  width:34px;
+  height:10px;
+  background:var(--tab-accent);
+  border-radius:2px 12px 12px 2px;
+  box-shadow:0 0 14px color-mix(in srgb,var(--tab-accent) 25%,transparent);
+}
+#tab-relays .kv td:last-child{
+  font-family:var(--lcars-mono);
+}
+#tab-relays .row{
+  margin-top:14px;
+}
+#tab-relays .relay-state-active,
+#tab-relays .relay-active{
+  color:var(--lcars-green)!important;
+  text-shadow:0 0 12px rgba(115,226,164,.35);
+}
+#tab-relays #relay-card-0,
+#tab-relays #relay-card-1{
+  transition:box-shadow .25s ease,transform .25s ease,filter .25s ease;
+}
+#tab-relays #relay-card-0.lcars-relay-pulse{
+  box-shadow:0 0 0 2px rgba(255,155,91,.35),0 0 34px rgba(255,155,91,.18),0 18px 42px rgba(0,0,0,.34);
+}
+#tab-relays #relay-card-1.lcars-relay-pulse{
+  box-shadow:0 0 0 2px rgba(255,102,125,.35),0 0 34px rgba(255,102,125,.18),0 18px 42px rgba(0,0,0,.34);
+}
+#tab-relays .relay-button{
+  position:relative;
+  overflow:hidden;
+}
+#tab-relays .relay-button::before{
+  content:"";
+  position:absolute;
+  left:7px;
+  top:50%;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 8px currentColor;
+  transform:translateY(-50%);
+}
+
+/* STORAGE — engineering/filesystem bay */
+#tab-storage .storage-hero{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:20px;
+  border-top:6px solid var(--lcars-purple);
+  background:
+    radial-gradient(circle at 92% 10%,rgba(229,140,255,.10),transparent 17rem),
+    linear-gradient(180deg,var(--lcars-panel-2),var(--lcars-panel));
+}
+#tab-storage .storage-summary{
+  display:flex;
+  align-items:baseline;
+  gap:5px;
+  color:var(--lcars-orange-hot);
+  font:800 1.05rem var(--lcars-mono);
+  white-space:nowrap;
+}
+#tab-storage .storage-summary-dot{color:var(--lcars-purple)}
+#tab-storage .storage-summary .muted{
+  font:600 .65rem var(--lcars-font);
+  text-transform:uppercase;
+  letter-spacing:.1em;
+}
+#tab-storage .card:nth-child(2){border-top:5px solid var(--lcars-blue)}
+#tab-storage .card:nth-child(3){border-top:5px solid var(--lcars-purple)}
+#tab-storage .config-backup-card{border-top:5px solid var(--lcars-orange)}
+#tab-storage .danger-zone{border-top:5px solid var(--lcars-red)}
+#tab-storage .storage-meter{
+  height:10px;
+  border-radius:3px 12px 12px 3px;
+}
+#tab-storage .storage-meter-label{
+  color:var(--lcars-blue-hot);
+  font:700 .67rem var(--lcars-mono);
+  letter-spacing:.07em;
+}
+#tab-storage .nvs-stat:nth-child(1){border-left-color:var(--lcars-blue)}
+#tab-storage .nvs-stat:nth-child(2){border-left-color:var(--lcars-purple)}
+#tab-storage .nvs-stat:nth-child(3){border-left-color:var(--lcars-green)}
+#tab-storage .nvs-stat:nth-child(4){border-left-color:var(--lcars-orange)}
+#tab-storage .nvs-stat-value{
+  font-size:1.25rem;
+}
+#tab-storage .storage-viewer{
+  border-top:6px solid var(--lcars-purple);
+  backdrop-filter:blur(18px);
+}
+#tab-storage .storage-code{
+  border-left:4px solid var(--lcars-green);
+  padding-left:14px;
+  color:#c9ffe0;
+}
+
+/* SYSTEM — ship/core configuration */
+#tab-system .card:first-child{
+  border-top:6px solid var(--lcars-blue);
+}
+#tab-system .card:nth-child(2){
+  border-top:6px solid var(--lcars-orange);
+}
+#tab-system .card:first-child .kv td:last-child{
+  font-family:var(--lcars-mono);
+}
+#tab-system .card:first-child .kv tr:first-child td:last-child{
+  color:var(--lcars-orange-hot);
+  font-size:1.05rem;
+}
+#tab-system #ui-selection{
+  border-color:rgba(111,168,255,.42);
+  background:linear-gradient(90deg,#080c14,#0d1522);
+}
+#tab-system #ui-selection-status{
+  min-height:1.4em;
+  color:var(--lcars-green);
+  font-family:var(--lcars-mono);
+}
+#tab-system .theme-picker{
+  position:relative;
+}
+#tab-system .theme-picker-button{
+  min-width:260px;
+  background:var(--lcars-panel-3);
+  color:var(--lcars-text);
+}
+#tab-system .theme-picker-arrow{
+  margin-left:auto;
+  color:var(--lcars-orange);
+}
+#tab-system .theme-options{
+  border-radius:4px 18px 18px 4px;
+  border-left:5px solid var(--lcars-orange);
+}
+#tab-system .theme-option[aria-selected="true"],
+#tab-system .theme-option.selected{
+  border-color:var(--lcars-orange);
+  box-shadow:0 0 18px rgba(255,155,91,.10);
+}
+#tab-system .theme-option-name{
+  color:var(--lcars-orange-hot);
+}
+
+/* Navigation gets the same identity as the active system */
+body[data-lcars-tab="dashboard"] .tabs a[href="#dashboard"],
+body[data-lcars-tab="wifi"] .tabs a[href="#wifi"],
+body[data-lcars-tab="network"] .tabs a[href="#network"],
+body[data-lcars-tab="diagnostics"] .tabs a[href="#diagnostics"],
+body[data-lcars-tab="relays"] .tabs a[href="#relays"],
+body[data-lcars-tab="storage"] .tabs a[href="#storage"],
+body[data-lcars-tab="system"] .tabs a[href="#system"]{
+  box-shadow:0 0 26px color-mix(in srgb,var(--tab-accent) 16%,transparent);
+}
+
+/* Small decorative readout marker on each active tab */
+body[data-lcars-tab] .tabs::after{
+  content:"LCARS // ACTIVE";
+  align-self:center;
+  margin-left:auto;
+  padding:0 9px;
+  color:var(--lcars-muted);
+  font:700 .57rem var(--lcars-mono);
+  letter-spacing:.13em;
+  white-space:nowrap;
+}
+
+/* Responsive tab systems */
+@media (max-width:900px){
+  #tab-dashboard>.grid,#tab-network .network-grid,#tab-relays>form{
+    grid-template-columns:1fr;
+  }
+  #tab-storage .storage-hero{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+}
+@media (max-width:650px){
+  body[data-lcars-tab] .tabs::after{display:none}
+  #tab-wifi .wifi-actions{flex-direction:column}
+  #tab-system .theme-picker-button{min-width:0;width:100%}
+}
