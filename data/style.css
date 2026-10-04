@@ -133,12 +133,20 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
 .nvs-namespace .table-wrap{border-top:1px solid var(--line)}
 .nvs-namespace table{background:var(--card)}
 .nvs-value{overflow-wrap:anywhere}
-.storage-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
-.storage-actions>a,.storage-actions>form{display:flex;flex-direction:column}
-.storage-actions>a button{align-self:flex-start}
-.storage-actions form input{margin-bottom:2px}
-.storage-actions button{margin-top:8px}
+.config-backup-card{overflow:hidden}
+.config-backup-intro{margin-top:4px;color:var(--text-muted);max-width:900px;line-height:1.5}
+.config-backup-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.config-backup-action{display:grid;grid-template-columns:auto 1fr;column-gap:12px;align-items:center;padding:14px;background:var(--tab);border:1px solid var(--line);border-radius:10px}
+.config-backup-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--card);font-size:20px;font-weight:700;color:var(--accent)}
+.config-backup-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.config-backup-copy strong{font-size:14px;color:var(--fg)}
+.config-backup-copy span{font-size:11px;line-height:1.4;color:var(--text-muted)}
+.config-backup-button{grid-column:2;justify-self:start;margin-top:10px;text-decoration:none}
+.config-file-picker{grid-column:2;display:flex;align-items:center;min-width:0;margin-top:10px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input);font-size:12px;color:var(--text-muted);cursor:pointer}
+.config-file-picker span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.config-file-picker input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .danger-zone{border-color:color-mix(in srgb,var(--danger) 55%,var(--border))}
+.storage-actions{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
 .storage-viewer{margin:12px 0;padding:16px;background:var(--card);border:1px solid var(--accent);border-radius:10px;box-shadow:0 8px 28px var(--shadow)}
 .storage-viewer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 .storage-viewer-head h2{overflow-wrap:anywhere}
@@ -148,6 +156,8 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
   .storage-upload-row{flex-direction:column}
   .storage-upload-row button{width:100%}
   .nvs-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .config-backup-grid{grid-template-columns:1fr}
+  .config-backup-button,.config-file-picker{grid-column:2}
   .storage-actions{grid-template-columns:1fr}
   .file-actions{white-space:normal}
   .file-actions button{margin-bottom:4px}
