@@ -56,9 +56,9 @@
 </section>
 
 <section id="tab-diagnostics" class="tab">
-<div class="card"><h2>Diagnostics</h2><div class="muted">The log below mirrors the Wi-Fi diagnostic lines sent to the serial console. The device retains the most recent 20 lines.</div>
+<div class="card"><h2>Diagnostics</h2><div class="muted">The log below mirrors selected diagnostic output sent to the serial console, including Wi-Fi, web server, network, OTA, and relay events. The device retains the most recent 20 lines.</div>
 <form method="POST" action="/diagnostics/toggle"><button id="diagnostics-toggle"></button></form></div>
-<div class="card"><h2>Live diagnostic console</h2><textarea id="diagnostic-console" class="diagnostic-console" readonly aria-label="Live Wi-Fi diagnostic console" spellcheck="false"></textarea><div class="help" id="diagnostic-console-status">Waiting for diagnostics…</div></div>
+<div class="card"><h2>Live diagnostic console</h2><textarea id="diagnostic-console" class="diagnostic-console" readonly aria-label="Live diagnostic console" spellcheck="false"></textarea><div class="help" id="diagnostic-console-status">Waiting for diagnostics…</div></div>
 <div class="card"><h2>Live connection data</h2><table class="kv"><tr><td>Wi-Fi state</td><td id="diag-state"></td></tr><tr><td>Authentication</td><td id="diag-auth"></td></tr><tr><td>BSSID</td><td class="mono" id="diag-bssid"></td></tr><tr><td>RSSI</td><td id="diag-rssi"></td></tr></table></div>
 </section>
 
