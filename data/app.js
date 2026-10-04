@@ -22,6 +22,7 @@ function setRelay(r,i){
 }
 function render(s){
  const w=s.wifi,n=s.network,d=s.diagnostics;
+ if(s.system&&s.system.theme!==undefined) applyTheme(s.system.theme);
  statusClass($("dash-wifi-status"),w.status); statusClass($("wifi-status"),w.status);
  text("dash-ssid",w.connected?w.ssid:"-");text("dash-ip",w.connected?w.ip:"-");text("dash-rssi",w.connected?w.rssi+" dBm":"-");text("dash-channel",w.connected?w.channel:"-");
  text("wifi-ssid",w.connected?w.ssid:"-");text("wifi-ip",w.connected?w.ip:"-");text("wifi-gateway",w.connected?w.gateway:"-");text("wifi-subnet",w.connected?w.subnet:"-");text("wifi-dns",w.connected?w.dns:"-");text("wifi-rssi",w.connected?w.rssi+" dBm":"-");text("wifi-channel",w.connected?w.channel:"-");text("wifi-bssid",w.connected?w.bssid:"-");text("wifi-tx",w.tx+" dBm");
@@ -48,6 +49,25 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
  text("page-status",w.status); currentTab();
 }
+const THEME_NAMES=["Midnight","Ocean","Forest","Emerald","Sunset","Amber","Rose","Purple","Violet","Cyber","Slate","Coffee","Arctic","Sakura","Terminal","Solarized","Monochrome","Crimson","Indigo","Teal"];
+function applyTheme(value){
+ const n=Math.max(0,Math.min(THEME_NAMES.length-1,Number(value)||0));
+ document.body.dataset.theme=String(n);
+ const select=$("theme-select");
+ if(select&&select.value!==String(n))select.value=String(n);
+}
+async function saveTheme(){
+ const select=$("theme-select"),status=$("theme-status");
+ if(!select)return;
+ try{
+   const r=await fetch("/system/theme",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"theme="+encodeURIComponent(select.value),cache:"no-store"});
+   if(!r.ok)throw Error(r.status);
+   applyTheme(select.value);
+   if(status){status.textContent="Theme saved";status.className="help ok";}
+ }catch(e){
+   if(status){status.textContent="Theme could not be saved";status.className="help bad";}
+ }
+}
 async function load(){
  if(otaMonitorRunning||otaUpdateStarting)return;
  try{
@@ -56,7 +76,7 @@ async function load(){
    render(await r.json())
  }catch(e){text("page-status","UNAVAILABLE")}
 }
-document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));
+document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));$("theme-select").addEventListener("change",saveTheme);
 $("ssid").addEventListener("input",()=>{wifiCredentialsDirty=true;filterSsidOptions();});$("wifi-ssid-toggle").addEventListener("click",()=>{const o=$("wifi-ssid-options");if(o.hidden){openSsidOptions()}else closeSsidOptions();});$("ssid").addEventListener("focus",()=>{if(document.querySelector(".ssid-option"))openSsidOptions();});document.addEventListener("click",e=>{const box=document.querySelector(".ssid-combobox");if(box&&!box.contains(e.target))closeSsidOptions();});
 $("password").addEventListener("focus",()=>{
  if(!wifiPasswordEditing){
