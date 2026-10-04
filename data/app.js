@@ -11,7 +11,7 @@ document.querySelectorAll(".tab").forEach(e=>e.classList.toggle("active",e.id===
 document.querySelectorAll("[data-tab-link]").forEach(e=>e.classList.toggle("active",e.dataset.tabLink===tab));
 document.querySelectorAll(".return-tab").forEach(e=>e.value=tab);
 if(tab==="diagnostics")startDiagnosticPolling();else stopDiagnosticPolling();
-location.hash=tab; return tab}
+location.hash=tab; if(tab==="storage")loadNvsContents(); return tab}
 function currentTab(){const hash=(location.hash||"").slice(1);const query=new URLSearchParams(location.search).get("tab");return showTab(hash||query||"dashboard")}
 function statusClass(e,v){e.className=v==="CONNECTED"?"ok":v==="OFF"?"muted":"warn";e.textContent=v}
 function fmt(v,s){return v===null||v===undefined||v===""?"-":String(v)+(s||"")}
