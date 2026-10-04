@@ -5,41 +5,59 @@
   const boot=()=>{
     document.body.classList.add("lcars-ready");
 
-    /* Dynamic LCARS left-side instrument field. */
+    /* Dynamic LCARS left-side instrument field. The active tab controls
+       the spine height so long pages get a continuous instrument structure. */
     const leftField=document.createElement("div");
     leftField.className="lcars-left-field";
     leftField.dataset.externalUi="true";
     leftField.setAttribute("aria-hidden","true");
-
-    const shapes=[
-      "bar","bar","block","block","step","step","bar",
-      "block","bar","corner","block","step","bar","block","bar"
-    ];
-    const colors=["orange","purple","blue","magenta"];
-    shapes.forEach((shape,index)=>{
-      const el=document.createElement("i");
-      el.className="lcars-left-shape "+shape+" "+colors[index%colors.length];
-      const width=8+Math.floor(Math.random()*54);
-      const height=3+Math.floor(Math.random()*22);
-      const top=7+Math.random()*84;
-      const left=Math.random()*52;
-      const duration=(3.2+Math.random()*6.8).toFixed(2);
-      const delay=(-(Math.random()*duration)).toFixed(2);
-      const opacity=(.24+Math.random()*.58).toFixed(2);
-      const radius=Math.floor(Math.random()*9);
-      el.style.cssText=
-        "--shape-w:"+width+"px;"+
-        "--shape-h:"+height+"px;"+
-        "--shape-top:"+top.toFixed(2)+"%;"+
-        "--shape-left:"+left.toFixed(2)+"px;"+
-        "--shape-duration:"+duration+"s;"+
-        "--shape-delay:"+delay+"s;"+
-        "--shape-opacity:"+opacity+";"+
-        "--shape-radius:"+radius+"px;";
-      leftField.appendChild(el);
-    });
-
     document.body.appendChild(leftField);
+
+    const rebuildLeftField=()=>{
+      const raw=(location.hash||"#dashboard").slice(1).split("?")[0];
+      const tab=document.getElementById("tab-"+raw);
+      const pageHeight=Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight,
+        tab?.scrollHeight||0,
+        window.innerHeight
+      );
+      leftField.style.height=pageHeight+"px";
+
+      const shapes=[
+        "bar","bar","block","block","step","step","bar","block",
+        "bar","corner","block","step","bar","block","bar","step",
+        "corner","bar","block","bar","step","block","bar","corner",
+        "bar","block","step","bar","block","bar"
+      ];
+      const colors=["orange","purple","blue","magenta"];
+      leftField.querySelectorAll(".lcars-left-shape").forEach(el=>el.remove());
+
+      shapes.forEach((shape,index)=>{
+        const el=document.createElement("i");
+        el.className="lcars-left-shape "+shape+" "+colors[Math.floor(Math.random()*colors.length)];
+        const width=8+Math.floor(Math.random()*54);
+        const height=3+Math.floor(Math.random()*24);
+        const top=2+Math.random()*94;
+        const left=Math.random()*52;
+        const duration=(3.2+Math.random()*6.8).toFixed(2);
+        const delay=(-(Math.random()*duration)).toFixed(2);
+        const opacity=(.20+Math.random()*.62).toFixed(2);
+        const radius=Math.floor(Math.random()*9);
+        el.style.cssText=
+          "--shape-w:"+width+"px;"+
+          "--shape-h:"+height+"px;"+
+          "--shape-top:"+top.toFixed(2)+"%;"+
+          "--shape-left:"+left.toFixed(2)+"px;"+
+          "--shape-duration:"+duration+"s;"+
+          "--shape-delay:"+delay+"s;"+
+          "--shape-opacity:"+opacity+";"+
+          "--shape-radius:"+radius+"px;";
+        leftField.appendChild(el);
+      });
+    };
+    rebuildLeftField();
+
 
     /* Live LCARS date/time readout. It is injected into the external UI
        layer so removing LCARS also removes the clock cleanly. */
@@ -131,9 +149,22 @@
     const tab=allowed.has(raw)?raw:"dashboard";
     document.body.dataset.lcarsTab=tab;
     document.documentElement.style.setProperty("--lcars-active-tab","\""+tab.toUpperCase()+"\"");
+    requestAnimationFrame(()=>requestAnimationFrame(rebuildLeftField));
   };
   syncTabIdentity();
   window.addEventListener("hashchange",syncTabIdentity,{passive:true});
+  window.addEventListener("resize",()=>rebuildLeftField(),{passive:true});
+  if("ResizeObserver" in window){
+    const leftResizeObserver=new ResizeObserver(()=>rebuildLeftField());
+    const active=()=>document.getElementById("tab-"+((location.hash||"#dashboard").slice(1).split("?")[0]));
+    const observeActive=()=>{
+      leftResizeObserver.disconnect();
+      const tab=active();
+      if(tab)leftResizeObserver.observe(tab);
+    };
+    observeActive();
+    window.addEventListener("hashchange",observeActive,{passive:true});
+  }
 
   /* LCARS tab activation: the deck comes online in sections rather than
      appearing as one flat web page. Each panel gets a slightly different
