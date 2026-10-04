@@ -402,12 +402,12 @@ void handleFirmwareUpdateLatest() {
   if (fi) {
     sendOtaEvent("progress", "found", 0, 0,
                  String("Found firmware update: build ") + String(lf) +
-                 " (current " + String(cf) + ").");
+                 " (current " + String(cf) + ").", "firmware");
   }
   if (wi) {
     sendOtaEvent("progress", "found", 0, 0,
                  String("Found Web UI update: build ") + String(lw) +
-                 " (current " + String(cw) + ").");
+                 " (current " + String(cw) + ").", "web");
   }
 
   WiFiClientSecure dc;
@@ -418,7 +418,7 @@ void handleFirmwareUpdateLatest() {
   d.addHeader("User-Agent", "ESP32-C3-PC-Relay");
 
   if (fi) {
-    sendOtaEvent("progress", "downloading", 0, 0, "Downloading firmware.");
+    sendOtaEvent("progress", "downloading", 0, 0, "Downloading firmware.", "firmware");
     if (!d.begin(dc, fu)) {
       sendOtaEvent("error", "error", 0, 0,
                    "Could not connect to the firmware download.");
@@ -442,7 +442,7 @@ void handleFirmwareUpdateLatest() {
   }
 
   if (wi) {
-    sendOtaEvent("progress", "downloading", 0, 0, "Downloading Web UI.");
+    sendOtaEvent("progress", "downloading", 0, 0, "Downloading Web UI.", "web");
     SPIFFS.end();
     if (!d.begin(dc, wu)) {
       sendOtaEvent("error", "error", 0, 0,
