@@ -31,7 +31,7 @@ void statusText() {}
 
 void tabName() {}
 
-void redirect() {}
+
 
 String txPowerText() {
   int8_t txPower = 0;
@@ -273,14 +273,7 @@ String webReleaseUrl(const String& json, long& version) {
   return latestReleaseAssetUrl(json, "-spiffs.bin", version);
 }
 
-String updatePage(const String& title, const String& body) {
-  String html = "<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:system-ui;background:#111;color:#eee;padding:30px'><h2>";
-  html += htmlEscape(title);
-  html += F("</h2><p>");
-  html += body;
-  html += F("</p><p><a href='/?tab=system' style='color:#7eb6ff'>Back to System</a></p></body></html>");
-  return html;
-}
+
 
 bool fetchReleaseCatalog(String& json) {
   WiFiClientSecure client;
