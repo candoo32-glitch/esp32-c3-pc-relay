@@ -53,16 +53,31 @@ const THEME_NAMES=["Midnight","Ocean","Forest","Emerald","Sunset","Amber","Rose"
 function applyTheme(value){
  const n=Math.max(0,Math.min(THEME_NAMES.length-1,Number(value)||0));
  document.body.dataset.theme=String(n);
- const select=$("theme-select");
- if(select&&select.value!==String(n))select.value=String(n);
+ const button=$("theme-picker-button"),name=$("theme-picker-name");
+ if(button)button.dataset.theme=String(n);
+ if(name)name.textContent=THEME_NAMES[n];
+ document.querySelectorAll(".theme-option").forEach(o=>{
+   const selected=Number(o.dataset.themeValue)===n;
+   o.classList.toggle("selected",selected);
+   o.setAttribute("aria-selected",selected?"true":"false");
+ });
 }
-async function saveTheme(){
- const select=$("theme-select"),status=$("theme-status");
- if(!select)return;
+function openThemeOptions(){
+ const o=$("theme-options"),b=$("theme-picker-button");
+ if(!o||!b)return;
+ o.hidden=false;b.setAttribute("aria-expanded","true");
+}
+function closeThemeOptions(){
+ const o=$("theme-options"),b=$("theme-picker-button");
+ if(!o||!b)return;
+ o.hidden=true;b.setAttribute("aria-expanded","false");
+}
+async function saveTheme(value){
+ const status=$("theme-status");
  try{
-   const r=await fetch("/system/theme",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"theme="+encodeURIComponent(select.value),cache:"no-store"});
+   const r=await fetch("/system/theme",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"theme="+encodeURIComponent(value),cache:"no-store"});
    if(!r.ok)throw Error(r.status);
-   applyTheme(select.value);
+   applyTheme(value);
    if(status){status.textContent="Theme saved";status.className="help ok";}
  }catch(e){
    if(status){status.textContent="Theme could not be saved";status.className="help bad";}
@@ -76,7 +91,9 @@ async function load(){
    render(await r.json())
  }catch(e){text("page-status","UNAVAILABLE")}
 }
-document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));$("theme-select").addEventListener("change",saveTheme);
+document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
+document.querySelectorAll(".theme-option").forEach(o=>o.addEventListener("click",async()=>{closeThemeOptions();await saveTheme(o.dataset.themeValue);}));
+document.addEventListener("click",e=>{const p=document.querySelector(".theme-picker");if(p&&!p.contains(e.target))closeThemeOptions();});
 $("ssid").addEventListener("input",()=>{wifiCredentialsDirty=true;filterSsidOptions();});$("wifi-ssid-toggle").addEventListener("click",()=>{const o=$("wifi-ssid-options");if(o.hidden){openSsidOptions()}else closeSsidOptions();});$("ssid").addEventListener("focus",()=>{if(document.querySelector(".ssid-option"))openSsidOptions();});document.addEventListener("click",e=>{const box=document.querySelector(".ssid-combobox");if(box&&!box.contains(e.target))closeSsidOptions();});
 $("password").addEventListener("focus",()=>{
  if(!wifiPasswordEditing){
