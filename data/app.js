@@ -146,9 +146,15 @@ function renderOtaStatus(d){
  const firmwareRow=$("ota-progress-firmware"),webRow=$("ota-progress-web");
  const firmwareBar=$("ota-firmware-bar"),webBar=$("ota-web-bar");
  const firmwareInfo=$("ota-firmware-info"),webInfo=$("ota-web-info");
- const message=$("software-update-message");
+ const message=$("software-update-message"),details=$("software-update-details");
  if(!progress)return;
  progress.hidden=false;
+ if(details){
+   details.hidden=false;
+   const cf=d.currentFirmware,lf=d.latestFirmware,cw=d.currentWeb,lw=d.latestWeb;
+   text("update-firmware-detail",cf>=0 ? "Build "+cf+" → "+(lf>=0?lf:"unavailable")+(lf>cf?" (update available)":lf===cf?" (current)":"") : "-");
+   text("update-web-detail",cw>=0 ? "Build "+cw+" → "+(lw>=0?lw:"unavailable")+(lw>cw?" (update available)":lw===cw?" (current)":"") : "-");
+ }
 
  if(d.component==="firmware")firmwareRow.hidden=false;
  if(d.component==="web"){
@@ -270,7 +276,7 @@ async function resumeOtaStatus(){
    const d=await readOtaStatus();
    if(d.active||["rebooting","complete","error"].includes(d.stage)){
      $("software-update-message").hidden=true;
-     $("software-update-details").hidden=true;
+     $("software-update-details").hidden=false;
      $("software-update-progress").hidden=false;
      renderOtaStatus(d);
      if(d.active)await monitorOtaStatus();
