@@ -774,9 +774,13 @@ window.addEventListener("hashchange",currentTab);
 currentTab();
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 async function bootstrapPage(){
- await loadUiCatalog();
- await load();
- await resumeOtaStatus();
+ try{
+   await loadUiCatalog();
+   await load();
+   await resumeOtaStatus();
+ }finally{
+   document.documentElement.classList.remove("ui-boot-pending");
+ }
 }
 bootstrapPage();
 setInterval(load,5000);
