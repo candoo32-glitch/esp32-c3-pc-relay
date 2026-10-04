@@ -2378,3 +2378,137 @@ h1::after{
     animation:none!important;
   }
 }
+
+
+/* -------------------------------------------------------------------------
+ * LCARS LEFT INSTRUMENT FIELD — randomized background hardware
+ * ------------------------------------------------------------------------- */
+.lcars-left-field{
+  position:fixed;
+  left:0;
+  top:0;
+  bottom:0;
+  width:104px;
+  z-index:2;
+  pointer-events:none;
+  overflow:hidden;
+}
+.lcars-left-field::before{
+  content:"";
+  position:absolute;
+  left:14px;
+  top:0;
+  bottom:0;
+  width:5px;
+  background:linear-gradient(180deg,
+    var(--lcars-purple) 0 18%,
+    transparent 18% 22%,
+    rgba(179,140,255,.25) 22% 44%,
+    transparent 44% 48%,
+    var(--lcars-blue) 48% 72%,
+    transparent 72% 76%,
+    rgba(111,168,255,.24) 76% 100%);
+  opacity:.62;
+  filter:drop-shadow(0 0 7px rgba(179,140,255,.22));
+}
+.lcars-left-shape{
+  position:absolute;
+  display:block;
+  left:var(--shape-left);
+  top:var(--shape-top);
+  width:var(--shape-w);
+  height:var(--shape-h);
+  opacity:0;
+  border-radius:var(--shape-radius) 3px 3px var(--shape-radius);
+  animation:lcarsLeftFlicker var(--shape-duration) ease-in-out var(--shape-delay) infinite;
+  filter:drop-shadow(0 0 7px currentColor);
+  transform-origin:left center;
+}
+.lcars-left-shape::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(90deg,rgba(255,255,255,.26),transparent 55%);
+  opacity:.5;
+}
+.lcars-left-shape.orange{
+  color:var(--lcars-orange);
+  background:var(--lcars-orange);
+}
+.lcars-left-shape.purple{
+  color:var(--lcars-purple);
+  background:var(--lcars-purple);
+}
+.lcars-left-shape.blue{
+  color:var(--lcars-blue);
+  background:var(--lcars-blue);
+}
+.lcars-left-shape.magenta{
+  color:var(--lcars-magenta);
+  background:var(--lcars-magenta);
+}
+.lcars-left-shape.bar{
+  border-radius:2px 10px 10px 2px;
+}
+.lcars-left-shape.block{
+  border-radius:2px 13px 13px 2px;
+}
+.lcars-left-shape.step{
+  clip-path:polygon(
+    0 0,100% 0,100% 38%,72% 38%,72% 100%,0 100%
+  );
+  border-radius:0;
+}
+.lcars-left-shape.corner{
+  clip-path:polygon(
+    0 0,100% 0,100% 28%,42% 28%,42% 100%,0 100%
+  );
+  border-radius:0;
+}
+@keyframes lcarsLeftFlicker{
+  0%,100%{
+    opacity:0;
+    transform:scaleX(.55);
+  }
+  8%{
+    opacity:var(--shape-opacity);
+    transform:scaleX(1);
+  }
+  27%{
+    opacity:calc(var(--shape-opacity) * .72);
+  }
+  43%{
+    opacity:var(--shape-opacity);
+  }
+  59%{
+    opacity:calc(var(--shape-opacity) * .38);
+  }
+  71%{
+    opacity:var(--shape-opacity);
+  }
+  84%{
+    opacity:.08;
+    transform:scaleX(.92);
+  }
+  92%{
+    opacity:0;
+    transform:scaleX(.62);
+  }
+}
+@media (max-width:650px){
+  .lcars-left-field{
+    width:64px;
+  }
+  .lcars-left-field::before{
+    left:7px;
+  }
+  .lcars-left-shape{
+    transform-origin:left center;
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .lcars-left-shape{
+    animation:none!important;
+    opacity:.32;
+  }
+}
