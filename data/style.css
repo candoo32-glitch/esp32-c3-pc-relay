@@ -49,3 +49,42 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
 .password-field{display:flex;gap:8px;align-items:stretch}.password-field input{flex:1}.password-toggle{margin:0;white-space:nowrap}.ssid-picker{width:100%}.ssid-combobox{position:relative;display:flex;align-items:stretch}.ssid-combobox input{flex:1;min-width:0;padding-right:48px}.ssid-combobox>button{width:44px;margin:0 0 0 -45px;position:relative;border-radius:0 7px 7px 0;padding:0}.ssid-options{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:1100;max-height:240px;overflow:auto;background:var(--tab);border:1px solid var(--border);border-radius:7px;box-shadow:0 8px 24px rgba(0,0,0,.5)}.ssid-option{display:block;width:100%;margin:0;padding:10px 12px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;text-align:left;color:var(--fg)}.ssid-option:last-child{border-bottom:0}.ssid-option:hover,.ssid-option:focus{background:var(--tab-active)}.ssid-option[hidden]{display:none}@media(max-width:700px){.ssid-options{max-height:200px}}
 
 .spinner{display:none;width:1em;height:1em;margin-right:8px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-0.15em;animation:spin .7s linear infinite}.spinner:not([hidden]){display:inline-block}@keyframes spin{to{transform:rotate(360deg)}}
+
+.theme-picker{position:relative;width:100%}
+.theme-picker-button{display:flex;align-items:center;width:100%;margin:0;text-align:left;padding:10px 12px;gap:10px}
+.theme-picker-button .theme-picker-arrow{margin-left:auto;font-size:16px}
+.theme-preview{display:inline-flex;width:34px;height:20px;border:1px solid var(--border);border-radius:5px;overflow:hidden;flex:none}
+.theme-preview::before{content:"";flex:1;background:var(--bg)}
+.theme-preview::after{content:"";width:8px;background:var(--accent)}
+.theme-options{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:1200;max-height:360px;overflow:auto;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px var(--shadow);padding:4px}
+.theme-option{display:flex;align-items:center;width:100%;gap:10px;margin:0;padding:9px 10px;border:0;border-radius:6px;background:transparent;color:var(--fg);text-align:left}
+.theme-option:hover,.theme-option:focus{background:var(--tab-active)}
+.theme-option.selected{background:var(--tab-active);outline:1px solid var(--accent)}
+.theme-option-swatches{display:flex;gap:3px;flex:none}
+.theme-swatch{display:block;width:18px;height:18px;border:1px solid rgba(255,255,255,.28);border-radius:3px}
+.theme-swatch.swatch-bg{background:var(--bg)}
+.theme-swatch.swatch-card{background:var(--card)}
+.theme-swatch.swatch-text{background:var(--fg)}
+.theme-swatch.swatch-accent{background:var(--accent)}
+.theme-option-name{flex:1}
+.theme-option[data-theme-value="0"] .swatch-bg{background:#111827}.theme-option[data-theme-value="0"] .swatch-card{background:#1f2937}.theme-option[data-theme-value="0"] .swatch-text{background:#f8fafc}.theme-option[data-theme-value="0"] .swatch-accent{background:#3b82f6}
+.theme-option[data-theme-value="1"] .swatch-bg{background:#061b2d}.theme-option[data-theme-value="1"] .swatch-card{background:#0d2b43}.theme-option[data-theme-value="1"] .swatch-text{background:#e8f7ff}.theme-option[data-theme-value="1"] .swatch-accent{background:#22a7e8}
+.theme-option[data-theme-value="2"] .swatch-bg{background:#0b1b12}.theme-option[data-theme-value="2"] .swatch-card{background:#14291c}.theme-option[data-theme-value="2"] .swatch-text{background:#edf9f0}.theme-option[data-theme-value="2"] .swatch-accent{background:#4caf50}
+.theme-option[data-theme-value="3"] .swatch-bg{background:#071b18}.theme-option[data-theme-value="3"] .swatch-card{background:#10312c}.theme-option[data-theme-value="3"] .swatch-text{background:#e9fffb}.theme-option[data-theme-value="3"] .swatch-accent{background:#14b8a6}
+.theme-option[data-theme-value="4"] .swatch-bg{background:#24110d}.theme-option[data-theme-value="4"] .swatch-card{background:#3a1b14}.theme-option[data-theme-value="4"] .swatch-text{background:#fff3ed}.theme-option[data-theme-value="4"] .swatch-accent{background:#f97316}
+.theme-option[data-theme-value="5"] .swatch-bg{background:#211805}.theme-option[data-theme-value="5"] .swatch-card{background:#392a09}.theme-option[data-theme-value="5"] .swatch-text{background:#fff8df}.theme-option[data-theme-value="5"] .swatch-accent{background:#eab308}
+.theme-option[data-theme-value="6"] .swatch-bg{background:#210b14}.theme-option[data-theme-value="6"] .swatch-card{background:#391321}.theme-option[data-theme-value="6"] .swatch-text{background:#fff0f4}.theme-option[data-theme-value="6"] .swatch-accent{background:#ec4899}
+.theme-option[data-theme-value="7"] .swatch-bg{background:#170d25}.theme-option[data-theme-value="7"] .swatch-card{background:#29163f}.theme-option[data-theme-value="7"] .swatch-text{background:#f8f0ff}.theme-option[data-theme-value="7"] .swatch-accent{background:#a855f7}
+.theme-option[data-theme-value="8"] .swatch-bg{background:#100a25}.theme-option[data-theme-value="8"] .swatch-card{background:#211748}.theme-option[data-theme-value="8"] .swatch-text{background:#f4f1ff}.theme-option[data-theme-value="8"] .swatch-accent{background:#8b5cf6}
+.theme-option[data-theme-value="9"] .swatch-bg{background:#070b16}.theme-option[data-theme-value="9"] .swatch-card{background:#0e1825}.theme-option[data-theme-value="9"] .swatch-text{background:#e8fff9}.theme-option[data-theme-value="9"] .swatch-accent{background:#00e5ff}
+.theme-option[data-theme-value="10"] .swatch-bg{background:#16191d}.theme-option[data-theme-value="10"] .swatch-card{background:#252a30}.theme-option[data-theme-value="10"] .swatch-text{background:#f1f5f9}.theme-option[data-theme-value="10"] .swatch-accent{background:#94a3b8}
+.theme-option[data-theme-value="11"] .swatch-bg{background:#1b120d}.theme-option[data-theme-value="11"] .swatch-card{background:#2c1d14}.theme-option[data-theme-value="11"] .swatch-text{background:#fff5eb}.theme-option[data-theme-value="11"] .swatch-accent{background:#c87941}
+.theme-option[data-theme-value="12"] .swatch-bg{background:#10202a}.theme-option[data-theme-value="12"] .swatch-card{background:#1c3440}.theme-option[data-theme-value="12"] .swatch-text{background:#f2fbff}.theme-option[data-theme-value="12"] .swatch-accent{background:#38bdf8}
+.theme-option[data-theme-value="13"] .swatch-bg{background:#211016}.theme-option[data-theme-value="13"] .swatch-card{background:#351b24}.theme-option[data-theme-value="13"] .swatch-text{background:#fff4f7}.theme-option[data-theme-value="13"] .swatch-accent{background:#f472b6}
+.theme-option[data-theme-value="14"] .swatch-bg{background:#061006}.theme-option[data-theme-value="14"] .swatch-card{background:#0c1f0d}.theme-option[data-theme-value="14"] .swatch-text{background:#b8ffbf}.theme-option[data-theme-value="14"] .swatch-accent{background:#22c55e}
+.theme-option[data-theme-value="15"] .swatch-bg{background:#002b36}.theme-option[data-theme-value="15"] .swatch-card{background:#073642}.theme-option[data-theme-value="15"] .swatch-text{background:#fdf6e3}.theme-option[data-theme-value="15"] .swatch-accent{background:#268bd2}
+.theme-option[data-theme-value="16"] .swatch-bg{background:#101010}.theme-option[data-theme-value="16"] .swatch-card{background:#202020}.theme-option[data-theme-value="16"] .swatch-text{background:#f5f5f5}.theme-option[data-theme-value="16"] .swatch-accent{background:#bdbdbd}
+.theme-option[data-theme-value="17"] .swatch-bg{background:#21090b}.theme-option[data-theme-value="17"] .swatch-card{background:#391113}.theme-option[data-theme-value="17"] .swatch-text{background:#fff0f0}.theme-option[data-theme-value="17"] .swatch-accent{background:#ef4444}
+.theme-option[data-theme-value="18"] .swatch-bg{background:#0c1027}.theme-option[data-theme-value="18"] .swatch-card{background:#171f42}.theme-option[data-theme-value="18"] .swatch-text{background:#eff4ff}.theme-option[data-theme-value="18"] .swatch-accent{background:#6366f1}
+.theme-option[data-theme-value="19"] .swatch-bg{background:#071b1d}.theme-option[data-theme-value="19"] .swatch-card{background:#0e3032}.theme-option[data-theme-value="19"] .swatch-text{background:#ecffff}.theme-option[data-theme-value="19"] .swatch-accent{background:#2dd4bf}
+@media(max-width:700px){.theme-options{max-height:300px}}
