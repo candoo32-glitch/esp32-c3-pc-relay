@@ -164,9 +164,9 @@ async function latest(e){
  showUpdateStatus("Checking for newer components…","warn");
  $("software-update-details").hidden=true;
  $("software-update-progress").hidden=false;
- const progress=$("ota-progress-bar"),stage=$("ota-progress-stage"),info=$("ota-progress-info");
- progress.style.width="0%";
- progress.classList.add("indeterminate");
+ const progress=$("software-update-progress"),stage=$("ota-progress-stage"),info=$("ota-progress-info");
+ const firmwareRow=$("ota-progress-firmware"),webRow=$("ota-progress-web"),firmwareBar=$("ota-firmware-bar"),webBar=$("ota-web-bar"),firmwareInfo=$("ota-firmware-info"),webInfo=$("ota-web-info");
+ progress.hidden=false; firmwareRow.hidden=true; webRow.hidden=true; firmwareBar.style.width="0%"; webBar.style.width="0%"; firmwareBar.classList.add("indeterminate"); webBar.classList.add("indeterminate");
  stage.textContent="Checking GitHub";
  info.textContent="";
  try{
@@ -188,13 +188,14 @@ async function latest(e){
        if(d.type==="error"){
          showUpdateStatus(d.message||"OTA update failed.","bad");
          setPageStatus(d.message||"OTA update failed.","bad");
-         progress.classList.remove("indeterminate");
-         progress.style.width="0%";
+         firmwareBar.classList.remove("indeterminate"); webBar.classList.remove("indeterminate");
+         firmwareBar.style.width="0%"; webBar.style.width="0%";
          throw new Error(d.message||"OTA update failed.");
        }
        if(d.type==="complete"&&d.stage==="complete"){
-         progress.classList.remove("indeterminate");
-         progress.style.width="100%";
+         firmwareBar.classList.remove("indeterminate"); webBar.classList.remove("indeterminate");
+         if(!firmwareRow.hidden)firmwareBar.style.width="100%";
+         if(!webRow.hidden)webBar.style.width="100%";
          stage.textContent="Complete";
          info.textContent=d.message||"No updates were required.";
          showUpdateStatus(d.message||"Update check complete.","ok");
@@ -202,8 +203,7 @@ async function latest(e){
          continue;
        }
        if(d.type==="complete"&&d.stage==="rebooting"){
-         progress.classList.remove("indeterminate");
-         progress.style.width="100%";
+         firmwareBar.classList.remove("indeterminate"); webBar.classList.remove("indeterminate");
          stage.textContent="Rebooting";
          info.textContent=d.message||"Rebooting the ESP32-C3…";
          showUpdateStatus(d.message||"Rebooting the ESP32-C3…","ok");
@@ -212,14 +212,17 @@ async function latest(e){
        }
        if(d.type==="progress"){
          stage.textContent=d.message||d.stage||"Updating";
+         const bar=d.component==="web"?webBar:firmwareBar, row=d.component==="web"?webRow:firmwareRow, detail=d.component==="web"?webInfo:firmwareInfo;
+         row.hidden=false;
          if(d.total>0){
-           progress.classList.remove("indeterminate");
-           progress.style.width=Math.min(100,(d.received/d.total)*100)+"%";
-           info.textContent=Math.round((d.received/d.total)*100)+"% — "+d.received.toLocaleString()+" / "+d.total.toLocaleString()+" bytes";
+           bar.classList.remove("indeterminate");
+           bar.style.width=Math.min(100,(d.received/d.total)*100)+"%";
+           detail.textContent=Math.round((d.received/d.total)*100)+"% — "+d.received.toLocaleString()+" / "+d.total.toLocaleString()+" bytes";
          }else{
-           progress.classList.add("indeterminate");
-           info.textContent=d.received?d.received.toLocaleString()+" bytes received":"Waiting for download size…";
+           bar.classList.add("indeterminate");
+           detail.textContent=d.received?d.received.toLocaleString()+" bytes received":"Waiting for download size…";
          }
+         info.textContent=d.message||"";
          if(d.stage==="found")showUpdateStatus(d.message||"Update available.","warn");
          else showUpdateStatus(d.message||"Updating…","warn");
        }
@@ -233,8 +236,8 @@ async function latest(e){
    if(x.name==="AbortError")setPageStatus("Update cancelled","warn");
    else if(x.message)setPageStatus(x.message,"bad");
    showUpdateStatus(x.message||"Update request failed or the ESP32-C3 rebooted.","bad");
-   progress.classList.remove("indeterminate");
-   progress.style.width="0%";
+   firmwareBar.classList.remove("indeterminate"); webBar.classList.remove("indeterminate");
+   firmwareBar.style.width="0%"; webBar.style.width="0%";
  }
 }
 async function upload(e,q){e.preventDefault();if(!confirm(q))return;setPageStatus("Uploading…");try{const d=await pfu(e.currentTarget);setPageStatus(d?.message||"Operation completed.","ok")}catch(x){setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad")}}
