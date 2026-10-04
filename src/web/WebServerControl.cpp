@@ -232,7 +232,7 @@ bool fetchReleaseCatalog(String& json) {
   client.setInsecure();
 
   HTTPClient http;
-  const char* apiUrl = "https://api.github.com/repos/candoo32-glitch/esp32-c3-pc-relay/releases?per_page=100";
+  const char* apiUrl = "https://api.github.com/repos/candoo32-glitch/esp32-c3-pc-relay/releases?per_page=15";
   if (!http.begin(client, apiUrl)) return false;
 
   http.setTimeout(15000);
