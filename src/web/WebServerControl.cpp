@@ -252,16 +252,29 @@ String jsonEscape(const String& input);
 
 void handleFirmwareUpdateCheck(){if(!WiFiControl::isEnabled()||WiFi.status()!=WL_CONNECTED){server.send(503,"application/json; charset=utf-8","{\"message\":\"The ESP32-C3 is not connected to Wi-Fi.\"}");return;}String j;if(!fetchReleaseCatalog(j)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not retrieve the GitHub release catalog.\"}");return;}const long cf=firmwareBuild().toInt(),cw=webInterfaceBuild().toInt();long lf=-1,lw=-1;const String fu=firmwareReleaseUrl(j,lf),wu=webReleaseUrl(j,lw);const bool fa=!fu.isEmpty()&&lf>cf,wa=!wu.isEmpty()&&lw>cw;String m;if(!fa&&!wa)m="Firmware and web interface are up to date.";else{m="Firmware "+String(cf)+" → "+String(lf)+(fa?" available. ":" is current. ");m+="Web UI "+String(cw)+" → "+String(lw)+(wa?" available.":" is current.");}String o=F("{\"message\":\"");o+=jsonEscape(m);o+=F("\",\"currentFirmware\":");o+=String(cf);o+=F(",\"latestFirmware\":");o+=String(lf);o+=F(",\"currentWeb\":");o+=String(cw);o+=F(",\"latestWeb\":");o+=String(lw);o+=F(",\"firmwareAvailable\":");o+=fa?"true":"false";o+=F(",\"webAvailable\":");o+=wa?"true":"false";o+='}';server.send(200,"application/json; charset=utf-8",o);}
 
+void sendOtaEvent(const char* type, const char* stage, size_t received, size_t total, const String& message) {
+  String event = F("{\"type\":\"");
+  event += jsonEscape(type);
+  event += F("\",\"stage\":\"");
+  event += jsonEscape(stage);
+  event += F("\",\"received\":");
+  event += String(received);
+  event += F(",\"total\":");
+  event += String(total);
+  event += F(",\"message\":\"");
+  event += jsonEscape(message);
+  event += F("\"}\n");
+  server.sendContent(event);
+}
+
 bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* description) {
   const int contentLength = download.getSize();
-  if (contentLength <= 0) {
-    Serial.print("OTA ");
-    Serial.print(description);
-    Serial.println(" download did not provide a valid image size.");
-    return false;
-  }
+  const size_t total = contentLength > 0 ? static_cast<size_t>(contentLength) : 0;
 
-  if (!Update.begin(static_cast<size_t>(contentLength), command)) {
+  sendOtaEvent("progress", "writing", 0, total,
+               String("Writing ") + description + " as data is received.");
+
+  if (!Update.begin(total > 0 ? total : UPDATE_SIZE_UNKNOWN, command)) {
     Serial.print("OTA ");
     Serial.print(description);
     Serial.print(" begin failed: ");
@@ -282,14 +295,16 @@ bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* descr
   size_t totalWritten = 0;
   bool failed = false;
   uint32_t lastYield = millis();
+  uint32_t lastProgressEvent = 0;
 
-  // Consume the declared Content-Length rather than using connected() as
-  // the loop condition. A GitHub CDN connection may close after delivering
-  // the final bytes while those bytes are still buffered locally.
-  while (totalWritten < static_cast<size_t>(contentLength)) {
+  // Consume the declared Content-Length when available. If the server did
+  // not provide one, consume until the HTTP stream closes and report an
+  // indeterminate progress bar to the browser.
+  while (total > 0 ? totalWritten < total : (download.connected() || stream->available() > 0)) {
     const size_t available = stream->available();
     if (available == 0) {
       if (!download.connected() || millis() - lastYield > 10000) {
+        if (total == 0 && !download.connected()) break;
         failed = true;
         break;
       }
@@ -298,7 +313,7 @@ bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* descr
       continue;
     }
 
-    const size_t remaining = static_cast<size_t>(contentLength) - totalWritten;
+    const size_t remaining = total > 0 ? total - totalWritten : static_cast<size_t>(4096);
     const size_t toRead = min(available, min(remaining, static_cast<size_t>(4096)));
     const int readBytes = stream->readBytes(buffer, toRead);
     if (readBytes <= 0 ||
@@ -309,12 +324,20 @@ bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* descr
 
     totalWritten += static_cast<size_t>(readBytes);
     lastYield = millis();
+
+    if (millis() - lastProgressEvent >= 150 || (total > 0 && totalWritten == total)) {
+      sendOtaEvent("progress", "writing", totalWritten, total,
+                   String("Writing ") + description + " (" +
+                   String(totalWritten) + (total > 0 ? String(" / ") + String(total) : String(" bytes")) +
+                   ").");
+      lastProgressEvent = millis();
+    }
     yield();
   }
 
   const bool finished =
       !failed &&
-      totalWritten == static_cast<size_t>(contentLength) &&
+      (total == 0 || totalWritten == total) &&
       Update.end(true);
 
   free(buffer);
@@ -328,6 +351,8 @@ bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* descr
     return false;
   }
 
+  sendOtaEvent("progress", "complete", totalWritten, total,
+               String(description) + " complete.");
   Serial.print("OTA ");
   Serial.print(description);
   Serial.print(" complete: ");
@@ -336,7 +361,122 @@ bool downloadAndWriteUpdate(HTTPClient& download, int command, const char* descr
   return true;
 }
 
-void handleFirmwareUpdateLatest(){if(!WiFiControl::isEnabled()||WiFi.status()!=WL_CONNECTED){server.send(503,"application/json; charset=utf-8","{\"message\":\"The ESP32-C3 is not connected to Wi-Fi.\"}");return;}String j;if(!fetchReleaseCatalog(j)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not retrieve the GitHub release catalog.\"}");return;}const long cf=firmwareBuild().toInt(),cw=webInterfaceBuild().toInt();long lf=-1,lw=-1;const String fu=firmwareReleaseUrl(j,lf),wu=webReleaseUrl(j,lw);const bool fi=!fu.isEmpty()&&lf>cf,wi=!wu.isEmpty()&&lw>cw;if(!fi&&!wi){server.send(200,"application/json; charset=utf-8","{\"message\":\"Firmware and web interface are already up to date.\"}");return;}WiFiClientSecure dc;dc.setInsecure();HTTPClient d;d.setTimeout(15000);d.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);d.addHeader("User-Agent","ESP32-C3-PC-Relay");if(fi){if(!d.begin(dc,fu)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not connect to the firmware download.\"}");return;}int s=d.GET();if(s!=HTTP_CODE_OK){d.end();server.send(502,"application/json; charset=utf-8",(String("{\"message\":\"GitHub firmware download returned HTTP ")+String(s)+"\"}"));return;}bool ok=downloadAndWriteUpdate(d,U_FLASH,"firmware");d.end();if(!ok){server.send(500,"application/json; charset=utf-8","{\"message\":\"The firmware image could not be downloaded or installed.\"}");return;}}if(wi){SPIFFS.end();if(!d.begin(dc,wu)){server.send(502,"application/json; charset=utf-8","{\"message\":\"Could not connect to the SPIFFS web interface download.\"}");return;}int s=d.GET();if(s!=HTTP_CODE_OK){d.end();server.send(502,"application/json; charset=utf-8",(String("{\"message\":\"GitHub SPIFFS download returned HTTP ")+String(s)+"\"}"));return;}bool ok=downloadAndWriteUpdate(d,U_SPIFFS,"SPIFFS web interface");d.end();if(!ok){server.send(500,"application/json; charset=utf-8","{\"message\":\"The SPIFFS web interface could not be installed.\"}");return;}}String installed;if(fi)installed="firmware";if(wi){if(!installed.isEmpty())installed+=" and ";installed+="web interface";}String o=F("{\"message\":\"");o+=installed;o+=F(" update installed successfully. The ESP32-C3 will reboot now.\"}");server.send(200,"application/json; charset=utf-8",o);server.client().flush();delay(1000);ESP.restart();}
+void handleFirmwareUpdateLatest() {
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(200, "application/x-ndjson; charset=utf-8", "");
+
+  sendOtaEvent("progress", "checking", 0, 0,
+               "Checking GitHub for firmware and Web UI updates.");
+
+  if (!WiFiControl::isEnabled() || WiFi.status() != WL_CONNECTED) {
+    sendOtaEvent("error", "error", 0, 0,
+                 "The ESP32-C3 is not connected to Wi-Fi.");
+    return;
+  }
+
+  String j;
+  if (!fetchReleaseCatalog(j)) {
+    sendOtaEvent("error", "error", 0, 0,
+                 "Could not retrieve the GitHub release catalog.");
+    return;
+  }
+
+  const long cf = firmwareBuild().toInt();
+  const long cw = webInterfaceBuild().toInt();
+  long lf = -1;
+  long lw = -1;
+  const String fu = firmwareReleaseUrl(j, lf);
+  const String wu = webReleaseUrl(j, lw);
+  const bool fi = !fu.isEmpty() && lf > cf;
+  const bool wi = !wu.isEmpty() && lw > cw;
+
+  if (!fi && !wi) {
+    sendOtaEvent("complete", "complete", 0, 0,
+                 "Firmware and web interface are already up to date.");
+    return;
+  }
+
+  if (fi) {
+    sendOtaEvent("progress", "found", 0, 0,
+                 String("Found firmware update: build ") + String(lf) +
+                 " (current " + String(cf) + ").");
+  }
+  if (wi) {
+    sendOtaEvent("progress", "found", 0, 0,
+                 String("Found Web UI update: build ") + String(lw) +
+                 " (current " + String(cw) + ").");
+  }
+
+  WiFiClientSecure dc;
+  dc.setInsecure();
+  HTTPClient d;
+  d.setTimeout(15000);
+  d.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+  d.addHeader("User-Agent", "ESP32-C3-PC-Relay");
+
+  if (fi) {
+    sendOtaEvent("progress", "downloading", 0, 0, "Downloading firmware.");
+    if (!d.begin(dc, fu)) {
+      sendOtaEvent("error", "error", 0, 0,
+                   "Could not connect to the firmware download.");
+      return;
+    }
+    const int s = d.GET();
+    if (s != HTTP_CODE_OK) {
+      d.end();
+      sendOtaEvent("error", "error", 0, 0,
+                   String("GitHub firmware download returned HTTP ") + String(s) + ".");
+      return;
+    }
+
+    if (!downloadAndWriteUpdate(d, U_FLASH, "firmware")) {
+      d.end();
+      sendOtaEvent("error", "error", 0, 0,
+                   "The firmware image could not be downloaded or installed.");
+      return;
+    }
+    d.end();
+  }
+
+  if (wi) {
+    sendOtaEvent("progress", "downloading", 0, 0, "Downloading Web UI.");
+    SPIFFS.end();
+    if (!d.begin(dc, wu)) {
+      sendOtaEvent("error", "error", 0, 0,
+                   "Could not connect to the SPIFFS Web UI download.");
+      return;
+    }
+    const int s = d.GET();
+    if (s != HTTP_CODE_OK) {
+      d.end();
+      sendOtaEvent("error", "error", 0, 0,
+                   String("GitHub SPIFFS download returned HTTP ") + String(s) + ".");
+      return;
+    }
+
+    if (!downloadAndWriteUpdate(d, U_SPIFFS, "Web UI")) {
+      d.end();
+      sendOtaEvent("error", "error", 0, 0,
+                   "The SPIFFS Web UI could not be installed.");
+      return;
+    }
+    d.end();
+  }
+
+  String installed;
+  if (fi) installed = "firmware";
+  if (wi) {
+    if (!installed.isEmpty()) installed += " and ";
+    installed += "Web UI";
+  }
+
+  sendOtaEvent("progress", "finalizing", 0, 0, "Finalizing updates.");
+  sendOtaEvent("complete", "rebooting", 0, 0,
+               installed + " update installed successfully. Rebooting the ESP32-C3.");
+  server.client().flush();
+  delay(1000);
+  ESP.restart();
+}
 
 void handleFirmwareUpdateUpload() {
   HTTPUpload& upload = server.upload();
