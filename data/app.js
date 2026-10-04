@@ -19,6 +19,7 @@ function setRelay(r,i){
  text("relay-mode-display-"+i,r.mode); text("relay-pulse-display-"+i,r.mode==="PULSE"?r.pulse+" ms":"-");
  $("relay"+i+"-name").value=r.name; $("relay"+i+"-normal").value=r.normal.toLowerCase(); $("relay"+i+"-mode").value=r.mode.toLowerCase(); $("relay"+i+"-pulse").value=r.pulse;
  text("dash-relay"+i+"-name",r.name); $("dash-relay"+i+"-state").innerHTML=r.state?'<span class="ok">ON</span>':'OFF';
+ if(tab==="diagnostics")startDiagnosticPolling();else stopDiagnosticPolling();
 }
 function render(s){
  const w=s.wifi,n=s.network,d=s.diagnostics;
@@ -82,6 +83,36 @@ async function saveTheme(value){
  }catch(e){
    if(status){status.textContent="Theme could not be saved";status.className="help bad";}
  }
+}
+let diagnosticPollTimer=null;
+let diagnosticPollBusy=false;
+async function loadDiagnostics(){
+ if(diagnosticPollBusy)return;
+ diagnosticPollBusy=true;
+ try{
+   const r=await fetch("/api/diagnostics",{cache:"no-store"});
+   if(!r.ok)throw Error(r.status);
+   const d=await r.json();
+   const area=$("diagnostic-console"),status=$("diagnostic-console-status");
+   if(!area)return;
+   const nearBottom=area.scrollHeight-area.scrollTop-area.clientHeight<40;
+   area.value=(d.lines||[]).join("\n");
+   if(nearBottom)area.scrollTop=area.scrollHeight;
+   if(status)status.textContent=d.enabled?"Live — showing the latest 20 diagnostic lines":"Diagnostics are disabled";
+ }catch(e){
+   const status=$("diagnostic-console-status");
+   if(status)status.textContent="Diagnostic stream unavailable";
+ }finally{ diagnosticPollBusy=false; }
+}
+function startDiagnosticPolling(){
+ if(diagnosticPollTimer!==null)return;
+ loadDiagnostics();
+ diagnosticPollTimer=setInterval(loadDiagnostics,500);
+}
+function stopDiagnosticPolling(){
+ if(diagnosticPollTimer===null)return;
+ clearInterval(diagnosticPollTimer);
+ diagnosticPollTimer=null;
 }
 async function load(){
  if(otaMonitorRunning||otaUpdateStarting)return;

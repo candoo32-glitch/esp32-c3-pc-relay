@@ -88,3 +88,6 @@ button{font:inherit;padding:10px 15px;border:0;border-radius:7px;margin:5px 6px 
 .theme-option[data-theme-value="18"] .swatch-bg{background:#0c1027}.theme-option[data-theme-value="18"] .swatch-card{background:#171f42}.theme-option[data-theme-value="18"] .swatch-text{background:#eff4ff}.theme-option[data-theme-value="18"] .swatch-accent{background:#6366f1}
 .theme-option[data-theme-value="19"] .swatch-bg{background:#071b1d}.theme-option[data-theme-value="19"] .swatch-card{background:#0e3032}.theme-option[data-theme-value="19"] .swatch-text{background:#ecffff}.theme-option[data-theme-value="19"] .swatch-accent{background:#2dd4bf}
 @media(max-width:700px){.theme-options{max-height:300px}}
+
+.diagnostic-console{display:block;width:100%;height:420px;min-height:280px;resize:vertical;overflow:auto;padding:12px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--fg);background:var(--input);border:1px solid var(--border);border-radius:8px;white-space:pre;tab-size:4}.diagnostic-console:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+@media(max-width:700px){.diagnostic-console{height:320px;min-height:220px}}

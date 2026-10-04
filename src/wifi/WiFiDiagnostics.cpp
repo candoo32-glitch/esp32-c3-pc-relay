@@ -20,6 +20,57 @@ volatile uint32_t attemptStartMs = 0;
 volatile uint32_t eventSequence = 0;
 volatile uint32_t droppedEvents = 0;
 
+constexpr size_t DIAGNOSTIC_HISTORY_LINES = 20;
+String diagnosticHistory[DIAGNOSTIC_HISTORY_LINES];
+size_t diagnosticHistoryCount = 0;
+size_t diagnosticHistoryNext = 0;
+
+void rememberDiagnosticLine(const String& line) {
+  if (!diagnosticsEnabled || line.isEmpty()) return;
+  diagnosticHistory[diagnosticHistoryNext] = line;
+  diagnosticHistoryNext = (diagnosticHistoryNext + 1) % DIAGNOSTIC_HISTORY_LINES;
+  if (diagnosticHistoryCount < DIAGNOSTIC_HISTORY_LINES) ++diagnosticHistoryCount;
+}
+
+String escapeJson(const String& value) {
+  String escaped;
+  escaped.reserve(value.length() + 8);
+  for (size_t i = 0; i < value.length(); ++i) {
+    const char c = value[i];
+    switch (c) {
+      case '\\': escaped += F("\\\\"); break;
+      case '"': escaped += F("\\""); break;
+      case '\n': escaped += F("\\n"); break;
+      case '\r': escaped += F("\\r"); break;
+      case '\t': escaped += F("\\t"); break;
+      default:
+        if (static_cast<unsigned char>(c) < 0x20) escaped += ' ';
+        else escaped += c;
+        break;
+    }
+  }
+  return escaped;
+}
+
+String buildRecentLogJson() {
+  String json;
+  json.reserve(4200);
+  json += F("{\"enabled\":");
+  json += diagnosticsEnabled ? F("true") : F("false");
+  json += F(",\"lines\":[");
+  for (size_t i = 0; i < diagnosticHistoryCount; ++i) {
+    if (i > 0) json += ',';
+    const size_t index =
+        (diagnosticHistoryNext + DIAGNOSTIC_HISTORY_LINES - diagnosticHistoryCount + i) %
+        DIAGNOSTIC_HISTORY_LINES;
+    json += F("\"");
+    json += escapeJson(diagnosticHistory[index]);
+    json += F("\"");
+  }
+  json += F("]}");
+  return json;
+}
+
 struct WiFiDiagnosticRecord {
   uint32_t event = 0;
   uint32_t attempt = 0;
@@ -150,32 +201,20 @@ void beginConnectionAttempt() {
 }
 
 void service() {
-  if (!diagnosticsEnabled || wifiDiagnosticQueue == nullptr) {
-    return;
-  }
+  if (!diagnosticsEnabled || wifiDiagnosticQueue == nullptr) return;
 
-  // Diagnostics are rendered only by the main task, so the individual ANSI
-  // sections below cannot interleave with the Wi-Fi event callback. Plain-text
-  // mode preserves the exact same readable records without escape sequences.
   auto diagnosticColor = [](const char* code) {
-    if (Console::ansiSupported) {
-      Console::color(code);
-    }
+    if (Console::ansiSupported) Console::color(code);
   };
-
   auto diagnosticReset = []() {
-    if (Console::ansiSupported) {
-      Console::resetStyle();
-    }
+    if (Console::ansiSupported) Console::resetStyle();
   };
-
   auto printPrefix = [&]() {
     diagnosticColor("1;36m");
     Serial.print("WIFI");
     diagnosticReset();
     Serial.print(" | ");
   };
-
   auto printSection = [&](const char* code, const char* text) {
     diagnosticColor(code);
     Serial.print(text);
@@ -186,118 +225,88 @@ void service() {
   while (xQueueReceive(wifiDiagnosticQueue, &record, 0) == pdTRUE) {
     switch (record.event) {
       case ARDUINO_EVENT_WIFI_STA_START: {
-        printPrefix();
-        char eventMeta[64];
-        snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
+        char meta[64];
+        snprintf(meta, sizeof(meta), "A=%lu E=%lu +%lums",
                  static_cast<unsigned long>(record.attempt),
                  static_cast<unsigned long>(record.sequence),
                  static_cast<unsigned long>(record.elapsedMs));
-        printSection("1;37m", eventMeta);
-        Serial.print(" | ");
-        printSection("1;33m", "START");
-        Serial.print("\r\n");
+        printPrefix(); printSection("1;37m", meta); Serial.print(" | ");
+        printSection("1;33m", "START"); Serial.print("\r\n");
+        rememberDiagnosticLine(String("WIFI | ") + meta + " | START");
         break;
       }
-
       case ARDUINO_EVENT_WIFI_STA_CONNECTED: {
-        const char* auth =
-            WiFiControl::authModeName(static_cast<wifi_auth_mode_t>(record.authmode));
-
-        printPrefix();
-        char eventMeta[64];
-        snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
+        const char* auth = WiFiControl::authModeName(static_cast<wifi_auth_mode_t>(record.authmode));
+        char meta[64], bssid[18];
+        snprintf(meta, sizeof(meta), "A=%lu E=%lu +%lums",
                  static_cast<unsigned long>(record.attempt),
                  static_cast<unsigned long>(record.sequence),
                  static_cast<unsigned long>(record.elapsedMs));
-        printSection("1;37m", eventMeta);
-        Serial.print(" | ");
-        printSection("1;32m", "CONNECTED");
-        Serial.print(" | CH=");
-        printSection("1;36m", String(record.channel).c_str());
-        Serial.print(" | AUTH=");
-        printSection("1;33m", auth);
-        Serial.print(" | BSSID=");
-        char bssid[18];
         snprintf(bssid, sizeof(bssid), "%02X:%02X:%02X:%02X:%02X:%02X",
                  record.bssid[0], record.bssid[1], record.bssid[2],
                  record.bssid[3], record.bssid[4], record.bssid[5]);
-        printSection("1;35m", bssid);
-        Serial.print("\r\n");
+        printPrefix(); printSection("1;37m", meta); Serial.print(" | ");
+        printSection("1;32m", "CONNECTED"); Serial.print(" | CH=");
+        printSection("1;36m", String(record.channel).c_str()); Serial.print(" | AUTH=");
+        printSection("1;33m", auth); Serial.print(" | BSSID=");
+        printSection("1;35m", bssid); Serial.print("\r\n");
+        rememberDiagnosticLine(String("WIFI | ") + meta + " | CONNECTED | CH=" +
+                               String(record.channel) + " | AUTH=" + auth + " | BSSID=" + bssid);
         break;
       }
-
       case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
         const char* reason = wifiDisconnectReasonName(record.reason);
-
-        printPrefix();
-        char eventMeta[64];
-        snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
+        char meta[64], reasonNumber[4], rssi[8], bssid[18];
+        snprintf(meta, sizeof(meta), "A=%lu E=%lu +%lums",
                  static_cast<unsigned long>(record.attempt),
                  static_cast<unsigned long>(record.sequence),
                  static_cast<unsigned long>(record.elapsedMs));
-        printSection("1;37m", eventMeta);
-        Serial.print(" | ");
-        printSection("1;31m", "DISCONNECTED");
-        Serial.print(" | R=");
-        char reasonNumber[4];
         snprintf(reasonNumber, sizeof(reasonNumber), "%u", record.reason);
-        printSection("1;33m", reasonNumber);
-        Serial.print(" ");
-        printSection("1;31m", reason);
-        Serial.print(" | RSSI=");
-        char rssi[8];
         snprintf(rssi, sizeof(rssi), "%d", record.rssi);
-        printSection("1;35m", rssi);
-        Serial.print(" | BSSID=");
-        char bssid[18];
         snprintf(bssid, sizeof(bssid), "%02X:%02X:%02X:%02X:%02X:%02X",
                  record.bssid[0], record.bssid[1], record.bssid[2],
                  record.bssid[3], record.bssid[4], record.bssid[5]);
-        printSection("1;34m", bssid);
-        Serial.print("\r\n");
+        printPrefix(); printSection("1;37m", meta); Serial.print(" | ");
+        printSection("1;31m", "DISCONNECTED"); Serial.print(" | R=");
+        printSection("1;33m", reasonNumber); Serial.print(" ");
+        printSection("1;31m", reason); Serial.print(" | RSSI=");
+        printSection("1;35m", rssi); Serial.print(" | BSSID=");
+        printSection("1;34m", bssid); Serial.print("\r\n");
+        rememberDiagnosticLine(String("WIFI | ") + meta + " | DISCONNECTED | R=" +
+                               reasonNumber + " " + reason + " | RSSI=" + rssi +
+                               " | BSSID=" + bssid);
         break;
       }
-
       case ARDUINO_EVENT_WIFI_STA_GOT_IP: {
         const String ip = IPAddress(record.ip).toString();
         const String gateway = IPAddress(record.gateway).toString();
         const String netmask = IPAddress(record.netmask).toString();
-
-        printPrefix();
-        char eventMeta[64];
-        snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
+        char meta[64];
+        snprintf(meta, sizeof(meta), "A=%lu E=%lu +%lums",
                  static_cast<unsigned long>(record.attempt),
                  static_cast<unsigned long>(record.sequence),
                  static_cast<unsigned long>(record.elapsedMs));
-        printSection("1;37m", eventMeta);
-        Serial.print(" | ");
-        printSection("1;32m", "GOT_IP");
-        Serial.print(" | IP=");
-        printSection("1;32m", ip.c_str());
-        Serial.print(" | GW=");
-        printSection("1;36m", gateway.c_str());
-        Serial.print(" | MASK=");
-        printSection("1;33m", netmask.c_str());
-        Serial.print("\r\n");
+        printPrefix(); printSection("1;37m", meta); Serial.print(" | ");
+        printSection("1;32m", "GOT_IP"); Serial.print(" | IP=");
+        printSection("1;32m", ip.c_str()); Serial.print(" | GW=");
+        printSection("1;36m", gateway.c_str()); Serial.print(" | MASK=");
+        printSection("1;33m", netmask.c_str()); Serial.print("\r\n");
+        rememberDiagnosticLine(String("WIFI | ") + meta + " | GOT_IP | IP=" +
+                               ip + " | GW=" + gateway + " | MASK=" + netmask);
         break;
       }
-
       case ARDUINO_EVENT_WIFI_STA_LOST_IP: {
-        printPrefix();
-        char eventMeta[64];
-        snprintf(eventMeta, sizeof(eventMeta), "A=%lu E=%lu +%lums",
+        char meta[64];
+        snprintf(meta, sizeof(meta), "A=%lu E=%lu +%lums",
                  static_cast<unsigned long>(record.attempt),
                  static_cast<unsigned long>(record.sequence),
                  static_cast<unsigned long>(record.elapsedMs));
-        printSection("1;37m", eventMeta);
-        Serial.print(" | ");
-        printSection("1;31m", "LOST_IP");
-        Serial.print("\r\n");
+        printPrefix(); printSection("1;37m", meta); Serial.print(" | ");
+        printSection("1;31m", "LOST_IP"); Serial.print("\r\n");
+        rememberDiagnosticLine(String("WIFI | ") + meta + " | LOST_IP");
         break;
       }
-
-      default:
-        break;
+      default: break;
     }
   }
 }
@@ -306,7 +315,6 @@ void printLine(const char* label, const char* value,
                const char* labelColor,
                const char* valueColor) {
   if (!diagnosticsEnabled) return;
-
   if (Console::ansiSupported) Console::color("1;36m");
   Serial.print("WIFI | ");
   if (Console::ansiSupported) Console::color(labelColor);
@@ -317,22 +325,22 @@ void printLine(const char* label, const char* value,
   Serial.print(value);
   if (Console::ansiSupported) Console::resetStyle();
   Serial.print("\r\n");
+  rememberDiagnosticLine(String("WIFI | ") + label + "=" + value);
 }
 
 void printText(const char* text, const char* textColor) {
   if (!diagnosticsEnabled) return;
-
   if (Console::ansiSupported) Console::color("1;36m");
   Serial.print("WIFI | ");
   if (Console::ansiSupported) Console::color(textColor);
   Serial.print(text);
   if (Console::ansiSupported) Console::resetStyle();
   Serial.print("\r\n");
+  rememberDiagnosticLine(String("WIFI | ") + text);
 }
 
 void printFailure(const char* label, const char* errorName) {
   if (!diagnosticsEnabled) return;
-
   if (Console::ansiSupported) Console::color("1;36m");
   Serial.print("WIFI | ");
   if (Console::ansiSupported) Console::color("1;31m");
@@ -341,8 +349,8 @@ void printFailure(const char* label, const char* errorName) {
   Serial.print(errorName);
   if (Console::ansiSupported) Console::resetStyle();
   Serial.print("\r\n");
+  rememberDiagnosticLine(String("WIFI | ") + label + "=" + errorName);
 }
-
 
 void begin() {
   diagnosticsEnabled = WiFiControl::diagnosticsPreference();
@@ -364,6 +372,10 @@ void begin() {
 
 bool enabled() {
   return diagnosticsEnabled;
+}
+
+String recentLogJson() {
+  return buildRecentLogJson();
 }
 
 void printMenuSetting() {

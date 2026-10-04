@@ -4,6 +4,7 @@ namespace WiFiDiagnostics {
 void begin();
 void service();
 bool enabled();
+String recentLogJson();
 void printMenuSetting();
 void toggle();
 void beginConnectionAttempt();

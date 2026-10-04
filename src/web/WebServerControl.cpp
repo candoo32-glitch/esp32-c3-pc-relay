@@ -1059,6 +1059,9 @@ void begin() {
   server.on("/style.css", HTTP_GET, handleStyleCss);
   server.on("/app.js", HTTP_GET, handleAppJs);
   server.on("/api/state", HTTP_GET, handlePageState);
+  server.on("/api/diagnostics", HTTP_GET, []() {
+    server.send(200, "application/json; charset=utf-8", WiFiDiagnostics::recentLogJson());
+  });
   server.on("/wifi/toggle", HTTP_POST, handleToggle);
   server.on("/wifi/reconnect", HTTP_POST, handleReconnect);
   server.on("/wifi/save", HTTP_POST, handleWifiSave);
