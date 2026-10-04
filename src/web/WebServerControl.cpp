@@ -1118,8 +1118,7 @@ void handleStorageView() {
     sendNoCache(400, "text/plain; charset=utf-8", "Not a file.");
     return;
   }
-  server.sendHeader("Cache-Control", "no-store");
-  server.streamFile(file, storageContentType(path));
+  addNoCacheHeaders(); server.streamFile(file, storageContentType(path));
   file.close();
 }
 
@@ -1336,9 +1335,7 @@ void handleStaticAsset(const char* path, const char* contentType) {
     sendNoCache(500, "text/plain; charset=utf-8",
                 "Web UI asset could not be opened.");
     return;
-  }
-
-  server.streamFile(file, contentType);
+  } addNoCacheHeaders(); server.streamFile(file, contentType);
   file.close();
 }
 
