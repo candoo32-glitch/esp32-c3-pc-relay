@@ -112,12 +112,21 @@
   <div class="help">Read-only inspector. Password, passphrase, and token values are hidden. Use the normal configuration pages to change settings.</div>
 </div>
 
-<div class="card">
+<div class="card config-backup-card">
   <div class="section-heading"><div><div class="eyebrow">CONFIGURATION FILE</div><h2>Backup & restore</h2></div></div>
-  <div class="muted">A complete NVS backup includes saved Wi-Fi credentials and other configuration values, so treat the backup file as sensitive.</div>
-  <div class="storage-actions">
-    <a href="/config/backup"><button class="good" type="button">Download configuration backup</button></a>
-    <form id="config-restore-form" method="POST" action="/config/restore" enctype="multipart/form-data"><label for="configfile">Restore backup</label><input id="configfile" name="configfile" type="file" accept=".bin,application/octet-stream" required><button class="secondary">Restore and reboot</button></form>
+  <div class="config-backup-intro">Save or restore the device's complete NVS configuration. Backups contain saved Wi-Fi credentials and other configuration values, so treat the file as sensitive.</div>
+  <div class="config-backup-grid">
+    <div class="config-backup-action">
+      <div class="config-backup-icon">↓</div>
+      <div class="config-backup-copy"><strong>Download backup</strong><span>Save the current configuration as a backup file.</span></div>
+      <a href="/config/backup" class="config-backup-button good">Download backup</a>
+    </div>
+    <form id="config-restore-form" method="POST" action="/config/restore" enctype="multipart/form-data" class="config-backup-action">
+      <div class="config-backup-icon">↑</div>
+      <div class="config-backup-copy"><strong>Restore backup</strong><span>Replace the current configuration and reboot the ESP32-C3.</span></div>
+      <label class="config-file-picker" for="configfile"><span id="configfile-name">Choose backup file…</span><input id="configfile" name="configfile" type="file" accept=".bin,application/octet-stream" required></label>
+      <button class="secondary config-backup-button" type="submit">Restore & reboot</button>
+    </form>
   </div>
 </div>
 
