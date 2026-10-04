@@ -3,7 +3,6 @@
 #include <FS.h>
 #include <SPIFFS.h>
 #include <WiFi.h>
-#include <Preferences.h>
 #include <nvs.h>
 #include <nvs_flash.h>
 #include <esp_idf_version.h>
@@ -25,46 +24,12 @@ namespace {
 WebServer server(80);
 bool serverStarted = false;
 
-String htmlEscape(const String& input) {
-  String out;
-  out.reserve(input.length() + 16);
-  for (size_t i = 0; i < input.length(); ++i) {
-    switch (input[i]) {
-      case '&': out += F("&amp;"); break;
-      case '<': out += F("&lt;"); break;
-      case '>': out += F("&gt;"); break;
-      case '"': out += F("&quot;"); break;
-      case '\'': out += F("&#39;"); break;
-      default: out += input[i]; break;
-    }
-  }
-  return out;
-}
-
 String statusText() {
   if (!WiFiControl::isEnabled()) return "OFF";
   if (WiFi.status() == WL_CONNECTED) return "CONNECTED";
   return "DISCONNECTED";
 }
 
-String tabName() {
-  String tab = server.hasArg("tab") ? server.arg("tab") : "dashboard";
-  if (tab != "dashboard" && tab != "wifi" && tab != "network" &&
-      tab != "diagnostics" && tab != "relays" && tab != "storage" && tab != "system") {
-    tab = "dashboard";
-  }
-  return tab;
-}
-
-
-
-String txPowerText() {
-  int8_t txPower = 0;
-  if (esp_wifi_get_max_tx_power(&txPower) != ESP_OK) return "unavailable";
-  String value = String(static_cast<float>(txPower) * 0.25f, 2);
-  value += F(" dBm");
-  return value;
-}
 
 String firmwareBuild() {
 #ifdef FW_BUILD_VERSION
@@ -198,7 +163,6 @@ bool restoreFailed = false;
 bool firmwareUpdateFailed = false;
 size_t firmwareUpdateBytes = 0;
 
-
 String jsonStringField(const String& json, const char* field) {
   String needle = String("\"") + field + "\":";
   int start = json.indexOf(needle);
@@ -297,8 +261,6 @@ String firmwareReleaseUrl(const String& json, long& version) {
 String webReleaseUrl(const String& json, long& version) {
   return latestReleaseAssetUrl(json, "-spiffs.bin", version);
 }
-
-
 
 bool fetchReleaseCatalog(String& json) {
   WiFiClientSecure client;
@@ -509,42 +471,6 @@ void handleConfigRestoreUpload() {
 }
 
 void handleConfigRestoreComplete(){const esp_partition_t* p=nvsPartition();const bool v=!restoreFailed&&p&&restoreBuffer&&restoreBytes==restoreCapacity;if(!v){if(restoreBuffer)free(restoreBuffer);restoreBuffer=nullptr;restoreCapacity=0;restoreBytes=0;server.send(400,"application/json; charset=utf-8","{\"message\":\"The uploaded NVS backup was incomplete or invalid. No configuration was changed.\"}");return;}esp_err_t r=esp_partition_erase_range(p,0,p->size);if(r==ESP_OK)r=esp_partition_write(p,0,restoreBuffer,p->size);free(restoreBuffer);restoreBuffer=nullptr;restoreCapacity=0;restoreBytes=0;if(r!=ESP_OK){server.send(500,"application/json; charset=utf-8","{\"message\":\"NVS configuration restore failed.\"}");return;}server.send(200,"application/json; charset=utf-8","{\"message\":\"Configuration restored successfully. The ESP32-C3 is rebooting now.\"}");server.client().flush();delay(1000);ESP.restart();}
-
-String nvsTable() {
-  String html;
-  html.reserve(5000);
-  html += F("<div class='table-wrap'><table><thead><tr><th>#</th><th>Namespace</th><th>Key</th><th>Type</th><th>Value</th></tr></thead><tbody>");
-
-  nvs_iterator_t iterator = nullptr;
-  size_t count = 0;
-  esp_err_t result = nvs_entry_find("nvs", nullptr, NVS_TYPE_ANY, &iterator);
-  while (result == ESP_OK && iterator != nullptr) {
-    nvs_entry_info_t info;
-    nvs_entry_info(iterator, &info);
-    ++count;
-
-    html += F("<tr><td>");
-    html += String(count);
-    html += F("</td><td>");
-    html += htmlEscape(info.namespace_name);
-    html += F("</td><td>");
-    html += htmlEscape(info.key);
-    html += F("</td><td>");
-    html += nvsTypeName(info.type);
-    html += F("</td><td>");
-    html += htmlEscape(nvsValue(info));
-    html += F("</td></tr>");
-
-    result = nvs_entry_next(&iterator);
-  }
-
-  if (iterator != nullptr) nvs_release_iterator(iterator);
-
-  html += F("</tbody></table></div><div class='muted'>");
-  html += String(count);
-  html += F(" entries. Password/token values are hidden.</div>");
-  return html;
-}
 
 String jsonEscape(const String& input) {
   String out;
@@ -863,7 +789,7 @@ void begin() {
   if (serverStarted) return;
 
   if (!SPIFFS.begin(false)) {
-    Serial.println("Web UI filesystem mount failed; using built-in C++ UI fallback.");
+    Serial.println("Web UI filesystem mount failed.");
   } else {
     Serial.println("Web UI filesystem mounted.");
   }
