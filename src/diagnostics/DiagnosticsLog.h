@@ -15,4 +15,7 @@ void remember(const String& message);
 // Returns the most recent lines as JSON for the Diagnostics web page.
 String recentJson();
 
+// Returns recent OTA-related diagnostic lines for the standalone Recovery page.
+String recentOtaJson();
+
 }
