@@ -940,11 +940,10 @@ const char* storageContentType(const String& path) {
 }
 
 void handleStorageFiles() {
-  if (!SPIFFS.exists("/")) {
-    server.send(503, "application/json; charset=utf-8", "{\"message\":\"Web storage is unavailable.\"}");
-    return;
-  }
-
+  // SPIFFS is already mounted by WebControl::begin(). Do not use
+  // SPIFFS.exists("/") as a mount test: "/" is the filesystem root, not a
+  // regular file, so that check can report false even while the Web UI is
+  // being served successfully from SPIFFS.
   String json = F("{\"total\":");
   json += String(SPIFFS.totalBytes());
   json += F(",\"used\":");
