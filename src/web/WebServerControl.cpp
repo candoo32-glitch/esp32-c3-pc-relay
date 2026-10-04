@@ -389,7 +389,7 @@ bool serviceOtaWrite(const char* component) {
   WiFiClient* stream = otaDownload.getStreamPtr();
   const size_t available = stream->available();
 
-  if (available > 0) {
+  if (available > 0 && (otaTotal == 0 || otaReceived < otaTotal)) {
     const size_t remaining = otaTotal > 0 ? otaTotal - otaReceived : 4096;
     const size_t toRead = min(available, min(remaining, static_cast<size_t>(4096)));
     const int readBytes = stream->read(otaBuffer, toRead);
