@@ -170,7 +170,7 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  text("dash-uptime",s.system.uptime+" seconds");text("dash-build",s.system.build);text("dash-idf",s.system.idf);text("dash-cpu",s.system.cpu+" MHz");
  text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
- text("page-status",w.status); currentTab();
+ text("page-status",w.status);
 }
 const THEME_NAMES=["Midnight","Ocean","Forest","Emerald","Sunset","Amber","Rose","Purple","Violet","Cyber","Slate","Coffee","Arctic","Sakura","Terminal","Solarized","Monochrome","Crimson","Indigo","Teal","Original"];
 function applyTheme(value){
@@ -254,6 +254,7 @@ async function load(){
  }
 }
 document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));
+window.addEventListener("hashchange",()=>{const tab=(location.hash||"").slice(1);if(tab)showTab(tab)});
 $("storage-refresh")?.addEventListener("click",loadStorageFiles);
 $("nvs-refresh")?.addEventListener("click",loadNvsContents);
 $("nvs-filter")?.addEventListener("input",renderNvsEntries);
