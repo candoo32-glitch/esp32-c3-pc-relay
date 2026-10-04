@@ -11,8 +11,42 @@
 #endif
 constexpr uint32_t FIRMWARE_BUILD_VERSION = FW_BUILD_VERSION;
 
+namespace {
+uint32_t bootStartMs = 0;
+uint32_t relayReadyMs = 0;
+uint32_t serialReadyMs = 0;
+uint32_t networkReadyMs = 0;
+uint32_t wifiInitMs = 0;
+uint32_t webServerReadyMs = 0;
+uint32_t consoleReadyMs = 0;
+
+void printBootTiming() {
+  const uint32_t now = millis();
+
+  Serial.println();
+  Serial.println("========================================");
+  Serial.println("BOOT TIMING");
+  Serial.println("========================================");
+  Serial.printf("Relay init       %+6lu ms\n", static_cast<unsigned long>(relayReadyMs - bootStartMs));
+  Serial.printf("Serial init      %+6lu ms\n", static_cast<unsigned long>(serialReadyMs - bootStartMs));
+  Serial.printf("Network init     %+6lu ms\n", static_cast<unsigned long>(networkReadyMs - bootStartMs));
+  Serial.printf("WiFi init        %+6lu ms\n", static_cast<unsigned long>(wifiInitMs - bootStartMs));
+  Serial.printf("Web server       %+6lu ms\n", static_cast<unsigned long>(webServerReadyMs - bootStartMs));
+  Serial.printf("Console init     %+6lu ms\n", static_cast<unsigned long>(consoleReadyMs - bootStartMs));
+  Serial.printf("SETUP COMPLETE   %+6lu ms\n", static_cast<unsigned long>(consoleReadyMs - bootStartMs));
+  Serial.printf("Report printed   %+6lu ms\n", static_cast<unsigned long>(now - bootStartMs));
+  Serial.println("========================================");
+  Serial.println("WiFi connection continues asynchronously.");
+  Serial.println("========================================");
+  Serial.println();
+}
+}
+
 void setup() {
+  bootStartMs = millis();
+
   Relay::begin();
+  relayReadyMs = millis();
 
   Serial.begin(115200);
   Serial.setTxTimeoutMs(50);
@@ -21,6 +55,7 @@ void setup() {
   Serial.onEvent(ARDUINO_HW_CDC_BUS_RESET_EVENT, Console::onHardwareCDCEvent);
 #endif
   delay(250);
+  serialReadyMs = millis();
 
   Serial.println();
   Serial.println("ESP32-C3 PC Relay Controller");
@@ -29,20 +64,22 @@ void setup() {
   Serial.print("Firmware build: ");
   Serial.println(FIRMWARE_BUILD_VERSION);
 
-  // WiFi startup must not depend on the USB terminal. Run the complete
-  // WiFi initialization and saved-credential connection attempt first, while
-  // the console remains in plain/non-ANSI mode for boot diagnostics.
   NetConfig::begin();
-  WiFiControl::begin();
+  networkReadyMs = millis();
 
-  // Only after WiFi has had its chance to connect do we initialize the
-  // interactive terminal and ask whether ANSI rendering should be enabled.
+  WiFiControl::begin();
+  wifiInitMs = millis();
+
   WebControl::begin();
+  webServerReadyMs = millis();
 
   Console::begin();
+  consoleReadyMs = millis();
 
   Serial.println();
   Serial.println("Serial configuration console ready.");
+
+  printBootTiming();
 }
 
 void loop() {
