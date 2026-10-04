@@ -48,7 +48,7 @@ void line(const String& message) {
 String recentJson() {
   String json;
   json.reserve(4200);
-  json += F("{\"lines\":[");
+  json += F("{\"enabled\":true,\"lines\":[");
   for (size_t i = 0; i < count; ++i) {
     if (i > 0) json += ',';
     const size_t index = (next + HISTORY_LINES - count + i) % HISTORY_LINES;
