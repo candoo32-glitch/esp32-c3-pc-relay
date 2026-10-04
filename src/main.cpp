@@ -19,7 +19,6 @@ uint32_t networkReadyMs = 0;
 uint32_t wifiInitMs = 0;
 uint32_t webServerReadyMs = 0;
 uint32_t consoleReadyMs = 0;
-bool bootTimingPending = true;
 
 void printBootTiming() {
   const uint32_t now = millis();
@@ -80,18 +79,16 @@ void setup() {
   Serial.println();
   Serial.println("Serial configuration console ready.");
 
-  if (Serial.isConnected()) {
-    printBootTiming();
-    bootTimingPending = false;
-  }
+  // Console::begin() may leave Serial.isConnected() transiently false on
+  // native USB CDC even though the terminal is still attached. Do not gate
+  // the final report on that unreliable status bit. The existing boot output
+  // has already proven the transport is usable; print the completed timing
+  // report unconditionally once Console initialization returns.
+  printBootTiming();
+  Serial.flush();
 }
 
 void loop() {
-  if (bootTimingPending && Serial.isConnected()) {
-    printBootTiming();
-    bootTimingPending = false;
-  }
-
   Relay::service();
   NetConfig::service();
   WebControl::service();
