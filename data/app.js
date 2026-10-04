@@ -376,18 +376,18 @@ async function saveUiSelection(value){
    if(status){status.textContent="Loading UI…";status.className="help";}
    const r=await fetch("/system/ui-selection",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"ui="+encodeURIComponent(value),cache:"no-store"});
    if(!r.ok)throw Error(r.status);
-   if(!(await activateUi(value))){
-     throw Error("The selected UI could not be loaded from GitHub");
-   }
+   // Persist the selection first. The browser then performs a clean page
+   // reload so the selected UI is initialized from a completely fresh DOM.
+   // This avoids stale theme scripts/CSS surviving a live swap.
    const select=$("ui-selection");
    if(select)select.dataset.savedSelection=String(value);
    if(status){
-     status.textContent=value==="builtin"?"Built-in UI active":"UI saved — active";
+     status.textContent=value==="builtin"?"Built-in UI saved — reloading…":"UI saved — reloading…";
      status.className="help ok";
    }
-   // Switching UI packages is now live. Do not reload the page: the built-in
-   // DOM remains authoritative and external assets are purely presentational.
-   await load();
+   const reloadUrl=window.location.pathname+"?uiReload="+Date.now()+window.location.hash;
+   window.location.replace(reloadUrl);
+   return;
  }catch(e){
    if(status){status.textContent="UI selection failed: "+(e.message||"unknown error");status.className="help bad";}
    const select=$("ui-selection");
