@@ -77,7 +77,31 @@ function setPageStatus(m,k){const e=$("page-status");if(e){e.textContent=m;e.cla
 async function rd(r){const t=r.headers.get("content-type")||"";return t.includes("application/json")?await r.json():null}
 async function pf(f){const r=await fetch(f.action,{method:"POST",body:new URLSearchParams(new FormData(f)),cache:"no-store"});if(!r.ok)throw Error(r.status);return rd(r)}
 async function pfu(f){const r=await fetch(f.action,{method:"POST",body:new FormData(f),cache:"no-store"});if(!r.ok)throw Error(r.status);return rd(r)}
-function renderScan(d){const e=$("wifi-scan-results"),select=$("wifi-ssid-select");if(!e)return;if(select){select.innerHTML='<option value="">Select a scanned network…</option>';const seen=new Set();(d&&d.networks||[]).forEach(n=>{const ssid=String(n.ssid||"");if(!ssid||seen.has(ssid))return;seen.add(ssid);const o=document.createElement("option");o.value=ssid;o.textContent=ssid;select.appendChild(o)})}if(!d||!d.networks||!d.networks.length){e.innerHTML='<div class="help">No networks found or scan failed.</div>';return}e.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>SSID</th><th>RSSI</th><th>Channel</th><th>Security</th><th>BSSID</th></tr></thead><tbody>'+d.networks.map((n,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(n.ssid||"(hidden)")+"</td><td>"+esc(n.rssi)+" dBm</td><td>"+esc(n.channel)+"</td><td>"+esc(n.security)+"</td><td class="mono">"+esc(n.bssid)+"</td></tr>").join("")+"</tbody></table></div><div class="help">"+d.networks.length+" access points found.</div>'}\nasync function scan(e){e.preventDefault();const b=$("wifi-scan-button"),s=$("wifi-scan-spinner"),l=$("wifi-scan-label");b.disabled=true;s.hidden=false;l.textContent="Scanning…";setPageStatus("Wi-Fi scan in progress…","warn");try{renderScan(await pf(e.currentTarget));setPageStatus("Wi-Fi scan complete","ok")}catch(x){setPageStatus("Wi-Fi scan failed","bad")}finally{b.disabled=false;s.hidden=true;l.textContent="Scan now"}}
+function renderScan(d){
+ const e=$("wifi-scan-results"),select=$("wifi-ssid-select");
+ if(!e)return;
+ if(select){
+   select.innerHTML='<option value="">Select a scanned network…</option>';
+   const seen=new Set();
+   (d&&d.networks||[]).forEach(n=>{
+     const ssid=String(n.ssid||"");
+     if(!ssid||seen.has(ssid))return;
+     seen.add(ssid);
+     const o=document.createElement("option");
+     o.value=ssid;
+     o.textContent=ssid;
+     select.appendChild(o)
+   })
+ }
+ if(!d||!d.networks||!d.networks.length){
+   e.innerHTML='<div class="help">No networks found or scan failed.</div>';
+   return
+ }
+ e.innerHTML='<div class="table-wrap"><table><thead><tr><th>#</th><th>SSID</th><th>RSSI</th><th>Channel</th><th>Security</th><th>BSSID</th></tr></thead><tbody>'+
+   d.networks.map((n,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(n.ssid||"(hidden)")+'</td><td>'+esc(n.rssi)+' dBm</td><td>'+esc(n.channel)+'</td><td>'+esc(n.security)+'</td><td class="mono">'+esc(n.bssid)+'</td></tr>').join("")+
+   '</tbody></table></div><div class="help">'+d.networks.length+' access points found.</div>';
+}
+async function scan(e){e.preventDefault();const b=$("wifi-scan-button"),s=$("wifi-scan-spinner"),l=$("wifi-scan-label");b.disabled=true;s.hidden=false;l.textContent="Scanning…";setPageStatus("Wi-Fi scan in progress…","warn");try{renderScan(await pf(e.currentTarget));setPageStatus("Wi-Fi scan complete","ok")}catch(x){setPageStatus("Wi-Fi scan failed","bad")}finally{b.disabled=false;s.hidden=true;l.textContent="Scan now"}}
 async function check(e){e.preventDefault();setPageStatus("Checking for updates…");const b=$("software-update-status");b.hidden=false;b.textContent="Checking…";try{const r=await fetch(e.currentTarget.action,{cache:"no-store"}),d=await rd(r);if(!r.ok)throw Error();b.textContent=d.message||"Update check complete.";setPageStatus("Update check complete","ok")}catch(x){b.textContent="Could not retrieve the GitHub release catalog.";setPageStatus("Update check failed","bad")}}
 async function latest(e){e.preventDefault();if(!confirm("Check for newer firmware and web interface components on GitHub, install any that are newer, then reboot the ESP32-C3?"))return;setPageStatus("Installing updates…");try{const d=await pf(e.currentTarget);setPageStatus(d?.message||"Update installed; rebooting.","ok")}catch(x){setPageStatus("Update request failed or the ESP32-C3 rebooted.","warn")}}
 async function upload(e,q){e.preventDefault();if(!confirm(q))return;setPageStatus("Uploading…");try{const d=await pfu(e.currentTarget);setPageStatus(d?.message||"Operation completed.","ok")}catch(x){setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad")}}
