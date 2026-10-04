@@ -2,8 +2,74 @@
 "use strict";
 const $=id=>document.getElementById(id);
 let wifiCredentialsDirty=false;
-const UI_CATALOG_URL="https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/ui/catalog.json";
+const UI_ROOT_URL="https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/ui";
+const UI_CATALOG_URL=UI_ROOT_URL+"/catalog.json";
+const UI_MANIFEST_VERSION=1;
 let uiCatalogLoaded=false;
+let activeExternalUi="";
+
+function uiAssetUrl(uiId,asset){
+  return UI_ROOT_URL+"/"+encodeURIComponent(uiId)+"/"+String(asset||"").split("/").map(encodeURIComponent).join("/");
+}
+
+function removeExternalUi(){
+  document.querySelectorAll("[data-external-ui]").forEach(e=>e.remove());
+  document.body.classList.remove("external-ui-active");
+  document.documentElement.removeAttribute("data-external-ui");
+  activeExternalUi="";
+}
+
+function loadExternalUiAsset(tag,url){
+  return new Promise((resolve,reject)=>{
+    const el=document.createElement(tag);
+    el.dataset.externalUi="true";
+    if(tag==="link"){
+      el.rel="stylesheet";
+      el.href=url;
+    }else{
+      el.src=url;
+      el.async=false;
+    }
+    el.onload=()=>resolve(el);
+    el.onerror=()=>reject(new Error("UI asset failed: "+url));
+    document.head.appendChild(el);
+  });
+}
+
+async function activateUi(uiId){
+  const id=String(uiId||"builtin").trim();
+  if(id==="builtin"){
+    removeExternalUi();
+    return true;
+  }
+  if(!/^[A-Za-z0-9._-]{1,63}$/.test(id))throw Error("Invalid UI id");
+
+  try{
+    const manifestUrl=UI_ROOT_URL+"/"+encodeURIComponent(id)+"/manifest.json?t="+Date.now();
+    const r=await fetch(manifestUrl,{cache:"no-store"});
+    if(!r.ok)throw Error("Manifest HTTP "+r.status);
+    const manifest=await r.json();
+    if(Number(manifest?.version||0)!==UI_MANIFEST_VERSION)throw Error("Unsupported UI manifest");
+    if(String(manifest?.id||"")!==id)throw Error("UI manifest ID mismatch");
+    if(String(manifest?.requires||"")!=="builtin-dom-v1")throw Error("Unsupported UI DOM contract");
+
+    const assets=manifest.assets||{};
+    if(!assets.stylesheet)throw Error("UI stylesheet missing");
+
+    removeExternalUi();
+    await loadExternalUiAsset("link",uiAssetUrl(id,assets.stylesheet));
+    if(assets.script)await loadExternalUiAsset("script",uiAssetUrl(id,assets.script));
+
+    activeExternalUi=id;
+    document.documentElement.dataset.externalUi=id;
+    document.body.classList.add("external-ui-active");
+    return true;
+  }catch(e){
+    removeExternalUi();
+    console.warn("External UI could not be loaded:",e);
+    return false;
+  }
+}
 
 async function loadUiCatalog(){
   const select=$("ui-selection");
@@ -242,11 +308,22 @@ async function saveTheme(value){
 async function saveUiSelection(value){
  const status=$("ui-selection-status");
  try{
+   if(value!=="builtin"){
+     const available=[...($("ui-selection")?.options||[])].some(o=>o.value===value);
+     if(!available)throw Error("UI is not in the GitHub catalog");
+   }
+   if(status){status.textContent="Loading UI…";status.className="help";}
    const r=await fetch("/system/ui-selection",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"ui="+encodeURIComponent(value),cache:"no-store"});
    if(!r.ok)throw Error(r.status);
-   if(status){status.textContent="UI selection saved";status.className="help ok";}
+   if(!(await activateUi(value))){
+     throw Error("The selected UI could not be loaded from GitHub");
+   }
+   if(status){status.textContent="UI saved — reloading…";status.className="help ok";}
+   setTimeout(()=>location.reload(),120);
  }catch(e){
-   if(status){status.textContent="UI selection could not be saved";status.className="help bad";}
+   if(status){status.textContent="UI selection failed: "+(e.message||"unknown error");status.className="help bad";}
+   const select=$("ui-selection");
+   if(select)select.value=String(select.dataset.savedSelection||"builtin");
  }
 }
 let diagnosticPollTimer=null;
@@ -287,6 +364,14 @@ async function load(){
    const state=await r.json();
    stateFailureCount=0;
    render(state);
+   const selectedUi=String(state.system?.uiSelection||"builtin");
+   if(selectedUi!==activeExternalUi){
+     const loaded=await activateUi(selectedUi);
+     if(!loaded && selectedUi!=="builtin"){
+       const status=$("ui-selection-status");
+       if(status){status.textContent="Saved UI unavailable — using Built-in";status.className="help bad";}
+     }
+   }
  }catch(e){
    stateFailureCount++;
    if(stateFailureCount>=STATE_FAILURE_THRESHOLD){
