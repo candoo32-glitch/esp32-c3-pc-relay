@@ -182,7 +182,8 @@ function renderOtaStatus(d){
  if(d.component){
    row.hidden=false;
    if(d.total>0){
-     const percent=Math.min(100,Math.max(0,(d.received/d.total)*100));
+     const complete=d.received>=d.total;
+     const percent=complete?100:Math.min(100,Math.max(0,(d.received/d.total)*100));
      bar.classList.remove("indeterminate");
      bar.style.width=percent+"%";
      detail.textContent=d.received.toLocaleString()+" / "+d.total.toLocaleString()+" bytes ("+Math.round(percent)+"%)";
