@@ -1288,6 +1288,7 @@ button.secondary::before{
 
 /* Relay float becomes the physical command station. */
 .relay-float{
+  top:auto;
   width:min(340px,calc(100vw - 36px));
   border-top:0;
   border-left:7px solid var(--lcars-orange);
