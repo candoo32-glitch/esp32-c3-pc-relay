@@ -16,8 +16,10 @@ function uiAssetUrl(uiId,asset){
 
 function removeExternalUi(){
   document.querySelectorAll("[data-external-ui]").forEach(e=>e.remove());
-  document.body.classList.remove("external-ui-active");
+  document.body.classList.remove("external-ui-active","external-ui-fallback","lcars-ready");
+  document.body.removeAttribute("data-lcars-tab");
   document.documentElement.removeAttribute("data-external-ui");
+  document.documentElement.style.removeProperty("--lcars-active-tab");
   activeExternalUi="";
 }
 
@@ -333,8 +335,15 @@ async function saveUiSelection(value){
    if(!(await activateUi(value))){
      throw Error("The selected UI could not be loaded from GitHub");
    }
-   if(status){status.textContent="UI saved — reloading…";status.className="help ok";}
-   setTimeout(()=>location.reload(),120);
+   const select=$("ui-selection");
+   if(select)select.dataset.savedSelection=String(value);
+   if(status){
+     status.textContent=value==="builtin"?"Built-in UI active":"UI saved — active";
+     status.className="help ok";
+   }
+   // Switching UI packages is now live. Do not reload the page: the built-in
+   // DOM remains authoritative and external assets are purely presentational.
+   await load();
  }catch(e){
    if(status){status.textContent="UI selection failed: "+(e.message||"unknown error");status.className="help bad";}
    const select=$("ui-selection");
