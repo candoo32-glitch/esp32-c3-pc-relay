@@ -73,19 +73,21 @@ void setup() {
   WebControl::begin();
   webServerReadyMs = millis();
 
+  // Print the boot timing report before entering the optional interactive
+  // console. Console::begin() asks for ANSI/plain-text mode and deliberately
+  // waits for an operator response, so a report placed after it would be
+  // hidden until that interaction completes.
+  Serial.println();
+  Serial.println("Services initialized; entering optional USB console.");
+  Serial.println();
+  printBootTiming();
+  Serial.flush();
+
   Console::begin();
   consoleReadyMs = millis();
 
   Serial.println();
   Serial.println("Serial configuration console ready.");
-
-  // Console::begin() may leave Serial.isConnected() transiently false on
-  // native USB CDC even though the terminal is still attached. Do not gate
-  // the final report on that unreliable status bit. The existing boot output
-  // has already proven the transport is usable; print the completed timing
-  // report unconditionally once Console initialization returns.
-  printBootTiming();
-  Serial.flush();
 }
 
 void loop() {
