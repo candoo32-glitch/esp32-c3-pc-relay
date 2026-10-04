@@ -192,6 +192,10 @@ bool otaFirmwarePending = false;
 bool otaWebPending = false;
 long otaFirmwareVersion = -1;
 long otaWebVersion = -1;
+constexpr size_t OTA_BUFFER_SIZE = 8192;
+constexpr size_t OTA_SERVICE_BYTE_BUDGET = 32768;
+constexpr uint32_t OTA_SERVICE_TIME_BUDGET_MS = 12;
+
 uint8_t* otaBuffer = nullptr;
 HTTPClient otaDownload;
 WiFiClientSecure otaDownloadClient;
@@ -368,7 +372,7 @@ bool beginOtaDownload(const String& url, const char* component, OtaStage downloa
   }
 
   if (otaBuffer == nullptr) {
-    otaBuffer = static_cast<uint8_t*>(malloc(4096));
+    otaBuffer = static_cast<uint8_t*>(malloc(OTA_BUFFER_SIZE));
     if (otaBuffer == nullptr) {
       otaDownload.end();
       Update.abort();
@@ -387,11 +391,17 @@ bool serviceOtaWrite(const char* component) {
   }
 
   WiFiClient* stream = otaDownload.getStreamPtr();
-  const size_t available = stream->available();
+  const uint32_t startMs = millis();
+  size_t bytesThisService = 0;
 
-  if (available > 0 && (otaTotal == 0 || otaReceived < otaTotal)) {
-    const size_t remaining = otaTotal > 0 ? otaTotal - otaReceived : 4096;
-    const size_t toRead = min(available, min(remaining, static_cast<size_t>(4096)));
+  while ((otaTotal == 0 || otaReceived < otaTotal) &&
+         bytesThisService < OTA_SERVICE_BYTE_BUDGET &&
+         static_cast<uint32_t>(millis() - startMs) < OTA_SERVICE_TIME_BUDGET_MS) {
+    const size_t available = stream->available();
+    if (available == 0) break;
+
+    const size_t remaining = otaTotal > 0 ? otaTotal - otaReceived : OTA_BUFFER_SIZE;
+    const size_t toRead = min(available, min(remaining, OTA_BUFFER_SIZE));
     const int readBytes = stream->read(otaBuffer, toRead);
 
     if (readBytes <= 0 ||
@@ -403,6 +413,10 @@ bool serviceOtaWrite(const char* component) {
     }
 
     otaReceived += static_cast<size_t>(readBytes);
+    bytesThisService += static_cast<size_t>(readBytes);
+  }
+
+  if (bytesThisService > 0) {
     otaMessage = String("Writing ") + component + " (" +
                  String(otaReceived) +
                  (otaTotal > 0 ? String(" / ") + String(otaTotal) : String(" bytes")) +
