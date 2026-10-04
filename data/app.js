@@ -210,6 +210,12 @@ async function latest(e){
          setPageStatus("Rebooting…","ok");
          continue;
        }
+       if(d.type==="progress"&&d.stage==="finalizing"){
+         stage.textContent="Finalizing";
+         info.textContent=d.message||"Finalizing updates…";
+         showUpdateStatus(d.message||"Finalizing updates…","warn");
+         continue;
+       }
        if(d.type==="progress"){
          stage.textContent=d.message||d.stage||"Updating";
          const bar=d.component==="web"?webBar:firmwareBar, row=d.component==="web"?webRow:firmwareRow, detail=d.component==="web"?webInfo:firmwareInfo;
