@@ -320,6 +320,7 @@ async function saveTheme(value){
 }
 
 async function saveUiSelection(value){
+ uiInitialFallback=false;
  const status=$("ui-selection-status");
  try{
    if(value!=="builtin"){
@@ -379,6 +380,9 @@ async function load(){
    stateFailureCount=0;
    render(state);
    const selectedUi=String(state.system?.uiSelection||"builtin");
+   // If the saved external UI failed during initial bootstrap, keep the
+   // built-in UI for this page instead of hammering GitHub every 5 seconds.
+   if(selectedUi!=="builtin" && uiInitialFallback) return;
    if(selectedUi!==activeExternalUi){
      const loaded=await activateUi(selectedUi);
      if(!loaded && selectedUi!=="builtin"){
