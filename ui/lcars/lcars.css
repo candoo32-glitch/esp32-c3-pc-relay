@@ -1816,3 +1816,120 @@ input:focus,select:focus,textarea:focus{
     width:132px;
   }
 }
+
+
+/* Final command-surface normalization.
+   Any ordinary application button must use the LCARS control geometry. */
+button:not(.theme-option){
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  min-height:42px;
+  padding:9px 18px!important;
+  border:0!important;
+  border-radius:3px 18px 18px 3px!important;
+  color:#090b10!important;
+  background:var(--lcars-orange)!important;
+  font-family:var(--lcars-font)!important;
+  font-size:.74rem!important;
+  font-weight:900!important;
+  letter-spacing:.065em!important;
+  line-height:1.15!important;
+  text-transform:uppercase;
+  box-shadow:none;
+  position:relative;
+  overflow:hidden;
+}
+button:not(.theme-option):hover{
+  filter:brightness(1.08);
+  transform:none!important;
+}
+button:not(.theme-option):focus-visible{
+  outline:2px solid var(--lcars-blue-hot);
+  outline-offset:2px;
+}
+button.secondary:not(.theme-option){
+  color:#dbe9ff!important;
+  background:var(--lcars-blue)!important;
+}
+button.danger:not(.theme-option),
+.danger-zone button:not(.theme-option){
+  color:#090b10!important;
+  background:var(--lcars-red)!important;
+}
+button.good:not(.theme-option){
+  color:#090b10!important;
+  background:var(--lcars-orange)!important;
+}
+
+/* Configuration/inspection controls use blue; primary saves remain orange. */
+#wifi-ssid-toggle,
+#show-password,
+#wifi-scan-button,
+#storage-refresh,
+#nvs-refresh,
+#storage-viewer-close{
+  color:#090b10!important;
+  background:var(--lcars-blue)!important;
+}
+
+/* The relay rail is ALWAYS a right-side vertical instrument.
+   Do not collapse it to the bottom on tablet widths. */
+.relay-float{
+  position:fixed!important;
+  top:50vh!important;
+  right:0!important;
+  bottom:auto!important;
+  left:auto!important;
+  transform:translateY(-50%)!important;
+  width:148px!important;
+  z-index:100!important;
+  padding:12px 9px 10px!important;
+  border-top:0!important;
+  border-right:0!important;
+  border-bottom:1px solid rgba(255,155,91,.18)!important;
+  border-left:5px solid var(--lcars-orange)!important;
+  border-radius:4px 0 0 20px!important;
+  background:rgba(5,7,12,.97)!important;
+}
+.relay-float-title{
+  text-align:center;
+  padding:2px 5px 11px!important;
+}
+.relay-float-buttons{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:8px!important;
+}
+.relay-float form{
+  width:100%!important;
+  margin:0!important;
+}
+.relay-float .relay-button{
+  width:100%!important;
+  min-height:54px!important;
+  padding:10px 7px!important;
+  border-radius:3px 14px 14px 3px!important;
+}
+.relay-float form:first-child .relay-button{
+  background:var(--lcars-orange)!important;
+}
+.relay-float form:nth-child(2) .relay-button{
+  background:var(--lcars-purple)!important;
+}
+
+/* Keep theme palette swatches as visual swatches, not command buttons. */
+button.theme-option{
+  min-height:54px;
+  border-radius:10px!important;
+}
+
+/* Small screens may use a bottom dock, but tablet/desktop never does. */
+@media (max-width:650px){
+  .relay-float{
+    top:auto!important;
+    right:8px!important;
+    bottom:8px!important;
+    transform:none!important;
+    width:132px!important;
+  }
+}
