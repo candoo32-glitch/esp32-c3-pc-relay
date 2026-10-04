@@ -531,7 +531,7 @@ textarea.diagnostic-console:focus{border-color:var(--lcars-green);box-shadow:ins
   font-size:1.05rem;
 }
 
-[data-theme] body{transition:background .35s ease}
+body[data-theme]{transition:background .35s ease}
 
 @media (max-width:900px){
   body{padding:0 16px 100px 86px}
