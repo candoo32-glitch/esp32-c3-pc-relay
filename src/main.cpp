@@ -27,14 +27,14 @@ void printBootTiming() {
   Serial.println("========================================");
   Serial.println("BOOT TIMING");
   Serial.println("========================================");
-  Serial.printf("Relay init       %+6lu ms\n", static_cast<unsigned long>(relayReadyMs - bootStartMs));
-  Serial.printf("Serial init      %+6lu ms\n", static_cast<unsigned long>(serialReadyMs - bootStartMs));
-  Serial.printf("Network init     %+6lu ms\n", static_cast<unsigned long>(networkReadyMs - bootStartMs));
-  Serial.printf("WiFi init        %+6lu ms\n", static_cast<unsigned long>(wifiInitMs - bootStartMs));
-  Serial.printf("Web server       %+6lu ms\n", static_cast<unsigned long>(webServerReadyMs - bootStartMs));
-  Serial.printf("Console init     %+6lu ms\n", static_cast<unsigned long>(consoleReadyMs - bootStartMs));
-  Serial.printf("SETUP COMPLETE   %+6lu ms\n", static_cast<unsigned long>(consoleReadyMs - bootStartMs));
-  Serial.printf("Report printed   %+6lu ms\n", static_cast<unsigned long>(now - bootStartMs));
+  Serial.printf("Relay init       %+6lu ms\r\n", static_cast<unsigned long>(relayReadyMs - bootStartMs));
+  Serial.printf("Serial init      %+6lu ms\r\n", static_cast<unsigned long>(serialReadyMs - bootStartMs));
+  Serial.printf("Network init     %+6lu ms\r\n", static_cast<unsigned long>(networkReadyMs - bootStartMs));
+  Serial.printf("WiFi init        %+6lu ms\r\n", static_cast<unsigned long>(wifiInitMs - bootStartMs));
+  Serial.printf("Web server       %+6lu ms\r\n", static_cast<unsigned long>(webServerReadyMs - bootStartMs));
+  Serial.printf("Console init     %+6lu ms\r\n", static_cast<unsigned long>(consoleReadyMs - bootStartMs));
+  Serial.printf("SETUP COMPLETE   %+6lu ms\r\n", static_cast<unsigned long>(consoleReadyMs - bootStartMs));
+  Serial.printf("Report printed   %+6lu ms\r\n", static_cast<unsigned long>(now - bootStartMs));
   Serial.println("========================================");
   Serial.println("WiFi connection continues asynchronously.");
   Serial.println("========================================");
@@ -73,21 +73,18 @@ void setup() {
   WebControl::begin();
   webServerReadyMs = millis();
 
-  // Print the boot timing report before entering the optional interactive
-  // console. Console::begin() asks for ANSI/plain-text mode and deliberately
-  // waits for an operator response, so a report placed after it would be
-  // hidden until that interaction completes.
-  Serial.println();
-  Serial.println("Services initialized; entering optional USB console.");
-  Serial.println();
-  printBootTiming();
-  Serial.flush();
-
   Console::begin();
   consoleReadyMs = millis();
 
   Serial.println();
   Serial.println("Serial configuration console ready.");
+
+  // The console is now fully initialized, so all timing fields contain valid
+  // timestamps. Use CRLF explicitly because some terminal sessions do not
+  // translate a printf-only LF into a carriage return, which causes each
+  // timing line to start farther to the right.
+  printBootTiming();
+  Serial.flush();
 }
 
 void loop() {
