@@ -84,8 +84,13 @@
 
     sections.forEach((card,index)=>{
       const d=directions[Math.floor(Math.random()*directions.length)];
+      // Keep the random transition lively, but bounded so no panel
+      // ever feels slow or unpredictable.
       const delay=Math.floor(Math.random()*150)+index*42;
-      const duration=360+Math.floor(Math.random()*180);
+      const MIN_FADE_MS=360;
+      const MAX_FADE_MS=520;
+      const duration=MIN_FADE_MS+
+        Math.floor(Math.random()*(MAX_FADE_MS-MIN_FADE_MS+1));
       card.animate(
         [
           {opacity:0,transform:"translate3d("+d.x+"px,"+d.y+"px,0) scale(.985)"},
