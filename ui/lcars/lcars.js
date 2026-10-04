@@ -33,8 +33,12 @@
       if(d)d.textContent=date;
     };
     updateClock();
-    const clockTimer=setInterval(updateClock,1000);
-    clock.dataset.clockTimer=String(clockTimer);
+    const tickClock=()=>{
+      if(!clock.isConnected)return;
+      updateClock();
+      setTimeout(tickClock,1000);
+    };
+    setTimeout(tickClock,1000);
 
     /* LCARS is a control console, not a presentation animation. Keep the
        panels stable so live data and controls remain visually anchored. */
