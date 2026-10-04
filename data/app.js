@@ -22,6 +22,7 @@ function setRelay(r,i){
  text("dash-relay"+i+"-name",r.name); $("dash-relay"+i+"-state").innerHTML=r.state?'<span class="ok">ON</span>':'OFF';
  if(tab==="diagnostics")startDiagnosticPolling();else stopDiagnosticPolling();
 }
+async function loadNvsContents(){try{const r=await fetch("/api/nvs",{cache:"no-store"});if(!r.ok)throw Error(r.status);const n=await r.json();text("nvs-size",n.size||0);$("nvs-table").innerHTML="<table><thead><tr><th>#</th><th>Namespace</th><th>Key</th><th>Type</th><th>Value</th></tr></thead><tbody>"+(n.entries||[]).map((e,i)=>"<tr><td>"+(i+1)+"</td><td>"+esc(e.namespace)+"</td><td>"+esc(e.key)+"</td><td>"+esc(e.type)+"</td><td>"+esc(e.value)+"</td></tr>").join("")+"</tbody></table><div class="muted">"+(n.entries||[]).length+" entries. Password/token values are hidden.</div>"}catch(e){text("nvs-size","Unavailable");$("nvs-table").innerHTML="<div class="help bad">NVS contents unavailable.</div>"}}
 function render(s){
  const w=s.wifi,n=s.network,d=s.diagnostics;
  if(s.system&&s.system.theme!==undefined) applyTheme(s.system.theme);
@@ -45,7 +46,7 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  text("diag-state",w.status);text("diag-auth",w.connected?w.auth:"-");text("diag-bssid",w.connected?w.bssid:"-");text("diag-rssi",w.connected?w.rssi+" dBm":"-");
  $("diagnostics-toggle").textContent=d.enabled?"Disable diagnostics":"Enable diagnostics";$("diagnostics-toggle").className=d.enabled?"danger":"good";
  setRelay(s.relays[0],0);setRelay(s.relays[1],1);
- text("nvs-size",s.nvs.size);$("nvs-table").innerHTML="<table><thead><tr><th>#</th><th>Namespace</th><th>Key</th><th>Type</th><th>Value</th></tr></thead><tbody>"+s.nvs.entries.map((e,i)=>"<tr><td>"+(i+1)+"</td><td>"+esc(e.namespace)+"</td><td>"+esc(e.key)+"</td><td>"+esc(e.type)+"</td><td>"+esc(e.value)+"</td></tr>").join("")+"</tbody></table><div class='muted'>"+s.nvs.entries.length+" entries. Password/token values are hidden.</div>";
+
  text("dash-uptime",s.system.uptime+" seconds");text("dash-build",s.system.build);text("dash-idf",s.system.idf);text("dash-cpu",s.system.cpu+" MHz");
  text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
@@ -120,7 +121,7 @@ async function load(){
  try{
    const r=await fetch("/api/state",{cache:"no-store"});
    if(!r.ok)throw new Error(r.status);
-   render(await r.json())
+   const state=await r.json(); render(state); loadNvs()
  }catch(e){text("page-status","UNAVAILABLE")}
 }
 document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
