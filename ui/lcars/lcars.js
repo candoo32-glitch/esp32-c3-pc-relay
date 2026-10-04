@@ -51,8 +51,6 @@
     const diag=document.querySelector("#diagnostic-console");
     if(diag){
       let previous="";
-      const observer=new MutationObserver(()=>{});
-      observer.observe(diag,{childList:true,subtree:true});
       const poll=()=>{
         if(diag.value!==previous){
           previous=diag.value;
@@ -61,9 +59,8 @@
             {duration:320,easing:"ease-out"}
           );
         }
-        requestAnimationFrame(poll);
       };
-      requestAnimationFrame(poll);
+      setInterval(poll,250);
     }
   };
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});
