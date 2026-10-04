@@ -2,6 +2,7 @@
 #include <Preferences.h>
 #include "Relay.h"
 #include "../interface/Console.h"
+#include "../diagnostics/DiagnosticsLog.h"
 
 namespace Relay {
 namespace {
@@ -45,6 +46,8 @@ bool state(Id id) {
 void setState(Id id, bool active) {
   pulseDeadline[index(id)] = 0;
   writeState(id, active);
+  DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) +
+                       (active ? " | ON" : " | OFF"));
 }
 
 void activate(Id id) {
@@ -54,11 +57,17 @@ void activate(Id id) {
   } else {
     pulseDeadline[index(id)] = 0;
   }
+  DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) +
+                       " | ACTIVATE | " +
+                       (activationMode(id) == ActivationMode::PULSE
+                          ? String("PULSE=") + String(pulseMs(id)) + "ms"
+                          : "LATCHED"));
 }
 
 void deactivate(Id id) {
   pulseDeadline[index(id)] = 0;
   writeState(id, false);
+  DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) + " | DEACTIVATE");
 }
 
 const char* name(Id id) {
@@ -73,6 +82,8 @@ bool setName(Id id, const String& value) {
   trimmed.trim();
   if (trimmed.isEmpty() || trimmed.length() > 32) return false;
   preferences.putString(cfg(id).nameKey, trimmed);
+  DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) +
+                       " | NAME=" + trimmed);
   return true;
 }
 
@@ -85,6 +96,9 @@ bool setNormalState(Id id, NormalState value) {
   preferences.putUChar(cfg(id).normalKey, static_cast<uint8_t>(value));
   // A configuration change never leaves an active relay energized.
   deactivate(id);
+  DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) +
+                       " | NORMAL=" +
+                       (value == NormalState::OPEN ? "OPEN" : "CLOSED"));
   return true;
 }
 
@@ -96,6 +110,9 @@ ActivationMode activationMode(Id id) {
 bool setActivationMode(Id id, ActivationMode value) {
   preferences.putUChar(cfg(id).modeKey, static_cast<uint8_t>(value));
   if (value == ActivationMode::LATCHED) pulseDeadline[index(id)] = 0;
+  DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) +
+                       " | MODE=" +
+                       (value == ActivationMode::PULSE ? "PULSE" : "LATCHED"));
   return true;
 }
 
@@ -109,6 +126,8 @@ uint32_t pulseMs(Id id) {
 bool setPulseMs(Id id, uint32_t value) {
   if (value < MIN_PULSE_MS || value > MAX_PULSE_MS) return false;
   preferences.putUInt(cfg(id).pulseKey, value);
+  DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) +
+                       " | PULSE=" + String(value) + "ms");
   return true;
 }
 
