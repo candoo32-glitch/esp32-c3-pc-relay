@@ -192,6 +192,7 @@ size_t firmwareUpdateBytes = 0;
 
 bool webUpdateFailed = false;
 size_t webUpdateBytes = 0;
+size_t webUpdatePartitionSize = 0;
 
 enum class OtaStage : uint8_t {
   IDLE,
@@ -703,6 +704,7 @@ void handleWebFilesystemUpdateUpload() {
     case UPLOAD_FILE_START: {
       webUpdateFailed = false;
       webUpdateBytes = 0;
+      webUpdatePartitionSize = 0;
 
       const esp_partition_t* partition =
           esp_partition_find_first(ESP_PARTITION_TYPE_DATA,
@@ -726,7 +728,8 @@ void handleWebFilesystemUpdateUpload() {
         break;
       }
 
-      if (!Update.begin(partition->size, U_SPIFFS)) {
+      webUpdatePartitionSize = partition->size;
+      if (!Update.begin(webUpdatePartitionSize, U_SPIFFS)) {
         webUpdateFailed = true;
         DiagnosticsLog::line(String("OTA | WEB UPLOAD REJECTED | Update.begin failed | ") +
                              Update.errorString());
@@ -741,7 +744,7 @@ void handleWebFilesystemUpdateUpload() {
     case UPLOAD_FILE_WRITE:
       if (webUpdateFailed) break;
       if (webUpdateBytes > SIZE_MAX - upload.currentSize ||
-          webUpdateBytes + upload.currentSize > Update.size()) {
+          webUpdateBytes + upload.currentSize > webUpdatePartitionSize) {
         webUpdateFailed = true;
         Update.abort();
         DiagnosticsLog::line("OTA | WEB UPLOAD REJECTED | image exceeds SPIFFS partition");
