@@ -135,29 +135,6 @@ function showUpdateStatus(message,kind){
  msg.className="notice "+(kind||"");
  msg.textContent=message||"";
 }
-function showUpdateDetails(d){
- const details=$("software-update-details");
- if(!details||!d)return;
- details.hidden=false;
- text("update-firmware-detail","Build "+d.currentFirmware+" → "+d.latestFirmware+(d.firmwareAvailable?" (update available)":" (current)"));
- text("update-web-detail","Build "+d.currentWeb+" → "+d.latestWeb+(d.webAvailable?" (update available)":" (current)"));
-}
-async function check(e){
- e.preventDefault();
- setPageStatus("Checking for updates…","warn");
- showUpdateStatus("Checking GitHub for newer firmware and web interface components…","warn");
- $("software-update-details").hidden=true;
- try{
-   const r=await fetch(e.currentTarget.action,{cache:"no-store"}),d=await rd(r);
-   if(!r.ok)throw new Error(d?.message||"Could not retrieve the GitHub release catalog.");
-   showUpdateStatus(d.message||"Update check complete.","ok");
-   showUpdateDetails(d);
-   setPageStatus("Update check complete","ok");
- }catch(x){
-   showUpdateStatus(x.message||"Could not retrieve the GitHub release catalog.","bad");
-   setPageStatus("Update check failed","bad");
- }
-}
 async function readOtaStatus(){
  const r=await fetch("/system/update-status",{cache:"no-store"});
  const d=await r.json();
@@ -302,7 +279,7 @@ async function resumeOtaStatus(){
 }
 async function upload(e,q){e.preventDefault();if(q&&!confirm(q))return;setPageStatus("Uploading…");try{const d=await pfu(e.currentTarget);setPageStatus(d?.message||"Operation completed.","ok")}catch(x){setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad")}}
 document.querySelectorAll('form[method="POST"]').forEach(f=>{if(["wifi-scan-form","update-latest-form","firmware-upload-form","config-restore-form"].includes(f.id))return;f.addEventListener("submit",async e=>{e.preventDefault();try{await pf(f);setPageStatus("Saved","ok");setTimeout(load,300)}catch(x){setPageStatus("Request failed","bad")}})});
-$("wifi-scan-form").addEventListener("submit",scan);$("check-update-form").addEventListener("submit",check);$("update-latest-form").addEventListener("submit",latest);$("firmware-upload-form").addEventListener("submit",e=>upload(e));$("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
+$("wifi-scan-form").addEventListener("submit",scan);$("update-latest-form").addEventListener("submit",latest);$("firmware-upload-form").addEventListener("submit",e=>upload(e));$("config-restore-form").addEventListener("submit",e=>upload(e,"Restore this configuration and reboot the ESP32-C3?"));
 window.addEventListener("hashchange",currentTab);
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 load();
