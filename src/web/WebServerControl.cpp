@@ -25,11 +25,36 @@ namespace {
 WebServer server(80);
 bool serverStarted = false;
 
-void htmlEscape() {}
+String htmlEscape(const String& input) {
+  String out;
+  out.reserve(input.length() + 16);
+  for (size_t i = 0; i < input.length(); ++i) {
+    switch (input[i]) {
+      case '&': out += F("&amp;"); break;
+      case '<': out += F("&lt;"); break;
+      case '>': out += F("&gt;"); break;
+      case '"': out += F("&quot;"); break;
+      case '\'': out += F("&#39;"); break;
+      default: out += input[i]; break;
+    }
+  }
+  return out;
+}
 
-void statusText() {}
+String statusText() {
+  if (!WiFiControl::isEnabled()) return "OFF";
+  if (WiFi.status() == WL_CONNECTED) return "CONNECTED";
+  return "DISCONNECTED";
+}
 
-void tabName() {}
+String tabName() {
+  String tab = server.hasArg("tab") ? server.arg("tab") : "dashboard";
+  if (tab != "dashboard" && tab != "wifi" && tab != "network" &&
+      tab != "diagnostics" && tab != "relays" && tab != "storage" && tab != "system") {
+    tab = "dashboard";
+  }
+  return tab;
+}
 
 
 
