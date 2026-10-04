@@ -889,6 +889,30 @@ void handleNvsState() {
 }
 
 
+void handleNvsStats() {
+  const esp_partition_t* nvs = nvsPartition();
+  nvs_stats_t stats{};
+  const esp_err_t result = nvs_get_stats("nvs", &stats);
+  if (result != ESP_OK) {
+    server.send(503, "application/json; charset=utf-8", "{\"message\":\"NVS statistics unavailable.\"}");
+    return;
+  }
+
+  String json = F("{\"size\":");
+  json += String(nvs != nullptr ? nvs->size : 0);
+  json += F(",\"usedEntries\":");
+  json += String(stats.used_entries);
+  json += F(",\"freeEntries\":");
+  json += String(stats.free_entries);
+  json += F(",\"totalEntries\":");
+  json += String(stats.total_entries);
+  json += F(",\"namespaceCount\":");
+  json += String(stats.namespace_count);
+  json += F("}");
+  server.send(200, "application/json; charset=utf-8", json);
+}
+
+
 String storagePath(const String& raw) {
   String path = raw;
   path.trim();
@@ -1305,6 +1329,7 @@ void begin() {
   server.on("/app.js", HTTP_GET, handleAppJs);
   server.on("/api/state", HTTP_GET, handlePageState);
   server.on("/api/nvs", HTTP_GET, handleNvsState);
+  server.on("/api/nvs/stats", HTTP_GET, handleNvsStats);
   server.on("/api/storage/files", HTTP_GET, handleStorageFiles);
   server.on("/storage/view", HTTP_GET, handleStorageView);
   server.on("/storage/download", HTTP_GET, handleStorageDownload);
