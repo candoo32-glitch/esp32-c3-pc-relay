@@ -1137,6 +1137,7 @@ void handleStorageDownload() {
   String filename = path.substring(path.lastIndexOf('/') + 1);
   if (filename.isEmpty()) filename = "download";
   server.sendHeader("Content-Disposition", String("attachment; filename=\"") + filename + "\"");
+  addNoCacheHeaders();
   server.streamFile(file, storageContentType(path));
   file.close();
 }
