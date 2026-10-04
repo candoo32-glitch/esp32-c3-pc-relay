@@ -55,7 +55,7 @@ async function loadStorageFiles(){
     }
     const rows=storageFiles.map(f=>{
       const path=encodeURIComponent(f.path);
-      const canView=/\\.(html?|css|js|json|txt|xml|svg)$/i.test(f.path);
+      const canView=/\.(html?|css|js|json|txt|xml|svg)$/i.test(f.path);
       const ext=(f.path.split(".").pop()||"FILE").toUpperCase();
       return '<tr><td><div class="file-name mono">'+esc(f.path)+'</div><div class="file-type">'+esc(ext)+'</div></td><td class="file-size">'+formatBytes(f.size)+'</td><td class="file-actions">'+
         (canView?'<button type="button" class="secondary" data-storage-view="'+esc(f.path)+'">View</button>':"")+
@@ -87,8 +87,8 @@ async function viewStorageFile(path){
 function closeStorageViewer(){const viewer=$("storage-viewer");if(viewer)viewer.hidden=true}
 
 async function eraseStorageFile(path){
-  const protectedFile=/^\\/(index\\.html|style\\.css|app\\.js)$/i.test(path);
-  const warning=protectedFile?"\\n\\nThis is a core Web UI file. Erasing it can make the normal UI unusable; Recovery Updater will still be available.":"";
+  const protectedFile=/^\/(index\.html|style\.css|app\.js)$/i.test(path);
+  const warning=protectedFile?"\n\nThis is a core Web UI file. Erasing it can make the normal UI unusable; Recovery Updater will still be available.":"";
   if(!confirm("Erase "+path+"? This cannot be undone."+warning))return;
   try{
     const r=await fetch("/storage/delete",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"path="+encodeURIComponent(path),cache:"no-store"});
