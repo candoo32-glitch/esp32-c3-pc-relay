@@ -8,6 +8,7 @@
 #include "WiFiDiagnostics.h"
 #include "../interface/Console.h"
 #include "WiFiControl.h"
+#include "../diagnostics/DiagnosticsLog.h"
 
 namespace WiFiDiagnostics {
 
@@ -19,57 +20,6 @@ volatile uint32_t activeAttempt = 0;
 volatile uint32_t attemptStartMs = 0;
 volatile uint32_t eventSequence = 0;
 volatile uint32_t droppedEvents = 0;
-
-constexpr size_t DIAGNOSTIC_HISTORY_LINES = 20;
-String diagnosticHistory[DIAGNOSTIC_HISTORY_LINES];
-size_t diagnosticHistoryCount = 0;
-size_t diagnosticHistoryNext = 0;
-
-void rememberDiagnosticLine(const String& line) {
-  if (!diagnosticsEnabled || line.isEmpty()) return;
-  diagnosticHistory[diagnosticHistoryNext] = line;
-  diagnosticHistoryNext = (diagnosticHistoryNext + 1) % DIAGNOSTIC_HISTORY_LINES;
-  if (diagnosticHistoryCount < DIAGNOSTIC_HISTORY_LINES) ++diagnosticHistoryCount;
-}
-
-String escapeJson(const String& value) {
-  String escaped;
-  escaped.reserve(value.length() + 8);
-  for (size_t i = 0; i < value.length(); ++i) {
-    const char c = value[i];
-    switch (c) {
-      case '\\': escaped += F("\\\\"); break;
-      case '"': escaped += '\\'; escaped += '"'; break;
-      case '\n': escaped += F("\\n"); break;
-      case '\r': escaped += F("\\r"); break;
-      case '\t': escaped += F("\\t"); break;
-      default:
-        if (static_cast<unsigned char>(c) < 0x20) escaped += ' ';
-        else escaped += c;
-        break;
-    }
-  }
-  return escaped;
-}
-
-String buildRecentLogJson() {
-  String json;
-  json.reserve(4200);
-  json += F("{\"enabled\":");
-  json += diagnosticsEnabled ? F("true") : F("false");
-  json += F(",\"lines\":[");
-  for (size_t i = 0; i < diagnosticHistoryCount; ++i) {
-    if (i > 0) json += ',';
-    const size_t index =
-        (diagnosticHistoryNext + DIAGNOSTIC_HISTORY_LINES - diagnosticHistoryCount + i) %
-        DIAGNOSTIC_HISTORY_LINES;
-    json += F("\"");
-    json += escapeJson(diagnosticHistory[index]);
-    json += F("\"");
-  }
-  json += F("]}");
-  return json;
-}
 
 struct WiFiDiagnosticRecord {
   uint32_t event = 0;
@@ -375,7 +325,7 @@ bool enabled() {
 }
 
 String recentLogJson() {
-  return buildRecentLogJson();
+  return DiagnosticsLog::recentJson();
 }
 
 void printMenuSetting() {
