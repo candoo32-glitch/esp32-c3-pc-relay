@@ -3,6 +3,8 @@
 const $=id=>document.getElementById(id);
 let wifiCredentialsDirty=false;
 let networkFormDirty=false;
+let stateFailureCount=0;
+const STATE_FAILURE_THRESHOLD=3;
 let wifiPasswordEditing=false;
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 function text(id,v){const e=$(id);if(e)e.textContent=v??"-"}
@@ -121,8 +123,17 @@ async function load(){
  try{
    const r=await fetch("/api/state",{cache:"no-store"});
    if(!r.ok)throw new Error(r.status);
-   const state=await r.json(); render(state)
- }catch(e){text("page-status","UNAVAILABLE")}
+   const state=await r.json();
+   stateFailureCount=0;
+   render(state);
+ }catch(e){
+   stateFailureCount++;
+   if(stateFailureCount>=STATE_FAILURE_THRESHOLD){
+     setPageStatus("Web UI state unavailable — try the Recovery Updater.","bad");
+   }else{
+     setPageStatus("UNAVAILABLE","bad");
+   }
+ }
 }
 document.querySelectorAll("[data-tab-link]").forEach(e=>e.addEventListener("click",()=>showTab(e.dataset.tabLink)));function refreshNvsIfNeeded(tab){if(tab==="storage")loadNvsContents()}$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
 document.querySelectorAll(".theme-option").forEach(o=>o.addEventListener("click",async()=>{closeThemeOptions();await saveTheme(o.dataset.themeValue);}));
@@ -150,7 +161,7 @@ $("show-password").addEventListener("click",()=>{
  e.type=visible?"password":"text";
  $("show-password").textContent=visible?"Show password":"Hide password";
 });
-function setPageStatus(m,k){const e=$("page-status");if(e){e.textContent=m;e.className=k||""}}
+function setPageStatus(m,k){const e=$("page-status");if(!e)return; if(m==="Web UI state unavailable — try the Recovery Updater."){e.innerHTML='Web UI state unavailable — <a href="/recovery" target="_blank" rel="noopener">Open Recovery Updater</a>';e.className=k||"";return;} e.textContent=m;e.className=k||""}
 function setOtaUpdateButtonDisabled(disabled){
  const b=$("update-latest-button");
  if(!b)return;
