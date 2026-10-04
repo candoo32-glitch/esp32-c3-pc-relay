@@ -40,6 +40,7 @@ async function activateUi(uiId){
   const id=String(uiId||"builtin").trim();
   if(id==="builtin"){
     removeExternalUi();
+    activeExternalUi="builtin";
     return true;
   }
   if(!/^[A-Za-z0-9._-]{1,63}$/.test(id))throw Error("Invalid UI id");
