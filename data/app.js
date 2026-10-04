@@ -156,14 +156,18 @@ function renderOtaStatus(d){
    text("update-web-detail",cw>=0 ? "Build "+cw+" → "+(lw>=0?lw:"unavailable")+(lw>cw?" (update available)":lw===cw?" (current)":"") : "-");
  }
 
+ const firmwareUpdatePending=d.currentFirmware>=0&&d.latestFirmware>d.currentFirmware;
+ const webUpdatePending=d.currentWeb>=0&&d.latestWeb>d.currentWeb;
+
  if(d.component==="firmware")firmwareRow.hidden=false;
  if(d.component==="web"){
    webRow.hidden=false;
-   // Firmware is always installed before the Web UI in the combined OTA path.
-   firmwareRow.hidden=false;
-   firmwareBar.classList.remove("indeterminate");
-   firmwareBar.style.width="100%";
-   firmwareInfo.textContent="100% — firmware update complete";
+   if(firmwareUpdatePending){
+     firmwareRow.hidden=false;
+     firmwareBar.classList.remove("indeterminate");
+     firmwareBar.style.width="100%";
+     firmwareInfo.textContent="100% — firmware update complete";
+   }
  }
 
  const bar=d.component==="web"?webBar:firmwareBar;
