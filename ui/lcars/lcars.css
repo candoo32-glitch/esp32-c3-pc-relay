@@ -1544,3 +1544,227 @@ body{
     width:calc(100vw - 16px);
   }
 }
+
+
+/* -------------------------------------------------------------------------
+ * LCARS MODERN — visual refinement pass
+ * Color semantics:
+ *   orange = primary command
+ *   purple = configuration/navigation
+ *   blue   = information/secondary command
+ *   red    = destructive
+ *   green  = status only
+ * ------------------------------------------------------------------------- */
+
+/* Command buttons must never inherit status-green text. */
+button.good{
+  color:#090b10!important;
+  background:var(--lcars-orange)!important;
+}
+button.good:hover{filter:brightness(1.08)}
+button.secondary{
+  color:var(--lcars-blue-hot)!important;
+  background:rgba(111,168,255,.08)!important;
+}
+button.danger,.danger-zone button{
+  color:#090b10!important;
+  background:var(--lcars-red)!important;
+}
+#tab-wifi #wifi-reconnect-form button{
+  color:#090b10!important;
+  background:var(--lcars-blue)!important;
+}
+
+/* Make the LCARS action language visible on every form. */
+button.good::before,
+button.secondary::before,
+button.danger::before{
+  content:"";
+  display:inline-block;
+  width:7px;
+  height:7px;
+  margin-right:9px;
+  border-radius:1px 5px 5px 1px;
+  background:currentColor;
+  vertical-align:1px;
+  box-shadow:0 0 7px currentColor;
+}
+button.good::before{color:#090b10}
+button.secondary::before{color:var(--lcars-blue-hot)}
+button.danger::before{color:#090b10}
+
+/* The console itself should feel deliberate and static. */
+body.lcars-ready{animation:none}
+.tab{animation:none!important}
+.card{
+  transition:border-color .18s ease,box-shadow .18s ease!important;
+}
+.card:hover{
+  transform:none!important;
+}
+.tabs a{
+  transition:background .16s ease,color .16s ease,box-shadow .16s ease!important;
+}
+.tabs a:hover{
+  transform:none!important;
+}
+
+/* Stronger LCARS panel geometry. */
+.card{
+  border-radius:3px 22px 22px 3px;
+  border-top:4px solid var(--tab-secondary,var(--lcars-orange));
+  box-shadow:
+    0 10px 30px rgba(0,0,0,.24),
+    inset 0 1px 0 rgba(255,255,255,.035);
+}
+.card::before{
+  width:46%;
+  height:5px;
+  opacity:.82;
+  clip-path:polygon(0 0,96% 0,100% 100%,0 100%);
+}
+.card::after{
+  right:-42px;
+  bottom:-42px;
+  width:118px;
+  height:118px;
+  border-color:rgba(177,194,222,.07);
+}
+
+/* Make information rows read like LCARS data rails. */
+.kv tr{
+  position:relative;
+}
+.kv td:first-child{
+  color:#aeb8cc;
+  letter-spacing:.105em;
+}
+.kv td:last-child{
+  color:#f7f3eb;
+}
+.kv td:first-child::before{
+  content:"";
+  display:inline-block;
+  width:10px;
+  height:4px;
+  margin-right:8px;
+  background:var(--lcars-purple);
+  border-radius:1px 5px 5px 1px;
+  vertical-align:3px;
+}
+
+/* Inputs are LCARS control surfaces, not generic rounded web fields. */
+input,select,textarea{
+  border-radius:3px 13px 13px 3px!important;
+}
+input:focus,select:focus,textarea:focus{
+  border-color:var(--lcars-orange)!important;
+  box-shadow:0 0 0 2px rgba(255,155,91,.10)!important;
+}
+
+/* Navigation is a console rail rather than pill tabs. */
+.tabs{
+  border-radius:4px 28px 28px 4px;
+  min-height:52px;
+}
+.tabs a{
+  border-radius:4px 17px 17px 4px;
+  min-height:38px;
+  padding-left:17px;
+  padding-right:17px;
+}
+.tabs a.active{
+  color:#090b10;
+  background:var(--lcars-orange);
+  box-shadow:0 0 20px rgba(255,155,91,.16);
+}
+.tabs a.active::after{
+  background:var(--lcars-purple);
+}
+
+/* Floating relay command station becomes a compact LCARS control pod. */
+.relay-float{
+  width:min(330px,calc(100vw - 40px));
+  padding:9px 10px 10px;
+  border:1px solid rgba(255,155,91,.24);
+  border-left:5px solid var(--lcars-orange);
+  border-top:0;
+  border-radius:3px 20px 20px 3px;
+  background:rgba(5,7,12,.96);
+}
+.relay-float-title{
+  padding:1px 8px 8px;
+  letter-spacing:.18em;
+}
+.relay-float-buttons{
+  gap:6px;
+}
+.relay-button{
+  min-height:46px;
+  border-radius:3px 15px 15px 3px!important;
+  color:#090b10!important;
+  font-weight:900;
+}
+.relay-float form:first-child .relay-button{
+  background:var(--lcars-orange)!important;
+}
+.relay-float form:nth-child(2) .relay-button{
+  background:var(--lcars-purple)!important;
+}
+.relay-float .relay-button::before{
+  background:#090b10!important;
+  box-shadow:0 0 7px rgba(9,11,16,.55)!important;
+}
+
+/* Relay page gets two distinct command channels. */
+#tab-relays #relay-card-0{
+  border-top-color:var(--lcars-orange);
+}
+#tab-relays #relay-card-1{
+  border-top-color:var(--lcars-purple);
+}
+#tab-relays .relay-button.good{
+  color:#090b10!important;
+  background:var(--lcars-orange)!important;
+}
+#tab-relays #relay-card-1 .relay-button.good{
+  background:var(--lcars-purple)!important;
+}
+
+/* Reserve green for live state lamps. */
+.status.ok,
+.notice.ok,
+.help.ok,
+#dash-wifi-status,
+#dash-relay0-state,
+#dash-relay1-state{
+  color:var(--lcars-green);
+}
+
+/* Tab-specific command accents. */
+#tab-dashboard .card{border-top-color:var(--lcars-blue)}
+#tab-wifi .card{border-top-color:var(--lcars-blue)}
+#tab-network .card{border-top-color:var(--lcars-purple)}
+#tab-diagnostics .card{border-top-color:var(--lcars-green)}
+#tab-relays .card{border-top-color:var(--lcars-orange)}
+#tab-storage .card{border-top-color:var(--lcars-blue)}
+#tab-system .card{border-top-color:var(--lcars-purple)}
+
+/* Keep destructive areas unmistakable without turning the whole card red. */
+.danger-zone{
+  border-top-color:var(--lcars-red)!important;
+}
+.danger-zone h2{
+  color:#ffe7ea;
+}
+
+/* Stop decorative scan/entrance effects from competing with the controls. */
+#tab-dashboard::before,
+#tab-wifi::before,
+#tab-network::before,
+#tab-diagnostics::before,
+#tab-relays::before,
+#tab-storage::before,
+#tab-system::before{
+  animation:none!important;
+}
