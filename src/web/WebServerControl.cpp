@@ -40,6 +40,31 @@ String firmwareBuild() {
 #endif
 }
 
+constexpr const char* THEME_NVS_NAMESPACE = "web";
+constexpr const char* THEME_NVS_KEY = "theme";
+constexpr uint8_t DEFAULT_THEME = 0;
+constexpr uint8_t THEME_COUNT = 20;
+
+uint8_t savedTheme() {
+  nvs_handle_t handle = 0;
+  uint8_t value = DEFAULT_THEME;
+  if (nvs_open_from_partition("nvs", THEME_NVS_NAMESPACE, NVS_READONLY, &handle) == ESP_OK) {
+    nvs_get_u8(handle, THEME_NVS_KEY, &value);
+    nvs_close(handle);
+  }
+  return value < THEME_COUNT ? value : DEFAULT_THEME;
+}
+
+bool saveTheme(uint8_t value) {
+  if (value >= THEME_COUNT) return false;
+  nvs_handle_t handle = 0;
+  if (nvs_open_from_partition("nvs", THEME_NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) return false;
+  const esp_err_t result = nvs_set_u8(handle, THEME_NVS_KEY, value);
+  if (result == ESP_OK) nvs_commit(handle);
+  nvs_close(handle);
+  return result == ESP_OK;
+}
+
 String nvsTypeName(nvs_type_t type) {
   switch (type) {
     case NVS_TYPE_U8: return "U8";
@@ -833,6 +858,8 @@ void handlePageState() {
   addString("arduino", ESP_ARDUINO_VERSION_STR);
   addNumber("cpu", getCpuFrequencyMhz());
   addNumber("uptime", millis() / 1000UL, false);
+  json += F(",\"theme\":");
+  json += String(savedTheme());
   json += F("}}");
 
   server.send(200, "application/json; charset=utf-8", json);
@@ -1071,6 +1098,18 @@ void begin() {
     json += jsonEscape(otaError);
     json += F("\"}");
     server.send(200, "application/json; charset=utf-8", json);
+  });
+  server.on("/system/theme", HTTP_POST, []() {
+    if (!server.hasArg("theme")) {
+      server.send(400, "application/json; charset=utf-8", "{\"message\":\"Theme is required.\"}");
+      return;
+    }
+    const long value = server.arg("theme").toInt();
+    if (value < 0 || value >= THEME_COUNT || !saveTheme(static_cast<uint8_t>(value))) {
+      server.send(400, "application/json; charset=utf-8", "{\"message\":\"Invalid theme.\"}");
+      return;
+    }
+    server.send(204);
   });
   server.on("/system/reboot", HTTP_POST, handleReboot);
   server.onNotFound([]() { server.send(404, "text/plain", "Not found"); });
