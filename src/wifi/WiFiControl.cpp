@@ -573,6 +573,10 @@ void printStatus() {
   Serial.println();
 }
 
+bool hasSavedPassword() {
+  return !preferences.getString(PASSWORD_KEY, "").isEmpty();
+}
+
 String savedSSID() {
   return preferences.getString(SSID_KEY, "");
 }
