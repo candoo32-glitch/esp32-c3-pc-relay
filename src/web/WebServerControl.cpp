@@ -841,6 +841,28 @@ void handlePageState() {
   json += F("],\"nvs\":{\"size\":");
   const esp_partition_t* nvs = nvsPartition();
   json += String(nvs != nullptr ? nvs->size : 0);
+  json += F("},\"system\":{");
+
+  addString("build", firmwareBuild());
+  addString("webBuild", webInterfaceBuild());
+  addString("date", String(__DATE__) + F(" ") + __TIME__);
+  addString("idf", esp_get_idf_version());
+  addString("arduino", ESP_ARDUINO_VERSION_STR);
+  addNumber("cpu", getCpuFrequencyMhz());
+  addNumber("uptime", millis() / 1000UL, false);
+  json += F(",\"theme\":");
+  json += String(savedTheme());
+  json += F("}}");
+
+  server.send(200, "application/json; charset=utf-8", json);
+}
+
+void handleNvsState() {
+  const esp_partition_t* nvs = nvsPartition();
+  String json;
+  json.reserve(8000);
+  json += F("{\"size\":");
+  json += String(nvs != nullptr ? nvs->size : 0);
   json += F(",\"entries\":[");
   nvs_iterator_t iterator = nullptr;
   size_t count = 0;
@@ -862,18 +884,7 @@ void handlePageState() {
     result = nvs_entry_next(&iterator);
   }
   if (iterator != nullptr) nvs_release_iterator(iterator);
-  json += F("]},\"system\":{");
-  addString("build", firmwareBuild());
-  addString("webBuild", webInterfaceBuild());
-  addString("date", String(__DATE__) + F(" ") + __TIME__);
-  addString("idf", esp_get_idf_version());
-  addString("arduino", ESP_ARDUINO_VERSION_STR);
-  addNumber("cpu", getCpuFrequencyMhz());
-  addNumber("uptime", millis() / 1000UL, false);
-  json += F(",\"theme\":");
-  json += String(savedTheme());
-  json += F("}}");
-
+  json += F("]}");
   server.send(200, "application/json; charset=utf-8", json);
 }
 
@@ -1081,6 +1092,7 @@ void begin() {
   server.on("/style.css", HTTP_GET, handleStyleCss);
   server.on("/app.js", HTTP_GET, handleAppJs);
   server.on("/api/state", HTTP_GET, handlePageState);
+  server.on("/api/nvs", HTTP_GET, handleNvsState);
   server.on("/api/diagnostics", HTTP_GET, []() {
     server.send(200, "application/json; charset=utf-8", DiagnosticsLog::recentJson());
   });
