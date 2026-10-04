@@ -163,41 +163,6 @@ bool restoreFailed = false;
 bool firmwareUpdateFailed = false;
 size_t firmwareUpdateBytes = 0;
 
-String jsonStringField(const String& json, const char* field) {
-  String needle = String("\"") + field + "\":";
-  int start = json.indexOf(needle);
-  if (start < 0) return "";
-  start += needle.length();
-  while (start < static_cast<int>(json.length()) && (json[start] == ' ' || json[start] == '\t')) ++start;
-  if (start >= static_cast<int>(json.length()) || json[start] != '"') return "";
-  ++start;
-  String value;
-  while (start < static_cast<int>(json.length())) {
-    char ch = json[start++];
-    if (ch == '"') break;
-    if (ch == '\\' && start < static_cast<int>(json.length())) {
-      char escaped = json[start++];
-      if (escaped == '"' || escaped == '\\' || escaped == '/') value += escaped;
-      else if (escaped == 'n') value += '\n';
-      else if (escaped == 'r') value += '\r';
-      else if (escaped == 't') value += '\t';
-      else value += escaped;
-    } else {
-      value += ch;
-    }
-  }
-  return value;
-}
-
-String latestReleaseBuild(const String& tag) {
-  int end = tag.length() - 1;
-  while (end >= 0 && !isDigit(tag[end])) --end;
-  if (end < 0) return "";
-  int start = end;
-  while (start > 0 && isDigit(tag[start - 1])) --start;
-  return tag.substring(start, end + 1);
-}
-
 String releaseAssetBuild(const String& url, const String& suffix) {
   const int suffixPos = url.lastIndexOf(suffix);
   if (suffixPos < 0) return "";
