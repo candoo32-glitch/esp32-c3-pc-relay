@@ -158,7 +158,7 @@ function render(s){
 }
 $("wifi-toggle").textContent=w.enabled?"Turn Wi-Fi OFF":"Turn Wi-Fi ON";$("wifi-toggle").className=w.enabled?"danger":"good";$("wifi-reconnect-form").style.display=w.enabled?"block":"none";
  $("txpower").value=w.tx;
- text("net-live-ip",w.connected?w.ip:"-");text("net-live-subnet",w.connected?w.subnet:"-");text("net-live-gateway",w.connected?w.gateway:"-");text("net-live-dns1",w.connected?n.dns1:"-");text("net-live-dns2",w.connected?n.dns2:"-");text("net-state",w.status);text("net-auth",w.connected?w.auth:"-");text("net-bssid",w.connected?w.bssid:"-");text("net-rssi",w.connected?w.rssi+" dBm":"-");
+ text("net-live-ip",w.connected?w.ip:"-");text("net-live-subnet",w.connected?w.subnet:"-");text("net-live-gateway",w.connected?w.gateway:"-");text("net-live-dns1",w.connected?n.dns1:"-");text("net-live-dns2",w.connected?n.dns2:"-");statusClass($("net-state"),w.status);text("net-auth",w.connected?w.auth:"-");text("net-bssid",w.connected?w.bssid:"-");text("net-rssi",w.connected?w.rssi+" dBm":"-");
  if(!networkFormDirty){
  $("hostname").value=n.hostname;$("net-mode").value=n.mode;$("net-ip-input").value=n.ip;$("net-gateway-input").value=n.gateway;$("net-subnet-input").value=n.subnet;$("net-dns1-input").value=n.dns1;$("net-dns2-input").value=n.dns2;
 }
