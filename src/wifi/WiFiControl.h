@@ -11,6 +11,7 @@ bool setEnabled(bool enabled);
 bool diagnosticsPreference();
 bool saveDiagnosticsPreference(bool enabled);
 String savedSSID();
+bool hasSavedPassword();
 bool configureCredentials(const String& ssid, const String& password);
 bool configureSavedCredentials(const String& ssid);
 bool setTxPowerDbm(float dbm);
