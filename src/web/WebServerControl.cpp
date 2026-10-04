@@ -82,26 +82,43 @@ bool saveTheme(uint8_t value) {
   return result == ESP_OK;
 }
 
-constexpr const char* UI_SELECTION_NVS_KEY = "ui";
-constexpr uint8_t DEFAULT_UI_SELECTION = 0;
-constexpr uint8_t UI_SELECTION_COUNT = 2;
+constexpr const char* UI_SELECTION_NVS_KEY = "ui_selection";
+constexpr const char* DEFAULT_UI_SELECTION = "builtin";
+constexpr size_t UI_SELECTION_MAX_LENGTH = 63;
 
-uint8_t savedUiSelection() {
-  nvs_handle_t handle = 0;
-  uint8_t value = DEFAULT_UI_SELECTION;
-  if (nvs_open_from_partition("nvs", THEME_NVS_NAMESPACE, NVS_READONLY, &handle) == ESP_OK) {
-    nvs_get_u8(handle, UI_SELECTION_NVS_KEY, &value);
-    nvs_close(handle);
+bool validUiSelectionId(const String& value) {
+  if (value.isEmpty() || value.length() > UI_SELECTION_MAX_LENGTH) return false;
+  for (size_t i = 0; i < value.length(); ++i) {
+    const char c = value[i];
+    if (!(isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' || c == '.')) return false;
   }
-  return value < UI_SELECTION_COUNT ? value : DEFAULT_UI_SELECTION;
+  return true;
 }
 
-bool saveUiSelection(uint8_t value) {
-  if (value >= UI_SELECTION_COUNT) return false;
+String savedUiSelection() {
+  nvs_handle_t handle = 0;
+  String value = DEFAULT_UI_SELECTION;
+  if (nvs_open_from_partition("nvs", THEME_NVS_NAMESPACE, NVS_READONLY, &handle) == ESP_OK) {
+    size_t length = UI_SELECTION_MAX_LENGTH + 1;
+    char buffer[UI_SELECTION_MAX_LENGTH + 1] = {};
+    if (nvs_get_str(handle, UI_SELECTION_NVS_KEY, buffer, &length) == ESP_OK &&
+        validUiSelectionId(String(buffer))) {
+      value = buffer;
+    }
+    nvs_close(handle);
+  }
+  return value;
+}
+
+bool saveUiSelection(const String& value) {
+  if (!validUiSelectionId(value)) return false;
   nvs_handle_t handle = 0;
   if (nvs_open_from_partition("nvs", THEME_NVS_NAMESPACE, NVS_READWRITE, &handle) != ESP_OK) return false;
-  const esp_err_t result = nvs_set_u8(handle, UI_SELECTION_NVS_KEY, value);
-  if (result == ESP_OK) nvs_commit(handle);
+  const esp_err_t result = nvs_set_str(handle, UI_SELECTION_NVS_KEY, value.c_str());
+  if (result == ESP_OK && nvs_commit(handle) != ESP_OK) {
+    nvs_close(handle);
+    return false;
+  }
   nvs_close(handle);
   return result == ESP_OK;
 }
@@ -1006,9 +1023,9 @@ void handlePageState() {
   addNumber("uptime", millis() / 1000UL, false);
   json += F(",\"theme\":");
   json += String(savedTheme());
-  json += F(",\"uiSelection\":");
-  json += String(savedUiSelection());
-  json += F("}}");
+  json += F(",\"uiSelection\":\"");
+  json += jsonEscape(savedUiSelection());
+  json += F("\"}}");
 
   sendNoCache(200, "application/json; charset=utf-8", json);
 }
@@ -1657,9 +1674,9 @@ void begin() {
       sendNoCache(400, "application/json; charset=utf-8", "{\"message\":\"UI selection is required.\"}");
       return;
     }
-    const long value = server.arg("ui").toInt();
-    DiagnosticsLog::line(String("WEB | UI SELECTION SAVE | ") + String(value));
-    if (value < 0 || value >= UI_SELECTION_COUNT || !saveUiSelection(static_cast<uint8_t>(value))) {
+    const String value = server.arg("ui");
+    DiagnosticsLog::line(String("WEB | UI SELECTION SAVE | ") + value);
+    if (!saveUiSelection(value)) {
       sendNoCache(400, "application/json; charset=utf-8", "{\"message\":\"Invalid UI selection.\"}");
       return;
     }
