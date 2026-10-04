@@ -51,7 +51,7 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
  text("page-status",w.status); currentTab();
 }
-const THEME_NAMES=["Midnight","Ocean","Forest","Emerald","Sunset","Amber","Rose","Purple","Violet","Cyber","Slate","Coffee","Arctic","Sakura","Terminal","Solarized","Monochrome","Crimson","Indigo","Teal"];
+const THEME_NAMES=["Midnight","Ocean","Forest","Emerald","Sunset","Amber","Rose","Purple","Violet","Cyber","Slate","Coffee","Arctic","Sakura","Terminal","Solarized","Monochrome","Crimson","Indigo","Teal","Original"];
 function applyTheme(value){
  const n=Math.max(0,Math.min(THEME_NAMES.length-1,Number(value)||0));
  document.body.dataset.theme=String(n);
