@@ -167,11 +167,15 @@ async function latest(e){
  $("software-update-progress").hidden=false;
  const progress=$("software-update-progress"),stage=$("ota-progress-stage"),info=$("ota-progress-info");
  const firmwareRow=$("ota-progress-firmware"),webRow=$("ota-progress-web"),firmwareBar=$("ota-firmware-bar"),webBar=$("ota-web-bar"),firmwareInfo=$("ota-firmware-info"),webInfo=$("ota-web-info");
+ let otaStarted=false;
+ let otaRebooting=false;
+ let otaServerError=false;
  progress.hidden=false; firmwareRow.hidden=true; webRow.hidden=true; firmwareBar.style.width="0%"; webBar.style.width="0%"; firmwareBar.classList.add("indeterminate"); webBar.classList.add("indeterminate");
  stage.textContent="Checking GitHub";
  info.textContent="";
  try{
    const r=await fetch(e.currentTarget.action,{method:"POST",cache:"no-store"});
+   otaStarted=true;
    if(!r.ok)throw new Error("OTA request failed (HTTP "+r.status+").");
    if(!r.body)throw new Error("OTA progress streaming is not available in this browser.");
    const reader=r.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -187,10 +191,10 @@ async function latest(e){
        let d;
        try{d=JSON.parse(line)}catch(x){continue}
        if(d.type==="error"){
+         otaServerError=true;
          showUpdateStatus(d.message||"OTA update failed.","bad");
          setPageStatus(d.message||"OTA update failed.","bad");
          firmwareBar.classList.remove("indeterminate"); webBar.classList.remove("indeterminate");
-         firmwareBar.style.width="0%"; webBar.style.width="0%";
          throw new Error(d.message||"OTA update failed.");
        }
        if(d.type==="complete"&&d.stage==="complete"){
@@ -204,6 +208,7 @@ async function latest(e){
          continue;
        }
        if(d.type==="complete"&&d.stage==="rebooting"){
+         otaRebooting=true;
          firmwareBar.classList.remove("indeterminate"); webBar.classList.remove("indeterminate");
          stage.textContent="Rebooting";
          info.textContent=d.message||"Rebooting the ESP32-C3…";
@@ -235,14 +240,33 @@ async function latest(e){
    }
    if(buffer.trim()){
      const d=JSON.parse(buffer);
-     if(d.type==="error")throw new Error(d.message||"OTA update failed.");
+     if(d.type==="error"){
+       otaServerError=true;
+       throw new Error(d.message||"OTA update failed.");
+     }
    }
  }catch(x){
-   if(x.name==="AbortError")setPageStatus("Update cancelled","warn");
-   else if(x.message)setPageStatus(x.message,"bad");
-   showUpdateStatus(x.message||"Update request failed or the ESP32-C3 rebooted.","bad");
-   firmwareBar.classList.remove("indeterminate"); webBar.classList.remove("indeterminate");
-   firmwareBar.style.width="0%"; webBar.style.width="0%";
+   if(otaRebooting){
+     setPageStatus("ESP32 is rebooting…","ok");
+     return;
+   }
+   if(otaServerError){
+     return;
+   }
+   if(x.name==="AbortError"){
+     setPageStatus("Update connection cancelled","warn");
+     showUpdateStatus("The browser connection to the ESP32 was cancelled. The OTA operation may still be in progress.","warn");
+     return;
+   }
+   if(otaStarted){
+     setPageStatus("Browser connection lost","warn");
+     showUpdateStatus("Browser connection lost. The ESP32 may still be updating. Reconnect to verify the result.","warn");
+     stage.textContent="Connection lost";
+     info.textContent="OTA progress is no longer available in this browser window. The ESP32 was not instructed to cancel the update.";
+     return;
+   }
+   setPageStatus(x.message||"Update request failed","bad");
+   showUpdateStatus(x.message||"Update request failed.","bad");
  }
 }
 async function upload(e,q){e.preventDefault();if(q&&!confirm(q))return;setPageStatus("Uploading…");try{const d=await pfu(e.currentTarget);setPageStatus(d?.message||"Operation completed.","ok")}catch(x){setPageStatus("Operation failed or the ESP32-C3 rebooted.","bad")}}
