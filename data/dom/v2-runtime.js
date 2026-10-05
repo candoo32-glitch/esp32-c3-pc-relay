@@ -318,7 +318,8 @@
     if(currentSchema.views&&typeof currentSchema.views==="object"){
       for(const [name,view] of Object.entries(currentSchema.views))dashboards.set(name,view||{});
     }else dashboards.set("main",currentSchema);
-    const wanted=String(currentSchema.defaultView||Object.keys(dashboards)[0]||"main");
+    const firstView=dashboards.keys().next().value||"main";
+    const wanted=String(currentSchema.defaultView||firstView);
     activeView=dashboards.has(wanted)?wanted:dashboards.keys().next().value;
     showView(activeView);
   }
