@@ -31,7 +31,13 @@ function showUiLoadError(uiId,stage,error,elapsedMs){
 function setV1UiVisible(visible){
   for(const element of document.body.children){
     if(element.id==="dom-v2-root" || element.tagName==="SCRIPT")continue;
-    element.hidden=!visible;
+    if(visible){
+      element.removeAttribute("data-v2-hidden");
+      element.style.removeProperty("display");
+    }else{
+      element.setAttribute("data-v2-hidden","true");
+      element.style.setProperty("display","none","important");
+    }
   }
 }
 
