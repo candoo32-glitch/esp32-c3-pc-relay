@@ -40,9 +40,12 @@ async function activateDomV2Theme(uiId,manifest){
   let stage="DOM V2 activation";
   /*
    * DOM V2 is a complete presentation layer when selected. The protected
-   * V1/built-in DOM remains in the document so switching back is immediate,
-   * but it is hidden while V2 is active.
+   * built-in DOM remains in the document so switching back is immediate,
+   * but it is hidden while V2 is active. No V2 theme asset is served from
+   * the firmware filesystem; the manifest, stylesheet, and schema come
+   * from the GitHub UI repository.
    */
+  removeExternalUi();
   const v2Root=$("dom-v2-root");
   if(!v2Root)throw Error("DOM V2 root unavailable");
   const assets=manifest?.assets||{};
@@ -982,8 +985,8 @@ window.addEventListener("hashchange",currentTab);
 currentTab();
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 async function bootstrapPage(){
-  // The built-in UI is the guaranteed local fallback. Render it first;
-  // GitHub-hosted themes are strictly a background enhancement.
+  // The built-in DOM is the guaranteed protected fallback. External themes
+  // are presentation packages hosted by GitHub, not firmware filesystem themes.
   await load(false);
 
   // The runtime is a normal browser script. Initialize it only after V1 is rendered.
@@ -992,7 +995,7 @@ async function bootstrapPage(){
   uiInitialLoad=false;
   document.documentElement.classList.remove("ui-boot-pending");
 
-  // Never let GitHub availability hold the page hostage.
+  // Never let GitHub availability prevent the protected built-in fallback.
   try{
     await loadUiCatalog();
     await load(true);
