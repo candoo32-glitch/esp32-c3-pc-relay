@@ -400,7 +400,7 @@
   // V2 utility components. These own presentation-only browser behavior and
   // talk to the same public endpoints as the protected built-in UI.
   registry.set("field",(n)=>{
-    const e=common(document.createElement("label"),n);e.classList.add("v2-field");
+    const e=common(document.createElement("div"),n);e.classList.add("v2-field");
     if(n.label){const l=document.createElement("span");l.className="v2-field-label";l.textContent=String(bindValue(n.label));e.appendChild(l)}
     (n.children||[]).forEach(c=>e.appendChild(renderNode(c)));
     return e;
