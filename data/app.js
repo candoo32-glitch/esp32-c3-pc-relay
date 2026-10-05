@@ -32,7 +32,8 @@ function removeExternalUi(keepPending=false){
 }
 
 async function fetchExternalUiSource(url){
-  const r=await fetchWithTimeout(url,{cache:"no-store"});
+  const cacheBustedUrl=url+(url.includes("?")?"&":"?")+"uiCacheBust="+Date.now();
+  const r=await fetchWithTimeout(cacheBustedUrl,{cache:"no-store",headers:{"Cache-Control":"no-cache"}});
   if(!r.ok)throw new Error("UI asset HTTP "+r.status+": "+url);
   return await r.text();
 }
@@ -55,7 +56,7 @@ function installExternalUiScript(url){
     const script=document.createElement("script");
     script.dataset.externalUi="true";
     script.async=false;
-    script.src=url+(url.includes("?")?"&":"?")+"t="+Date.now();
+    script.src=url+(url.includes("?")?"&":"?")+"uiCacheBust="+Date.now();
     script.onload=()=>resolve(script);
     script.onerror=()=>reject(new Error("UI script could not be loaded"));
     document.head.appendChild(script);
@@ -76,8 +77,8 @@ async function activateUi(uiId){
   let pendingStyle=null;
 
   try{
-    const manifestUrl=UI_ROOT_URL+"/"+encodeURIComponent(id)+"/manifest.json?t="+Date.now();
-    const r=await fetchWithTimeout(manifestUrl,{cache:"no-store"});
+    const manifestUrl=UI_ROOT_URL+"/"+encodeURIComponent(id)+"/manifest.json?uiCacheBust="+Date.now();
+    const r=await fetchWithTimeout(manifestUrl,{cache:"no-store",headers:{"Cache-Control":"no-cache"}});
     if(!r.ok)throw Error("Manifest HTTP "+r.status);
 
     const manifest=await r.json();
@@ -138,7 +139,7 @@ async function loadUiCatalog(){
   const select=$("ui-selection");
   if(!select)return;
   try{
-    const r=await fetchWithTimeout(UI_CATALOG_URL+"?t="+Date.now(),{cache:"no-store"});
+    const r=await fetchWithTimeout(UI_CATALOG_URL+"?uiCacheBust="+Date.now(),{cache:"no-store",headers:{"Cache-Control":"no-cache"}});
     if(!r.ok)throw Error(r.status);
     const catalog=await r.json();
     const entries=Array.isArray(catalog?.uis)?catalog.uis:[];
