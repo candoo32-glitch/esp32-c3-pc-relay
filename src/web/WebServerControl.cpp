@@ -1608,7 +1608,7 @@ void begin() {
     handleStaticAsset("/dom/v2.html", "text/html; charset=utf-8");
   });
   server.on("/dom/v2-runtime.js", HTTP_GET, []() {
-    handleStaticAsset("/dom/v2-runtime.js", "application/javascript; charset=utf-8");
+    handleStaticAsset("/dom/v2-runtime.js", "text/javascript; charset=utf-8");
   });
   server.on("/dom/v2.css", HTTP_GET, []() {
     handleStaticAsset("/dom/v2.css", "text/css; charset=utf-8");
