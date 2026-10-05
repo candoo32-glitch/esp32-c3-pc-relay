@@ -2,6 +2,38 @@
 "use strict";
 const $=id=>document.getElementById(id);
 let wifiCredentialsDirty=false;
+const UI_CATALOG_URL="https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/ui/catalog.json";
+let uiCatalogLoaded=false;
+
+async function loadUiCatalog(){
+  const select=$("ui-selection");
+  if(!select)return;
+  try{
+    const r=await fetch(UI_CATALOG_URL+"?t="+Date.now(),{cache:"no-store"});
+    if(!r.ok)throw Error(r.status);
+    const catalog=await r.json();
+    const entries=Array.isArray(catalog?.uis)?catalog.uis:[];
+    const seen=new Set(["builtin"]);
+    entries.forEach(ui=>{
+      const id=String(ui?.id||"").trim();
+      const name=String(ui?.name||"").trim();
+      if(!id||!name||seen.has(id)||!/^[A-Za-z0-9._-]{1,63}$/.test(id))return;
+      seen.add(id);
+      const option=document.createElement("option");
+      option.value=id;
+      option.textContent=name;
+      select.appendChild(option);
+    });
+    uiCatalogLoaded=true;
+    const selected=String(select.dataset.savedSelection||"builtin");
+    select.value=seen.has(selected)?selected:"builtin";
+  }catch(e){
+    uiCatalogLoaded=false;
+    select.value="builtin";
+  }
+}
+
+
 let networkFormDirty=false;
 let stateFailureCount=0;
 const STATE_FAILURE_THRESHOLD=3;
@@ -168,7 +200,7 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  setRelay(s.relays[0],0);setRelay(s.relays[1],1);
 
  text("dash-uptime",s.system.uptime+" seconds");text("dash-build",s.system.build);text("dash-idf",s.system.idf);text("dash-cpu",s.system.cpu+" MHz");
- text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
+ text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");const uiSelect=$("ui-selection");if(uiSelect){const selected=String(s.system.uiSelection||"builtin");uiSelect.dataset.savedSelection=selected;if(uiCatalogLoaded)uiSelect.value=[...uiSelect.options].some(o=>o.value===selected)?selected:"builtin";}text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
  text("page-status",w.status);
 }
@@ -204,6 +236,17 @@ async function saveTheme(value){
    if(status){status.textContent="Theme saved";status.className="help ok";}
  }catch(e){
    if(status){status.textContent="Theme could not be saved";status.className="help bad";}
+ }
+}
+
+async function saveUiSelection(value){
+ const status=$("ui-selection-status");
+ try{
+   const r=await fetch("/system/ui-selection",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"ui="+encodeURIComponent(value),cache:"no-store"});
+   if(!r.ok)throw Error(r.status);
+   if(status){status.textContent="UI selection saved";status.className="help ok";}
+ }catch(e){
+   if(status){status.textContent="UI selection could not be saved";status.className="help bad";}
  }
 }
 let diagnosticPollTimer=null;
@@ -280,7 +323,7 @@ $("configfile")?.addEventListener("change",e=>{
   const label=$("configfile-name");
   if(label)label.textContent=file?file.name:"Choose backup file…";
 });
-$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
+$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});const uiSelect=$("ui-selection");if(uiSelect)uiSelect.addEventListener("change",()=>saveUiSelection(uiSelect.value));
 document.querySelectorAll(".theme-option").forEach(o=>o.addEventListener("click",async()=>{closeThemeOptions();await saveTheme(o.dataset.themeValue);}));
 document.addEventListener("click",e=>{const p=document.querySelector(".theme-picker");if(p&&!p.contains(e.target))closeThemeOptions();});
 $("ssid").addEventListener("input",()=>{wifiCredentialsDirty=true;filterSsidOptions();});$("wifi-ssid-toggle").addEventListener("click",()=>{const o=$("wifi-ssid-options");if(o.hidden){openSsidOptions()}else closeSsidOptions();});$("ssid").addEventListener("focus",()=>{if(document.querySelector(".ssid-option"))openSsidOptions();});document.addEventListener("click",e=>{const box=document.querySelector(".ssid-combobox");if(box&&!box.contains(e.target))closeSsidOptions();});
@@ -644,6 +687,7 @@ window.addEventListener("hashchange",currentTab);
 currentTab();
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 async function bootstrapPage(){
+ await loadUiCatalog();
  await load();
  await resumeOtaStatus();
 }
