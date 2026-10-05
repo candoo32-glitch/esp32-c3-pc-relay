@@ -88,7 +88,7 @@
     const act=()=>{
       const text=(toggle?.textContent||"").toUpperCase();
       click("wifi-toggle");
-      if(text.includes("OFF"))setTimeout(()=>click("wifi-reconnect-form button"),450);
+      if(text.includes("OFF"))setTimeout(()=>{const b=q("#wifi-reconnect-form button");if(b)b.click()},450);
     };
     const lever=$("#sp-wifi-lever");
     lever?.addEventListener("click",act);
