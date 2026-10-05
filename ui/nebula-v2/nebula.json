@@ -9,33 +9,43 @@
     "surface": "rgba(22,34,58,.94)",
     "border": "#34547e",
     "radius": "12px",
-    "panelPadding": "16px"
+    "panelPadding": "18px"
   },
   "views": {
     "dashboard": {
-      "title": "NEBULA // COMMAND",
+      "title": "COMMAND CENTER",
       "navigation": true,
       "layout": {
         "type": "grid",
-        "columns": "repeat(4,minmax(0,1fr))",
-        "gap": "12px",
+        "columns": "repeat(12,minmax(0,1fr))",
+        "gap": "16px",
         "children": [
           {
             "type": "relay-dock"
           },
           {
             "type": "panel",
-            "label": "SYSTEM",
+            "label": "SYSTEM STATUS",
             "children": [
               {
                 "type": "value",
-                "label": "Firmware",
+                "label": "Firmware build",
                 "bind": "system.build"
               },
               {
                 "type": "value",
-                "label": "Web UI",
+                "label": "Web UI build",
                 "bind": "system.webBuild"
+              },
+              {
+                "type": "value",
+                "label": "ESP-IDF",
+                "bind": "system.idf"
+              },
+              {
+                "type": "value",
+                "label": "Arduino core",
+                "bind": "system.arduino"
               },
               {
                 "type": "value",
@@ -48,21 +58,16 @@
                 "label": "Uptime",
                 "bind": "system.uptime",
                 "format": "number"
-              },
-              {
-                "type": "value",
-                "label": "ESP-IDF",
-                "bind": "system.idf"
               }
             ]
           },
           {
             "type": "panel",
-            "label": "WI-FI",
+            "label": "WIRELESS STATUS",
             "children": [
               {
-                "type": "value",
-                "label": "Status",
+                "type": "status",
+                "label": "Connection",
                 "bind": "wifi.status"
               },
               {
@@ -72,7 +77,7 @@
               },
               {
                 "type": "value",
-                "label": "IP",
+                "label": "IP address",
                 "bind": "wifi.ip"
               },
               {
@@ -90,46 +95,6 @@
                 "type": "value",
                 "label": "BSSID",
                 "bind": "wifi.bssid"
-              },
-              {
-                "type": "value",
-                "label": "TX power",
-                "bind": "wifi.tx"
-              }
-            ]
-          },
-          {
-            "type": "gauge",
-            "label": "CPU MHz",
-            "bind": "system.cpu",
-            "min": 0,
-            "max": 240,
-            "format": "number"
-          },
-          {
-            "type": "meter",
-            "label": "SIGNAL STRENGTH",
-            "bind": "wifi.rssi",
-            "min": -100,
-            "max": 0
-          },
-          {
-            "type": "panel",
-            "label": "RELAY 1",
-            "children": [
-              {
-                "type": "relay",
-                "relay": 0
-              }
-            ]
-          },
-          {
-            "type": "panel",
-            "label": "RELAY 2",
-            "children": [
-              {
-                "type": "relay",
-                "relay": 1
               }
             ]
           },
@@ -137,11 +102,6 @@
             "type": "panel",
             "label": "NETWORK",
             "children": [
-              {
-                "type": "value",
-                "label": "IP",
-                "bind": "network.ip"
-              },
               {
                 "type": "value",
                 "label": "Gateway",
@@ -171,28 +131,38 @@
           },
           {
             "type": "panel",
-            "label": "QUICK CONTROLS",
+            "label": "SIGNAL",
             "children": [
               {
-                "type": "button",
-                "text": "Reconnect Wi-Fi",
-                "action": {
-                  "action": "wifi.reconnect"
-                }
+                "type": "meter",
+                "label": "Wi-Fi RSSI",
+                "bind": "wifi.rssi",
+                "min": -100,
+                "max": 0
               },
               {
-                "type": "button",
-                "text": "Wi-Fi On / Off",
-                "action": {
-                  "action": "wifi.toggle"
-                }
-              },
+                "type": "text",
+                "text": "Signal is shown live from the active Wi-Fi connection."
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "RELAY 1",
+            "children": [
               {
-                "type": "button",
-                "text": "Reboot ESP32-C3",
-                "action": {
-                  "action": "system.reboot"
-                }
+                "type": "relay",
+                "relay": 0
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "RELAY 2",
+            "children": [
+              {
+                "type": "relay",
+                "relay": 1
               }
             ]
           },
@@ -211,6 +181,33 @@
                 "gpio": 6
               }
             ]
+          },
+          {
+            "type": "panel",
+            "label": "QUICK ACTIONS",
+            "children": [
+              {
+                "type": "button",
+                "text": "Reconnect Wi-Fi",
+                "action": {
+                  "action": "wifi.reconnect"
+                }
+              },
+              {
+                "type": "button",
+                "text": "Turn Wi-Fi ON / OFF",
+                "action": {
+                  "action": "wifi.toggle"
+                }
+              },
+              {
+                "type": "button",
+                "text": "Reboot ESP32-C3",
+                "action": {
+                  "action": "system.reboot"
+                }
+              }
+            ]
           }
         ]
       }
@@ -220,24 +217,24 @@
       "navigation": true,
       "layout": {
         "type": "grid",
-        "columns": "repeat(2,minmax(0,1fr))",
-        "gap": "12px",
+        "columns": "repeat(12,minmax(0,1fr))",
+        "gap": "16px",
         "children": [
           {
             "type": "relay-dock"
           },
           {
             "type": "panel",
-            "label": "CONNECTION",
+            "label": "CURRENT CONNECTION",
             "children": [
               {
-                "type": "value",
+                "type": "status",
                 "label": "Status",
                 "bind": "wifi.status"
               },
               {
                 "type": "value",
-                "label": "SSID",
+                "label": "Connected network",
                 "bind": "wifi.ssid"
               },
               {
@@ -273,12 +270,23 @@
               },
               {
                 "type": "value",
-                "label": "TX power",
-                "bind": "wifi.tx"
+                "label": "Channel",
+                "bind": "wifi.channel"
               },
               {
+                "type": "value",
+                "label": "TX power",
+                "bind": "wifi.tx"
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "CONNECTION CONTROLS",
+            "children": [
+              {
                 "type": "button",
-                "text": "Wi-Fi On / Off",
+                "text": "Turn Wi-Fi ON / OFF",
                 "action": {
                   "action": "wifi.toggle"
                 }
@@ -289,12 +297,16 @@
                 "action": {
                   "action": "wifi.reconnect"
                 }
+              },
+              {
+                "type": "text",
+                "text": "These controls affect the current radio state. Saved credentials are handled separately below."
               }
             ]
           },
           {
             "type": "panel",
-            "label": "CREDENTIALS",
+            "label": "WI-FI CREDENTIALS",
             "children": [
               {
                 "type": "form",
@@ -302,7 +314,7 @@
                 "children": [
                   {
                     "type": "field",
-                    "label": "NETWORK / SSID",
+                    "label": "Network / SSID",
                     "children": [
                       {
                         "type": "input",
@@ -314,14 +326,18 @@
                         "autocomplete": "off"
                       },
                       {
-                        "type": "wifi-scanner",
-                        "target": "#v2-ssid"
+                        "type": "text",
+                        "text": "Enter the SSID manually, or select one from the nearby-network scan."
                       }
                     ]
                   },
                   {
+                    "type": "wifi-scanner",
+                    "target": "#v2-ssid"
+                  },
+                  {
                     "type": "field",
-                    "label": "PASSWORD",
+                    "label": "Password",
                     "children": [
                       {
                         "type": "secret",
@@ -334,7 +350,7 @@
                   },
                   {
                     "type": "text",
-                    "text": "Credentials are saved only after a successful connection. SSID is limited to 32 characters and password to 63."
+                    "text": "Credentials are saved only after a successful connection. Leave the password empty only for an open network."
                   },
                   {
                     "type": "button",
@@ -342,24 +358,6 @@
                     "submit": true
                   }
                 ]
-              },
-              {
-                "type": "text",
-                "text": "The saved password is never exposed to DOM V2."
-              }
-            ]
-          },
-          {
-            "type": "panel",
-            "label": "DISCOVERY",
-            "children": [
-              {
-                "type": "wifi-scanner",
-                "target": "#v2-ssid"
-              },
-              {
-                "type": "text",
-                "text": "Click a network to place its SSID into the credentials field. Hidden networks can still be entered manually."
               }
             ]
           },
@@ -372,13 +370,23 @@
                 "action": "/wifi/txpower",
                 "children": [
                   {
-                    "type": "input",
-                    "name": "dbm",
-                    "bind": "wifi.tx",
-                    "inputType": "number",
-                    "min": 2,
-                    "max": 18,
-                    "step": 0.25
+                    "type": "field",
+                    "label": "Transmit power (dBm)",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "dbm",
+                        "bind": "wifi.tx",
+                        "inputType": "number",
+                        "min": 2,
+                        "max": 18,
+                        "step": 0.25
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "text": "Allowed range: 2.00–18.00 dBm in 0.25 dBm increments."
                   },
                   {
                     "type": "button",
@@ -386,10 +394,20 @@
                     "submit": true
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "NEARBY NETWORKS",
+            "children": [
+              {
+                "type": "wifi-scanner",
+                "target": "#v2-ssid"
               },
               {
                 "type": "text",
-                "text": "Allowed range: 2.00–18.00 dBm in 0.25 dBm steps."
+                "text": "Select a row to place its SSID into the credentials form. Hidden networks can still be entered manually."
               }
             ]
           }
@@ -401,18 +419,133 @@
       "navigation": true,
       "layout": {
         "type": "grid",
-        "columns": "repeat(2,minmax(0,1fr))",
-        "gap": "12px",
+        "columns": "repeat(12,minmax(0,1fr))",
+        "gap": "16px",
         "children": [
           {
             "type": "relay-dock"
           },
           {
             "type": "panel",
+            "label": "NETWORK CONFIGURATION",
+            "children": [
+              {
+                "type": "text",
+                "text": "Configure the device hostname and IPv4 addressing mode. DHCP is recommended unless a fixed address is required."
+              },
+              {
+                "type": "form",
+                "action": "/network/save",
+                "children": [
+                  {
+                    "type": "field",
+                    "label": "Host name",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "hostname",
+                        "bind": "network.hostname",
+                        "maxLength": 32,
+                        "pattern": "[A-Za-z0-9-]+",
+                        "required": true
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "text": "Letters, numbers, and hyphens only."
+                  },
+                  {
+                    "type": "field",
+                    "label": "Address mode",
+                    "children": [
+                      {
+                        "type": "select",
+                        "name": "mode",
+                        "bind": "network.mode",
+                        "options": [
+                          {
+                            "value": "dhcp",
+                            "label": "DHCP"
+                          },
+                          {
+                            "value": "static",
+                            "label": "STATIC"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "field",
+                    "label": "IP address",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "ip",
+                        "bind": "network.ip"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "field",
+                    "label": "Gateway",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "gateway",
+                        "bind": "network.gateway"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "field",
+                    "label": "Subnet mask",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "subnet",
+                        "bind": "network.subnet"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "field",
+                    "label": "DNS 1",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "dns1",
+                        "bind": "network.dns1"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "field",
+                    "label": "DNS 2",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "dns2",
+                        "bind": "network.dns2"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "button",
+                    "text": "Save network settings",
+                    "submit": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "panel",
             "label": "LIVE CONNECTION",
             "children": [
               {
-                "type": "value",
+                "type": "status",
                 "label": "Wi-Fi",
                 "bind": "wifi.status"
               },
@@ -443,12 +576,6 @@
               },
               {
                 "type": "value",
-                "label": "RSSI",
-                "bind": "wifi.rssi",
-                "format": "dbm"
-              },
-              {
-                "type": "value",
                 "label": "Authentication",
                 "bind": "network.auth"
               },
@@ -456,124 +583,16 @@
                 "type": "value",
                 "label": "BSSID",
                 "bind": "network.bssid"
-              }
-            ]
-          },
-          {
-            "type": "panel",
-            "label": "CONFIGURATION",
-            "children": [
+              },
               {
-                "type": "form",
-                "action": "/network/save",
-                "children": [
-                  {
-                    "type": "field",
-                    "label": "HOSTNAME",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "hostname",
-                        "bind": "network.hostname",
-                        "maxLength": 32,
-                        "placeholder": "device-name",
-                        "pattern": "[A-Za-z0-9-]+"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "field",
-                    "label": "ADDRESS MODE",
-                    "children": [
-                      {
-                        "type": "select",
-                        "name": "mode",
-                        "bind": "network.mode",
-                        "options": [
-                          {
-                            "value": "dhcp",
-                            "label": "DHCP"
-                          },
-                          {
-                            "value": "static",
-                            "label": "STATIC"
-                          }
-                        ],
-                        "submitOnChange": false
-                      }
-                    ]
-                  },
-                  {
-                    "type": "field",
-                    "label": "STATIC IP ADDRESS",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "ip",
-                        "bind": "network.ip",
-                        "placeholder": "192.168.1.50"
-                      }
-                    ],
-                    "visibleIf": "network.mode == static"
-                  },
-                  {
-                    "type": "field",
-                    "label": "STATIC GATEWAY",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "gateway",
-                        "bind": "network.gateway"
-                      }
-                    ],
-                    "visibleIf": "network.mode == static"
-                  },
-                  {
-                    "type": "field",
-                    "label": "STATIC SUBNET",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "subnet",
-                        "bind": "network.subnet"
-                      }
-                    ],
-                    "visibleIf": "network.mode == static"
-                  },
-                  {
-                    "type": "field",
-                    "label": "STATIC DNS 1",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "dns1",
-                        "bind": "network.dns1"
-                      }
-                    ],
-                    "visibleIf": "network.mode == static"
-                  },
-                  {
-                    "type": "field",
-                    "label": "STATIC DNS 2",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "dns2",
-                        "bind": "network.dns2"
-                      }
-                    ],
-                    "visibleIf": "network.mode == static"
-                  },
-                  {
-                    "type": "button",
-                    "text": "Save network settings",
-                    "submit": true
-                  }
-                ]
+                "type": "value",
+                "label": "RSSI",
+                "bind": "wifi.rssi",
+                "format": "dbm"
               },
               {
                 "type": "text",
-                "text": "DHCP is recommended unless the device needs a fixed address."
+                "text": "Live values reflect the active connection. Configuration fields above represent values waiting to be saved."
               }
             ]
           }
@@ -586,34 +605,14 @@
       "layout": {
         "type": "grid",
         "columns": "1fr",
-        "gap": "12px",
+        "gap": "16px",
         "children": [
-          {
-            "type": "panel",
-            "label": "DOM V2 TELEMETRY",
-            "children": [
-              {
-                "type": "value",
-                "label": "Runtime",
-                "value": "DOM V2"
-              },
-              {
-                "type": "value",
-                "label": "Presentation",
-                "value": "Nebula V2"
-              },
-              {
-                "type": "text",
-                "text": "Nebula is an external presentation rendered by DOM V2; the protected built-in UI and V1 themes remain separate."
-              }
-            ]
-          },
           {
             "type": "relay-dock"
           },
           {
             "type": "panel",
-            "label": "DIAGNOSTIC STATE",
+            "label": "DIAGNOSTIC CONTROL",
             "children": [
               {
                 "type": "status",
@@ -625,6 +624,10 @@
                   "true": "ENABLED",
                   "false": "DISABLED"
                 }
+              },
+              {
+                "type": "text",
+                "text": "The console mirrors selected diagnostic output sent to the serial terminal. The device retains the most recent 20 lines."
               },
               {
                 "type": "button",
@@ -642,6 +645,10 @@
               {
                 "type": "log",
                 "bind": "diagnosticsLog"
+              },
+              {
+                "type": "text",
+                "text": "The console updates live while this page is open."
               }
             ]
           },
@@ -680,195 +687,225 @@
       "navigation": true,
       "layout": {
         "type": "grid",
-        "columns": "repeat(2,minmax(0,1fr))",
-        "gap": "12px",
+        "columns": "repeat(12,minmax(0,1fr))",
+        "gap": "16px",
         "children": [
           {
             "type": "relay-dock"
           },
           {
             "type": "panel",
-            "label": "RELAY 1 TELEMETRY",
+            "label": "LIVE RELAY CONTROL",
             "children": [
               {
-                "type": "relay-detail",
-                "relay": 0,
-                "gpio": 5
+                "type": "grid",
+                "columns": "repeat(2,minmax(0,1fr))",
+                "gap": "16px",
+                "children": [
+                  {
+                    "type": "relay",
+                    "relay": 0
+                  },
+                  {
+                    "type": "relay",
+                    "relay": 1
+                  }
+                ]
               }
             ]
-          },
-          {
-            "type": "panel",
-            "label": "RELAY 2 TELEMETRY",
-            "children": [
-              {
-                "type": "relay-detail",
-                "relay": 1,
-                "gpio": 6
-              }
-            ]
-          },
-          {
-            "type": "relay",
-            "relay": 0
-          },
-          {
-            "type": "relay",
-            "relay": 1
           },
           {
             "type": "panel",
             "label": "RELAY CONFIGURATION",
             "children": [
               {
+                "type": "text",
+                "text": "Configure both relays below. One Save button writes both relay configurations."
+              },
+              {
                 "type": "form",
                 "action": "/relay/config",
                 "children": [
                   {
-                    "type": "field",
-                    "label": "RELAY 1 NAME",
+                    "type": "grid",
+                    "columns": "repeat(2,minmax(0,1fr))",
+                    "gap": "16px",
                     "children": [
                       {
-                        "type": "input",
-                        "name": "relay0_name",
-                        "bind": "relays[0].name",
-                        "maxLength": 32,
-                        "placeholder": "Relay 1"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "field",
-                    "label": "RELAY 1 NORMAL STATE",
-                    "children": [
-                      {
-                        "type": "select",
-                        "name": "relay0_normal",
-                        "bind": "relays[0].normal",
-                        "options": [
+                        "type": "panel",
+                        "label": "RELAY 1 CONFIGURATION",
+                        "children": [
                           {
-                            "value": "open",
-                            "label": "OPEN"
+                            "type": "relay-detail",
+                            "relay": 0,
+                            "gpio": 5
                           },
                           {
-                            "value": "closed",
-                            "label": "CLOSED"
-                          }
-                        ],
-                        "transform": "lower"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "field",
-                    "label": "RELAY 1 ACTIVATION MODE",
-                    "children": [
-                      {
-                        "type": "select",
-                        "name": "relay0_mode",
-                        "bind": "relays[0].mode",
-                        "options": [
-                          {
-                            "value": "latched",
-                            "label": "LATCHED"
+                            "type": "field",
+                            "label": "Relay name",
+                            "children": [
+                              {
+                                "type": "input",
+                                "name": "relay0_name",
+                                "bind": "relays[0].name",
+                                "maxLength": 32,
+                                "required": true
+                              }
+                            ]
                           },
                           {
-                            "value": "pulse",
-                            "label": "PULSE"
-                          }
-                        ],
-                        "transform": "lower"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "field",
-                    "label": "RELAY 1 PULSE",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "relay0_pulse",
-                        "bind": "relays[0].pulse",
-                        "inputType": "number",
-                        "min": 10,
-                        "max": 60000,
-                        "step": 1
-                      }
-                    ],
-                    "visibleIf": "relays[0].mode == pulse"
-                  },
-                  {
-                    "type": "field",
-                    "label": "RELAY 2 NAME",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "relay1_name",
-                        "bind": "relays[1].name",
-                        "maxLength": 32,
-                        "placeholder": "Relay 2"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "field",
-                    "label": "RELAY 2 NORMAL STATE",
-                    "children": [
-                      {
-                        "type": "select",
-                        "name": "relay1_normal",
-                        "bind": "relays[1].normal",
-                        "options": [
-                          {
-                            "value": "open",
-                            "label": "OPEN"
+                            "type": "field",
+                            "label": "Normal contact state",
+                            "children": [
+                              {
+                                "type": "select",
+                                "name": "relay0_normal",
+                                "bind": "relays[0].normal",
+                                "transform": "lower",
+                                "options": [
+                                  {
+                                    "value": "open",
+                                    "label": "OPEN"
+                                  },
+                                  {
+                                    "value": "closed",
+                                    "label": "CLOSED"
+                                  }
+                                ]
+                              }
+                            ]
                           },
                           {
-                            "value": "closed",
-                            "label": "CLOSED"
-                          }
-                        ],
-                        "transform": "lower"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "field",
-                    "label": "RELAY 2 ACTIVATION MODE",
-                    "children": [
-                      {
-                        "type": "select",
-                        "name": "relay1_mode",
-                        "bind": "relays[1].mode",
-                        "options": [
-                          {
-                            "value": "latched",
-                            "label": "LATCHED"
+                            "type": "field",
+                            "label": "Activation mode",
+                            "children": [
+                              {
+                                "type": "select",
+                                "name": "relay0_mode",
+                                "bind": "relays[0].mode",
+                                "transform": "lower",
+                                "options": [
+                                  {
+                                    "value": "latched",
+                                    "label": "LATCHED"
+                                  },
+                                  {
+                                    "value": "pulse",
+                                    "label": "PULSE"
+                                  }
+                                ]
+                              }
+                            ]
                           },
                           {
-                            "value": "pulse",
-                            "label": "PULSE"
+                            "type": "field",
+                            "label": "Pulse duration (ms)",
+                            "children": [
+                              {
+                                "type": "input",
+                                "name": "relay0_pulse",
+                                "bind": "relays[0].pulse",
+                                "inputType": "number",
+                                "min": 10,
+                                "max": 60000,
+                                "step": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "text",
+                            "text": "10–60000 ms. The stored default is 250 ms. Pulse duration is used when activation mode is PULSE."
                           }
-                        ],
-                        "transform": "lower"
+                        ]
+                      },
+                      {
+                        "type": "panel",
+                        "label": "RELAY 2 CONFIGURATION",
+                        "children": [
+                          {
+                            "type": "relay-detail",
+                            "relay": 1,
+                            "gpio": 6
+                          },
+                          {
+                            "type": "field",
+                            "label": "Relay name",
+                            "children": [
+                              {
+                                "type": "input",
+                                "name": "relay1_name",
+                                "bind": "relays[1].name",
+                                "maxLength": 32,
+                                "required": true
+                              }
+                            ]
+                          },
+                          {
+                            "type": "field",
+                            "label": "Normal contact state",
+                            "children": [
+                              {
+                                "type": "select",
+                                "name": "relay1_normal",
+                                "bind": "relays[1].normal",
+                                "transform": "lower",
+                                "options": [
+                                  {
+                                    "value": "open",
+                                    "label": "OPEN"
+                                  },
+                                  {
+                                    "value": "closed",
+                                    "label": "CLOSED"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "field",
+                            "label": "Activation mode",
+                            "children": [
+                              {
+                                "type": "select",
+                                "name": "relay1_mode",
+                                "bind": "relays[1].mode",
+                                "transform": "lower",
+                                "options": [
+                                  {
+                                    "value": "latched",
+                                    "label": "LATCHED"
+                                  },
+                                  {
+                                    "value": "pulse",
+                                    "label": "PULSE"
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "type": "field",
+                            "label": "Pulse duration (ms)",
+                            "children": [
+                              {
+                                "type": "input",
+                                "name": "relay1_pulse",
+                                "bind": "relays[1].pulse",
+                                "inputType": "number",
+                                "min": 10,
+                                "max": 60000,
+                                "step": 1
+                              }
+                            ]
+                          },
+                          {
+                            "type": "text",
+                            "text": "10–60000 ms. The stored default is 250 ms. Pulse duration is used when activation mode is PULSE."
+                          }
+                        ]
                       }
                     ]
-                  },
-                  {
-                    "type": "field",
-                    "label": "RELAY 2 PULSE",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "relay1_pulse",
-                        "bind": "relays[1].pulse",
-                        "inputType": "number",
-                        "min": 10,
-                        "max": 60000,
-                        "step": 1
-                      }
-                    ],
-                    "visibleIf": "relays[1].mode == pulse"
                   },
                   {
                     "type": "button",
@@ -876,10 +913,6 @@
                     "submit": true
                   }
                 ]
-              },
-              {
-                "type": "text",
-                "text": "Pulse duration: 10–60000 ms. Blank/default is 250 ms."
               }
             ]
           }
@@ -891,47 +924,43 @@
       "navigation": true,
       "layout": {
         "type": "grid",
-        "columns": "repeat(2,minmax(0,1fr))",
-        "gap": "12px",
+        "columns": "1fr",
+        "gap": "16px",
         "children": [
           {
             "type": "relay-dock"
           },
           {
             "type": "panel",
-            "label": "NVS STATUS",
+            "label": "SPIFFS / WEB FILESYSTEM",
             "children": [
               {
                 "type": "text",
-                "text": "Read-only persistent configuration inspector. Sensitive values are masked by firmware."
-              },
-              {
-                "type": "nvs-browser"
-              }
-            ]
-          },
-          {
-            "type": "panel",
-            "label": "FILESYSTEM",
-            "children": [
-              {
-                "type": "text",
-                "text": "Manage the Web filesystem. Uploading a file with the same name replaces the existing copy."
+                "text": "Browse the Web UI filesystem, inspect files, download them, erase them, or upload a replacement. Core Web UI files should be erased only with care."
               },
               {
                 "type": "form",
                 "action": "/storage/upload",
                 "children": [
                   {
-                    "type": "input",
-                    "name": "storagefile",
-                    "inputType": "file",
-                    "accept": ".html,.css,.js,.json,.txt,.xml,.svg,.bin",
-                    "required": true
+                    "type": "field",
+                    "label": "Upload or replace a file",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "storagefile",
+                        "inputType": "file",
+                        "required": true
+                      }
+                    ]
+                  },
+                  {
+                    "type": "text",
+                    "text": "Uploading a file with the same name replaces the existing copy."
                   },
                   {
                     "type": "button",
-                    "text": "Upload / replace file",
+                    "text": "Upload file",
                     "submit": true
                   }
                 ]
@@ -943,33 +972,78 @@
           },
           {
             "type": "panel",
-            "label": "CONFIGURATION BACKUP",
+            "label": "NVS / PERSISTENT CONFIGURATION",
             "children": [
               {
                 "type": "text",
-                "text": "Save or restore the device's complete NVS configuration. Backups contain Wi-Fi credentials and other configuration values, so treat the file as sensitive."
+                "text": "Read-only inspection of persistent settings. Sensitive values are masked by the device; use the normal configuration pages to change settings."
               },
               {
-                "type": "link",
-                "text": "Download backup",
-                "href": "/config/backup"
+                "type": "nvs-browser"
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "CONFIGURATION BACKUP & RESTORE",
+            "children": [
+              {
+                "type": "text",
+                "text": "A backup contains saved Wi-Fi credentials and other NVS configuration. Treat the backup as sensitive."
               },
               {
-                "type": "form",
-                "action": "/config/restore",
-                "rebootAfter": true,
+                "type": "grid",
+                "columns": "repeat(2,minmax(0,1fr))",
+                "gap": "16px",
                 "children": [
                   {
-                    "type": "input",
-                    "name": "configfile",
-                    "inputType": "file",
-                    "accept": ".bin,application/octet-stream",
-                    "required": true
+                    "type": "panel",
+                    "label": "DOWNLOAD BACKUP",
+                    "children": [
+                      {
+                        "type": "text",
+                        "text": "Save the complete current NVS configuration."
+                      },
+                      {
+                        "type": "link",
+                        "text": "Download configuration backup",
+                        "href": "/config/backup"
+                      }
+                    ]
                   },
                   {
-                    "type": "button",
-                    "text": "Restore & reboot",
-                    "submit": true
+                    "type": "panel",
+                    "label": "RESTORE BACKUP",
+                    "children": [
+                      {
+                        "type": "form",
+                        "action": "/config/restore",
+                        "children": [
+                          {
+                            "type": "field",
+                            "label": "Backup file",
+                            "children": [
+                              {
+                                "type": "input",
+                                "name": "configfile",
+                                "inputType": "file",
+                                "accept": ".bin,application/octet-stream",
+                                "required": true
+                              }
+                            ]
+                          },
+                          {
+                            "type": "button",
+                            "text": "Restore configuration",
+                            "submit": true
+                          }
+                        ]
+                      },
+                      {
+                        "type": "text",
+                        "text": "The ESP32-C3 will reboot after a successful restore."
+                      }
+                    ]
                   }
                 ]
               }
@@ -981,18 +1055,17 @@
             "children": [
               {
                 "type": "text",
-                "text": "Erase persistent NVS configuration, including Wi-Fi and network settings, then reboot."
+                "text": "Formatting NVS erases Wi-Fi credentials, TX power, diagnostics, network settings, relay configuration, and other persistent configuration, then reboots the ESP32-C3."
               },
               {
-                "type": "form",
-                "action": "/nvs/format",
-                "children": [
-                  {
-                    "type": "button",
-                    "text": "Format NVS and reboot",
-                    "submit": true
+                "type": "button",
+                "text": "Format NVS and reboot",
+                "action": {
+                  "action": "form.submit",
+                  "args": {
+                    "url": "/nvs/format"
                   }
-                ]
+                }
               }
             ]
           }
@@ -1004,15 +1077,15 @@
       "navigation": true,
       "layout": {
         "type": "grid",
-        "columns": "repeat(2,minmax(0,1fr))",
-        "gap": "12px",
+        "columns": "repeat(12,minmax(0,1fr))",
+        "gap": "16px",
         "children": [
           {
             "type": "relay-dock"
           },
           {
             "type": "panel",
-            "label": "FIRMWARE",
+            "label": "FIRMWARE & BUILD",
             "children": [
               {
                 "type": "value",
@@ -1026,7 +1099,7 @@
               },
               {
                 "type": "value",
-                "label": "Web UI",
+                "label": "Web UI build",
                 "bind": "system.webBuild"
               },
               {
@@ -1041,7 +1114,7 @@
               },
               {
                 "type": "value",
-                "label": "Arduino",
+                "label": "Arduino core",
                 "bind": "system.arduino"
               },
               {
@@ -1051,7 +1124,7 @@
               },
               {
                 "type": "value",
-                "label": "CPU",
+                "label": "CPU frequency",
                 "bind": "system.cpu",
                 "format": "number"
               },
@@ -1069,11 +1142,11 @@
             "children": [
               {
                 "type": "text",
-                "text": "Switching presentation reloads the page so the previous UI runtime is completely discarded."
+                "text": "Switch the presentation layer. Built-in and V1 themes remain protected; Nebula V2 is the external DOM V2 presentation."
               },
               {
                 "type": "button",
-                "text": "Built-in UI",
+                "text": "Use Built-in UI",
                 "action": {
                   "action": "ui.select",
                   "args": {
@@ -1083,7 +1156,7 @@
               },
               {
                 "type": "button",
-                "text": "LCARS V1",
+                "text": "Use LCARS Modern",
                 "action": {
                   "action": "ui.select",
                   "args": {
@@ -1093,7 +1166,7 @@
               },
               {
                 "type": "button",
-                "text": "Matrix V1",
+                "text": "Use The Matrix",
                 "action": {
                   "action": "ui.select",
                   "args": {
@@ -1103,7 +1176,7 @@
               },
               {
                 "type": "button",
-                "text": "Nebula V2",
+                "text": "Use Nebula V2",
                 "action": {
                   "action": "ui.select",
                   "args": {
@@ -1115,125 +1188,113 @@
           },
           {
             "type": "panel",
-            "label": "SYSTEM ACTIONS",
-            "children": [
-              {
-                "type": "ota-monitor"
-              },
-              {
-                "type": "button",
-                "text": "Reboot ESP32-C3",
-                "action": {
-                  "action": "system.reboot"
-                }
-              },
-              {
-                "type": "link",
-                "text": "Open Recovery Updater",
-                "href": "/recovery",
-                "target": "_blank"
-              }
-            ]
-          },
-          {
-            "type": "panel",
             "label": "COLOR THEME",
             "children": [
+              {
+                "type": "text",
+                "text": "Choose the built-in color palette. The selection is saved immediately when changed."
+              },
               {
                 "type": "form",
                 "action": "/system/theme",
                 "children": [
                   {
-                    "type": "select",
-                    "name": "theme",
-                    "bind": "system.theme",
-                    "options": [
+                    "type": "field",
+                    "label": "Color theme",
+                    "children": [
                       {
-                        "value": "0",
-                        "label": "Midnight"
-                      },
-                      {
-                        "value": "1",
-                        "label": "Ocean"
-                      },
-                      {
-                        "value": "2",
-                        "label": "Forest"
-                      },
-                      {
-                        "value": "3",
-                        "label": "Emerald"
-                      },
-                      {
-                        "value": "4",
-                        "label": "Sunset"
-                      },
-                      {
-                        "value": "5",
-                        "label": "Amber"
-                      },
-                      {
-                        "value": "6",
-                        "label": "Rose"
-                      },
-                      {
-                        "value": "7",
-                        "label": "Purple"
-                      },
-                      {
-                        "value": "8",
-                        "label": "Violet"
-                      },
-                      {
-                        "value": "9",
-                        "label": "Cyber"
-                      },
-                      {
-                        "value": "10",
-                        "label": "Slate"
-                      },
-                      {
-                        "value": "11",
-                        "label": "Coffee"
-                      },
-                      {
-                        "value": "12",
-                        "label": "Arctic"
-                      },
-                      {
-                        "value": "13",
-                        "label": "Sakura"
-                      },
-                      {
-                        "value": "14",
-                        "label": "Terminal"
-                      },
-                      {
-                        "value": "15",
-                        "label": "Solarized"
-                      },
-                      {
-                        "value": "16",
-                        "label": "Monochrome"
-                      },
-                      {
-                        "value": "17",
-                        "label": "Crimson"
-                      },
-                      {
-                        "value": "18",
-                        "label": "Indigo"
-                      },
-                      {
-                        "value": "19",
-                        "label": "Teal"
-                      },
-                      {
-                        "value": "20",
-                        "label": "Original"
+                        "type": "select",
+                        "name": "theme",
+                        "bind": "system.theme",
+                        "options": [
+                          {
+                            "value": "0",
+                            "label": "Midnight"
+                          },
+                          {
+                            "value": "1",
+                            "label": "Ocean"
+                          },
+                          {
+                            "value": "2",
+                            "label": "Forest"
+                          },
+                          {
+                            "value": "3",
+                            "label": "Emerald"
+                          },
+                          {
+                            "value": "4",
+                            "label": "Sunset"
+                          },
+                          {
+                            "value": "5",
+                            "label": "Amber"
+                          },
+                          {
+                            "value": "6",
+                            "label": "Rose"
+                          },
+                          {
+                            "value": "7",
+                            "label": "Purple"
+                          },
+                          {
+                            "value": "8",
+                            "label": "Violet"
+                          },
+                          {
+                            "value": "9",
+                            "label": "Cyber"
+                          },
+                          {
+                            "value": "10",
+                            "label": "Slate"
+                          },
+                          {
+                            "value": "11",
+                            "label": "Coffee"
+                          },
+                          {
+                            "value": "12",
+                            "label": "Arctic"
+                          },
+                          {
+                            "value": "13",
+                            "label": "Sakura"
+                          },
+                          {
+                            "value": "14",
+                            "label": "Terminal"
+                          },
+                          {
+                            "value": "15",
+                            "label": "Solarized"
+                          },
+                          {
+                            "value": "16",
+                            "label": "Monochrome"
+                          },
+                          {
+                            "value": "17",
+                            "label": "Crimson"
+                          },
+                          {
+                            "value": "18",
+                            "label": "Indigo"
+                          },
+                          {
+                            "value": "19",
+                            "label": "Teal"
+                          },
+                          {
+                            "value": "20",
+                            "label": "Original"
+                          }
+                        ],
+                        "submitOnChange": true
                       }
-                    ],
-                    "submitOnChange": true
+                    ]
                   }
                 ]
               }
@@ -1241,23 +1302,53 @@
           },
           {
             "type": "panel",
-            "label": "MANUAL FIRMWARE",
+            "label": "SOFTWARE UPDATE",
             "children": [
               {
                 "type": "text",
-                "text": "Application image for the ESP32-C3 OTA firmware partition. Images are validated against the target partition before acceptance."
+                "text": "Check GitHub for newer firmware and Web UI components. The update system treats the two components independently."
+              },
+              {
+                "type": "form",
+                "action": "/system/update-latest",
+                "children": [
+                  {
+                    "type": "button",
+                    "text": "Check for and install updates",
+                    "submit": true
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "The ESP32-C3 may reboot during installation. Keep this page open until the device returns."
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "MANUAL FIRMWARE UPDATE",
+            "children": [
+              {
+                "type": "text",
+                "text": "Upload a compatible firmware .bin image for the ESP32-C3 OTA firmware partition. NVS configuration is preserved."
               },
               {
                 "type": "form",
                 "action": "/system/update",
-                "rebootAfter": true,
                 "children": [
                   {
-                    "type": "input",
-                    "name": "firmware",
-                    "inputType": "file",
-                    "accept": ".bin,application/octet-stream",
-                    "required": true
+                    "type": "field",
+                    "label": "Firmware image",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "firmware",
+                        "inputType": "file",
+                        "accept": ".bin,application/octet-stream",
+                        "required": true
+                      }
+                    ]
                   },
                   {
                     "type": "button",
@@ -1270,23 +1361,28 @@
           },
           {
             "type": "panel",
-            "label": "MANUAL WEB UI",
+            "label": "MANUAL WEB UI UPDATE",
             "children": [
               {
                 "type": "text",
-                "text": "SPIFFS image containing the complete Web UI. Published images use the -spiffs.bin suffix."
+                "text": "Upload the complete SPIFFS Web UI image. Published Web UI images use the -spiffs.bin suffix."
               },
               {
                 "type": "form",
                 "action": "/system/update-web",
-                "rebootAfter": true,
                 "children": [
                   {
-                    "type": "input",
-                    "name": "web-filesystem",
-                    "inputType": "file",
-                    "accept": ".bin,application/octet-stream",
-                    "required": true
+                    "type": "field",
+                    "label": "Web UI filesystem image",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "web-filesystem",
+                        "inputType": "file",
+                        "accept": ".bin,application/octet-stream",
+                        "required": true
+                      }
+                    ]
                   },
                   {
                     "type": "button",
@@ -1299,11 +1395,28 @@
           },
           {
             "type": "panel",
+            "label": "SYSTEM ACTIONS",
+            "children": [
+              {
+                "type": "form",
+                "action": "/system/reboot",
+                "children": [
+                  {
+                    "type": "button",
+                    "text": "Reboot ESP32-C3",
+                    "submit": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "panel",
             "label": "RECOVERY",
             "children": [
               {
                 "type": "text",
-                "text": "Standalone updater for recovering the normal Web UI."
+                "text": "Use the standalone recovery updater if the normal Web UI becomes unusable."
               },
               {
                 "type": "link",
@@ -1317,7 +1430,7 @@
       }
     }
   },
-  "description": "Nebula V2 is a GitHub-hosted DOM V2 presentation that mirrors the protected built-in capabilities while exercising live V2 tools for Wi-Fi scanning, relay telemetry, storage inspection, NVS inspection, and OTA progress.",
+  "description": "Nebula V2 is a GitHub-hosted DOM V2 presentation redesigned around the protected built-in UI's actual information architecture, controls, forms, and operational groupings.",
   "v2Tools": [
     "relay-dock",
     "relay-detail",
@@ -1325,7 +1438,6 @@
     "secret",
     "wifi-scanner",
     "file-browser",
-    "nvs-browser",
-    "ota-monitor"
+    "nvs-browser"
   ]
 }
