@@ -18,7 +18,9 @@ function fetchWithTimeout(url,options={},timeoutMs=UI_FETCH_TIMEOUT_MS){
 }
 
 function uiAssetUrl(uiId,asset){
-  return UI_ROOT_URL+"/"+encodeURIComponent(uiId)+"/"+String(asset||"").split("/").map(encodeURIComponent).join("/");
+  const value=String(asset||"").trim();
+  if(/^https?:\\/\\//i.test(value))return value;
+  return UI_ROOT_URL+"/"+encodeURIComponent(uiId)+"/"+value.split("/").map(encodeURIComponent).join("/");
 }
 
 function removeExternalUi(keepPending=false){
