@@ -2,7 +2,10 @@
  * Decorative only. Pauses when the page is hidden and uses a modest frame rate.
  */
 (()=>{
+  let booted=false;
   const boot=()=>{
+    if(booted)return;
+    booted=true;
     document.body.dataset.externalUi="matrix";
 
     const canvas=document.createElement("canvas");
@@ -73,6 +76,7 @@
     document.body.appendChild(banner);
   };
 
+  window.addEventListener("external-ui-activate",boot,{once:true});
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});
   else boot();
 })();
