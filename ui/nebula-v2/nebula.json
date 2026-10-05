@@ -45,6 +45,11 @@
                 "label": "Uptime",
                 "bind": "system.uptime",
                 "format": "number"
+              },
+              {
+                "type": "value",
+                "label": "ESP-IDF",
+                "bind": "system.idf"
               }
             ]
           },
@@ -53,14 +58,19 @@
             "label": "WI-FI",
             "children": [
               {
-                "type": "status",
-                "label": "Link",
+                "type": "value",
+                "label": "Status",
                 "bind": "wifi.status"
               },
               {
                 "type": "value",
                 "label": "SSID",
                 "bind": "wifi.ssid"
+              },
+              {
+                "type": "value",
+                "label": "IP",
+                "bind": "wifi.ip"
               },
               {
                 "type": "value",
@@ -81,210 +91,39 @@
             "bind": "system.cpu",
             "min": 0,
             "max": 240,
-            "format": "number",
-            "animate": "glow"
+            "format": "number"
           },
           {
             "type": "meter",
-            "label": "Signal strength",
+            "label": "SIGNAL STRENGTH",
             "bind": "wifi.rssi",
             "min": -100,
             "max": 0
           },
           {
-            "type": "relay",
-            "relay": 0
+            "type": "panel",
+            "label": "RELAY 1",
+            "children": [
+              {
+                "type": "relay",
+                "relay": 0
+              }
+            ]
           },
           {
-            "type": "relay",
-            "relay": 1
+            "type": "panel",
+            "label": "RELAY 2",
+            "children": [
+              {
+                "type": "relay",
+                "relay": 1
+              }
+            ]
           },
           {
             "type": "panel",
             "label": "NETWORK",
             "children": [
-              {
-                "type": "value",
-                "label": "IP",
-                "bind": "network.ip"
-              },
-              {
-                "type": "value",
-                "label": "Gateway",
-                "bind": "network.gateway"
-              },
-              {
-                "type": "value",
-                "label": "DNS 1",
-                "bind": "network.dns1"
-              }
-            ]
-          },
-          {
-            "type": "panel",
-            "label": "QUICK CONTROLS",
-            "children": [
-              {
-                "type": "button",
-                "text": "Reconnect Wi-Fi",
-                "action": {
-                  "action": "wifi.reconnect"
-                }
-              },
-              {
-                "type": "button",
-                "text": "Reboot ESP32-C3",
-                "action": {
-                  "action": "system.reboot"
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    "wifi": {
-      "title": "WI-FI",
-      "navigation": true,
-      "layout": {
-        "type": "grid",
-        "columns": "repeat(2,minmax(0,1fr))",
-        "gap": "12px",
-        "children": [
-          {
-            "type": "panel",
-            "label": "CONNECTION",
-            "children": [
-              {
-                "type": "status",
-                "label": "Status",
-                "bind": "wifi.status"
-              },
-              {
-                "type": "value",
-                "label": "SSID",
-                "bind": "wifi.ssid"
-              },
-              {
-                "type": "value",
-                "label": "IP",
-                "bind": "wifi.ip"
-              },
-              {
-                "type": "value",
-                "label": "Gateway",
-                "bind": "wifi.gateway"
-              },
-              {
-                "type": "value",
-                "label": "Subnet",
-                "bind": "wifi.subnet"
-              },
-              {
-                "type": "value",
-                "label": "DNS",
-                "bind": "wifi.dns"
-              },
-              {
-                "type": "value",
-                "label": "BSSID",
-                "bind": "wifi.bssid"
-              },
-              {
-                "type": "value",
-                "label": "RSSI",
-                "bind": "wifi.rssi",
-                "format": "dbm"
-              },
-              {
-                "type": "button",
-                "text": "Wi-Fi On / Off",
-                "action": {
-                  "action": "wifi.toggle"
-                }
-              },
-              {
-                "type": "button",
-                "text": "Reconnect",
-                "action": {
-                  "action": "wifi.reconnect"
-                }
-              }
-            ]
-          },
-          {
-            "type": "panel",
-            "label": "CREDENTIALS",
-            "children": [
-              {
-                "type": "form",
-                "action": "/wifi/save",
-                "children": [
-                  {
-                    "type": "input",
-                    "name": "ssid",
-                    "bind": "wifi.savedSsid",
-                    "placeholder": "SSID",
-                    "required": true,
-                    "maxLength": 32
-                  },
-                  {
-                    "type": "input",
-                    "name": "password",
-                    "inputType": "password",
-                    "placeholder": "Leave blank for open network",
-                    "maxLength": 63
-                  },
-                  {
-                    "type": "button",
-                    "text": "Test and save credentials",
-                    "submit": true
-                  }
-                ]
-              },
-              {
-                "type": "text",
-                "text": "Saved credentials are handled by the device; the saved password is never exposed to DOM V2."
-              }
-            ]
-          },
-          {
-            "type": "panel",
-            "label": "DISCOVERY",
-            "children": [
-              {
-                "type": "button",
-                "text": "Scan Wi-Fi",
-                "action": {
-                  "action": "wifi.scan"
-                }
-              },
-              {
-                "type": "text",
-                "text": "Scan results remain available in the built-in Wi-Fi page while DOM V2 scan-result rendering is being expanded."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    "network": {
-      "title": "NETWORK",
-      "navigation": true,
-      "layout": {
-        "type": "grid",
-        "columns": "repeat(2,minmax(0,1fr))",
-        "gap": "12px",
-        "children": [
-          {
-            "type": "panel",
-            "label": "LIVE CONNECTION",
-            "children": [
-              {
-                "type": "status",
-                "label": "Wi-Fi",
-                "bind": "wifi.status"
-              },
               {
                 "type": "value",
                 "label": "IP",
@@ -314,6 +153,261 @@
           },
           {
             "type": "panel",
+            "label": "QUICK CONTROLS",
+            "children": [
+              {
+                "type": "button",
+                "text": "Reconnect Wi-Fi",
+                "action": {
+                  "action": "wifi.reconnect"
+                }
+              },
+              {
+                "type": "button",
+                "text": "Wi-Fi On / Off",
+                "action": {
+                  "action": "wifi.toggle"
+                }
+              },
+              {
+                "type": "button",
+                "text": "Reboot ESP32-C3",
+                "action": {
+                  "action": "system.reboot"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "wifi": {
+      "title": "WI-FI",
+      "navigation": true,
+      "layout": {
+        "type": "grid",
+        "columns": "repeat(2,minmax(0,1fr))",
+        "gap": "12px",
+        "children": [
+          {
+            "type": "panel",
+            "label": "CONNECTION",
+            "children": [
+              {
+                "type": "value",
+                "label": "Status",
+                "bind": "wifi.status"
+              },
+              {
+                "type": "value",
+                "label": "SSID",
+                "bind": "wifi.ssid"
+              },
+              {
+                "type": "value",
+                "label": "IP address",
+                "bind": "wifi.ip"
+              },
+              {
+                "type": "value",
+                "label": "Gateway",
+                "bind": "wifi.gateway"
+              },
+              {
+                "type": "value",
+                "label": "Subnet",
+                "bind": "wifi.subnet"
+              },
+              {
+                "type": "value",
+                "label": "DNS",
+                "bind": "wifi.dns"
+              },
+              {
+                "type": "value",
+                "label": "BSSID",
+                "bind": "wifi.bssid"
+              },
+              {
+                "type": "value",
+                "label": "RSSI",
+                "bind": "wifi.rssi",
+                "format": "dbm"
+              },
+              {
+                "type": "value",
+                "label": "TX power",
+                "bind": "wifi.tx"
+              },
+              {
+                "type": "button",
+                "text": "Wi-Fi On / Off",
+                "action": {
+                  "action": "wifi.toggle"
+                }
+              },
+              {
+                "type": "button",
+                "text": "Reconnect now",
+                "action": {
+                  "action": "wifi.reconnect"
+                }
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "CREDENTIALS",
+            "children": [
+              {
+                "type": "form",
+                "action": "/wifi/save",
+                "children": [
+                  {
+                    "type": "input",
+                    "name": "ssid",
+                    "bind": "wifi.savedSsid",
+                    "placeholder": "Network name",
+                    "required": true,
+                    "maxLength": 32
+                  },
+                  {
+                    "type": "input",
+                    "name": "password",
+                    "inputType": "password",
+                    "placeholder": "Leave blank for open network",
+                    "maxLength": 63
+                  },
+                  {
+                    "type": "button",
+                    "text": "Test and save credentials",
+                    "submit": true
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "The saved password is never exposed to DOM V2."
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "DISCOVERY",
+            "children": [
+              {
+                "type": "button",
+                "text": "Scan Wi-Fi",
+                "action": {
+                  "action": "wifi.scan"
+                }
+              },
+              {
+                "type": "text",
+                "text": "Scan temporarily pauses normal Wi-Fi connection activity while results are collected."
+              },
+              {
+                "type": "link",
+                "text": "Open built-in Wi-Fi scanner",
+                "href": "#wifi"
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "RADIO POWER",
+            "children": [
+              {
+                "type": "form",
+                "action": "/wifi/txpower",
+                "children": [
+                  {
+                    "type": "input",
+                    "name": "dbm",
+                    "bind": "wifi.tx",
+                    "inputType": "number",
+                    "min": 2,
+                    "max": 18,
+                    "step": 0.25
+                  },
+                  {
+                    "type": "button",
+                    "text": "Save TX power",
+                    "submit": true
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "Allowed range: 2.00–18.00 dBm in 0.25 dBm steps."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "network": {
+      "title": "NETWORK",
+      "navigation": true,
+      "layout": {
+        "type": "grid",
+        "columns": "repeat(2,minmax(0,1fr))",
+        "gap": "12px",
+        "children": [
+          {
+            "type": "panel",
+            "label": "LIVE CONNECTION",
+            "children": [
+              {
+                "type": "value",
+                "label": "Wi-Fi",
+                "bind": "wifi.status"
+              },
+              {
+                "type": "value",
+                "label": "IP address",
+                "bind": "network.ip"
+              },
+              {
+                "type": "value",
+                "label": "Gateway",
+                "bind": "network.gateway"
+              },
+              {
+                "type": "value",
+                "label": "Subnet",
+                "bind": "network.subnet"
+              },
+              {
+                "type": "value",
+                "label": "DNS 1",
+                "bind": "network.dns1"
+              },
+              {
+                "type": "value",
+                "label": "DNS 2",
+                "bind": "network.dns2"
+              },
+              {
+                "type": "value",
+                "label": "RSSI",
+                "bind": "wifi.rssi",
+                "format": "dbm"
+              },
+              {
+                "type": "value",
+                "label": "Authentication",
+                "bind": "network.auth"
+              },
+              {
+                "type": "value",
+                "label": "BSSID",
+                "bind": "network.bssid"
+              }
+            ]
+          },
+          {
+            "type": "panel",
             "label": "CONFIGURATION",
             "children": [
               {
@@ -324,7 +418,8 @@
                     "type": "input",
                     "name": "hostname",
                     "bind": "network.hostname",
-                    "maxLength": 32
+                    "maxLength": 32,
+                    "placeholder": "device-name"
                   },
                   {
                     "type": "select",
@@ -344,7 +439,8 @@
                   {
                     "type": "input",
                     "name": "ip",
-                    "bind": "network.ip"
+                    "bind": "network.ip",
+                    "placeholder": "192.168.1.50"
                   },
                   {
                     "type": "input",
@@ -372,6 +468,10 @@
                     "submit": true
                   }
                 ]
+              },
+              {
+                "type": "text",
+                "text": "DHCP is recommended unless the device needs a fixed address."
               }
             ]
           }
@@ -393,7 +493,13 @@
               {
                 "type": "status",
                 "label": "Diagnostics",
-                "bind": "diagnostics.enabled"
+                "bind": "diagnostics.enabled",
+                "map": {
+                  "0": "DISABLED",
+                  "1": "ENABLED",
+                  "true": "ENABLED",
+                  "false": "DISABLED"
+                }
               },
               {
                 "type": "button",
@@ -406,11 +512,38 @@
           },
           {
             "type": "panel",
-            "label": "LIVE CONSOLE",
+            "label": "LIVE SERIAL CONSOLE",
             "children": [
               {
                 "type": "log",
                 "bind": "diagnosticsLog"
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "CONNECTION SNAPSHOT",
+            "children": [
+              {
+                "type": "value",
+                "label": "Wi-Fi state",
+                "bind": "wifi.status"
+              },
+              {
+                "type": "value",
+                "label": "Authentication",
+                "bind": "network.auth"
+              },
+              {
+                "type": "value",
+                "label": "BSSID",
+                "bind": "network.bssid"
+              },
+              {
+                "type": "value",
+                "label": "RSSI",
+                "bind": "wifi.rssi",
+                "format": "dbm"
               }
             ]
           }
@@ -435,7 +568,7 @@
           },
           {
             "type": "panel",
-            "label": "RELAY 1 CONFIGURATION",
+            "label": "RELAY CONFIGURATION",
             "children": [
               {
                 "type": "form",
@@ -445,7 +578,8 @@
                     "type": "input",
                     "name": "relay0_name",
                     "bind": "relays[0].name",
-                    "maxLength": 32
+                    "maxLength": 32,
+                    "placeholder": "Relay 1"
                   },
                   {
                     "type": "select",
@@ -480,8 +614,8 @@
                   {
                     "type": "input",
                     "name": "relay0_pulse",
-                    "inputType": "number",
                     "bind": "relays[0].pulse",
+                    "inputType": "number",
                     "min": 10,
                     "max": 60000,
                     "step": 1
@@ -490,7 +624,8 @@
                     "type": "input",
                     "name": "relay1_name",
                     "bind": "relays[1].name",
-                    "maxLength": 32
+                    "maxLength": 32,
+                    "placeholder": "Relay 2"
                   },
                   {
                     "type": "select",
@@ -525,8 +660,8 @@
                   {
                     "type": "input",
                     "name": "relay1_pulse",
-                    "inputType": "number",
                     "bind": "relays[1].pulse",
+                    "inputType": "number",
                     "min": 10,
                     "max": 60000,
                     "step": 1
@@ -537,6 +672,10 @@
                     "submit": true
                   }
                 ]
+              },
+              {
+                "type": "text",
+                "text": "Pulse duration: 10–60000 ms. Blank/default is 250 ms."
               }
             ]
           }
@@ -553,39 +692,112 @@
         "children": [
           {
             "type": "panel",
-            "label": "PERSISTENT CONFIGURATION",
+            "label": "NVS STATUS",
             "children": [
               {
                 "type": "value",
-                "label": "NVS size",
+                "label": "Partition size",
                 "bind": "nvs.size",
                 "format": "number"
               },
               {
-                "type": "link",
-                "text": "Download NVS backup",
-                "href": "/config/backup"
+                "type": "value",
+                "label": "Used entries",
+                "bind": "nvs.used",
+                "format": "number"
               },
               {
-                "type": "text",
-                "text": "Restore and filesystem management remain available from the built-in Storage page."
+                "type": "value",
+                "label": "Free entries",
+                "bind": "nvs.free",
+                "format": "number"
+              },
+              {
+                "type": "link",
+                "text": "Download configuration backup",
+                "href": "/config/backup"
               }
             ]
           },
           {
             "type": "panel",
-            "label": "NVS / FILESYSTEM",
+            "label": "FILESYSTEM",
             "children": [
               {
-                "type": "link",
-                "text": "Open built-in Storage page",
-                "href": "/#storage"
+                "type": "form",
+                "action": "/storage/upload",
+                "children": [
+                  {
+                    "type": "input",
+                    "name": "storagefile",
+                    "inputType": "file",
+                    "required": true
+                  },
+                  {
+                    "type": "button",
+                    "text": "Upload / replace file",
+                    "submit": true
+                  }
+                ]
               },
               {
                 "type": "link",
                 "text": "Open Recovery Updater",
                 "href": "/recovery",
                 "target": "_blank"
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "CONFIGURATION BACKUP",
+            "children": [
+              {
+                "type": "link",
+                "text": "Download backup",
+                "href": "/config/backup"
+              },
+              {
+                "type": "form",
+                "action": "/config/restore",
+                "children": [
+                  {
+                    "type": "input",
+                    "name": "configfile",
+                    "inputType": "file",
+                    "required": true
+                  },
+                  {
+                    "type": "button",
+                    "text": "Restore & reboot",
+                    "submit": true
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "Backups contain saved configuration and Wi-Fi credentials; treat them as sensitive."
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "DANGER ZONE",
+            "children": [
+              {
+                "type": "text",
+                "text": "Erase persistent NVS configuration, including Wi-Fi and network settings, then reboot."
+              },
+              {
+                "type": "form",
+                "action": "/nvs/format",
+                "children": [
+                  {
+                    "type": "button",
+                    "text": "Format NVS and reboot",
+                    "submit": true
+                  }
+                ]
               }
             ]
           }
@@ -606,13 +818,23 @@
             "children": [
               {
                 "type": "value",
-                "label": "Firmware",
+                "label": "Repository",
+                "bind": "system.repository"
+              },
+              {
+                "type": "value",
+                "label": "Firmware build",
                 "bind": "system.build"
               },
               {
                 "type": "value",
                 "label": "Web UI",
                 "bind": "system.webBuild"
+              },
+              {
+                "type": "value",
+                "label": "Build date",
+                "bind": "system.date"
               },
               {
                 "type": "value",
@@ -626,20 +848,31 @@
               },
               {
                 "type": "value",
-                "label": "CPU",
-                "bind": "system.cpu"
+                "label": "Chip",
+                "bind": "system.chip"
               },
               {
                 "type": "value",
-                "label": "Build date",
-                "bind": "system.date"
+                "label": "CPU",
+                "bind": "system.cpu",
+                "format": "number"
+              },
+              {
+                "type": "value",
+                "label": "Uptime",
+                "bind": "system.uptime",
+                "format": "number"
               }
             ]
           },
           {
             "type": "panel",
-            "label": "SELECT PRESENTATION",
+            "label": "PRESENTATION",
             "children": [
+              {
+                "type": "text",
+                "text": "Switching presentation reloads the page so the previous UI runtime is completely discarded."
+              },
               {
                 "type": "button",
                 "text": "Built-in UI",
@@ -710,7 +943,7 @@
           },
           {
             "type": "panel",
-            "label": "THEME COLOR",
+            "label": "COLOR THEME",
             "children": [
               {
                 "type": "form",
@@ -735,15 +968,15 @@
                       },
                       {
                         "value": "3",
-                        "label": "Sunset"
+                        "label": "Emerald"
                       },
                       {
                         "value": "4",
-                        "label": "Purple"
+                        "label": "Sunset"
                       },
                       {
                         "value": "5",
-                        "label": "High Contrast"
+                        "label": "Amber"
                       },
                       {
                         "value": "6",
@@ -751,11 +984,11 @@
                       },
                       {
                         "value": "7",
-                        "label": "Amber"
+                        "label": "Purple"
                       },
                       {
                         "value": "8",
-                        "label": "Cyan"
+                        "label": "Violet"
                       },
                       {
                         "value": "9",
@@ -809,7 +1042,7 @@
                   },
                   {
                     "type": "button",
-                    "text": "Save color theme",
+                    "text": "Apply color theme",
                     "submit": true
                   }
                 ]
