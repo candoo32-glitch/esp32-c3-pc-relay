@@ -1,263 +1,89 @@
-/* STEAMPUNK FOUNDRY interaction layer
- * Existing DOM/API remains the source of truth. This file builds a physical-machine
- * presentation and routes its controls back to the existing application controls.
- */
-(()=>{
-  "use strict";
-  const $=id=>document.getElementById(id);
-  const q=s=>document.querySelector(s);
-  const qa=s=>[...document.querySelectorAll(s)];
+/* STEAMPUNK FOUNDRY — physical instrument interface */
+(()=>{"use strict";
+const $=id=>document.getElementById(id),q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)];
+const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const click=id=>$(id)?.click();
+const submit=s=>{const f=q(s);if(f){if(f.requestSubmit)f.requestSubmit();else f.submit()}};
+const gear=(c="")=>'<svg class="sp-svg-gear '+c+'" viewBox="0 0 100 100"><path d="M45 2h10l3 13 9 3 9-10 8 8-10 10 4 9 14 2v11l-14 3-4 9 10 10-8 8-10-10-9 4-2 14H45l-3-14-9-4-10 10-8-8 10-10-4-9-14-3V47l14-2 4-9-10-10 8-8 10 10 9-3z" fill="#80501f" stroke="#d29b43" stroke-width="2"/><circle cx="50" cy="50" r="18" fill="#21140b" stroke="#c18a38" stroke-width="3"/><circle cx="50" cy="50" r="7" fill="#d49a3e"/></svg>';
+const tube=(c="")=>'<svg class="sp-svg-tube '+c+'" viewBox="0 0 70 220"><path d="M22 20Q15 28 18 43v134q-3 15 8 23h18q11-8 8-23V43q3-15-4-23z" fill="#8f6236" opacity=".25" stroke="#d4a25a" stroke-width="3"/><path d="M27 35v150M43 35v150M35 52v92" stroke="#ff9a2d" stroke-width="3"/><path d="M18 16h34M18 204h34" stroke="#754719" stroke-width="8"/><circle cx="35" cy="103" r="9" fill="#ff9b2e"/></svg>';
+const gauge=(label,id,unit)=>'<div class="sp-gauge"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="91" fill="#120d09" stroke="#a36a29" stroke-width="6"/><circle cx="100" cy="100" r="76" fill="#d7bd86" stroke="#3b2718" stroke-width="5"/><path d="M43 139A76 76 0 1 1 157 139" fill="none" stroke="#5a3a20" stroke-width="2" stroke-dasharray="2 7"/><path d="M100 100L55 72" stroke="#23170e" stroke-width="6" stroke-linecap="round"/><circle cx="100" cy="100" r="9" fill="#a96d29" stroke="#21140b" stroke-width="4"/></svg><b>'+label+'</b><strong id="'+id+'">— '+unit+'</strong></div>';
+const plate=(title,sub,body,cls="")=>'<section class="sp-plate '+cls+'"><div class="sp-plate-head"><small>'+sub+'</small><b>'+title+'</b></div><div class="sp-plate-body">'+body+'</div></section>';
 
-  const click=id=>{const e=$(id);if(e)e.click()};
-  const formSubmit=(form,button)=>{
-    if(!form)return;
-    if(typeof form.requestSubmit==="function") form.requestSubmit(button||form.querySelector("button[type=submit]")||undefined);
-    else if(button) button.click();
-  };
-  const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-
-  function addMachinery(){
-    if(q(".sp-machinery"))return;
-    const m=document.createElement("div");
-    m.className="sp-machinery";
-    m.innerHTML='<div class="sp-tube left"></div><div class="sp-tube right"></div><div class="sp-gear g1"></div><div class="sp-gear g2"></div>';
-    document.body.appendChild(m);
-    const meta=document.createElement("div");
-    meta.className="sp-header-meta";
-    meta.innerHTML='<div class="sp-meta-build"><span>BUILD</span><b id="sp-header-build">—</b></div><div class="sp-meta-uptime"><span>UPTIME</span><b id="sp-header-uptime">—</b></div><div class="sp-meta-clock"><span id="sp-header-clock">—</span></div>';
-    document.body.appendChild(meta);
-  }
-
-  function labelNavigation(){
-    const labels={dashboard:"Control Room",wifi:"Wireless Telegraph",network:"Network Exchange",diagnostics:"Engineer's Log",relays:"Relay Works",storage:"Archive Cabinet",system:"Master Clock"};
-    const icons={dashboard:"◉",wifi:"⌁",network:"◎",diagnostics:"✣",relays:"⚙",storage:"▤",system:"⏱"};
-    qa("[data-tab-link]").forEach(a=>{
-      const id=a.dataset.tabLink;
-      if(labels[id])a.textContent=labels[id];
-      a.dataset.spIcon=icons[id]||"•";
-    });
-  }
-
-  function buildDashboard(){
-    const tab=$("#tab-dashboard"), grid=tab?.querySelector(".grid");
-    if(!tab||!grid||q(".sp-dashboard-machinery"))return;
-    const wifiCard=grid.children[0], systemCard=grid.children[1];
-    const relayCard=[...tab.children].find(e=>e.classList?.contains("card")&&e!==grid);
-    const shell=document.createElement("div");
-    shell.className="sp-dashboard-machinery";
-    const instruments=document.createElement("div");
-    instruments.className="sp-instrument-bank";
-    instruments.innerHTML='<div class="sp-gauge-wrap"><div class="sp-gauge" id="sp-gauge-rssi" style="--needle:-42deg"><span class="sp-gauge-label">SIGNAL</span><span class="sp-gauge-value" id="sp-gauge-rssi-value">— dBm</span></div></div>'+
-      '<div class="sp-gauge-wrap"><div class="sp-gauge" id="sp-gauge-cpu" style="--needle:-38deg"><span class="sp-gauge-label">CPU CLOCK</span><span class="sp-gauge-value" id="sp-gauge-cpu-value">— MHz</span></div></div>'+
-      '<div class="sp-gauge-wrap"><div class="sp-gauge" id="sp-gauge-up" style="--needle:-20deg"><span class="sp-gauge-label">UPTIME</span><span class="sp-gauge-value" id="sp-gauge-up-value">—</span></div></div>';
-
-    const center=document.createElement("div");
-    center.className="sp-machine-screen";
-    center.innerHTML='<div class="sp-screen-title"><span class="sp-led" id="sp-online-led"></span> CENTRAL AETHERIC TELEMETRY</div>';
-    const dataWrap=document.createElement("div");
-    dataWrap.className="sp-dashboard-data";
-    dataWrap.append(wifiCard,systemCard);
-    center.appendChild(dataWrap);
-
-    const right=document.createElement("div");
-    right.className="sp-machine-screen";
-    right.innerHTML='<div class="sp-screen-title">RELAY STATUS</div>';
-    const relayReadout=document.createElement("div");
-    relayReadout.className="sp-relay-readout";
-    relayReadout.innerHTML='<div class="sp-mech-control" id="sp-dash-relay0">RELAY 1 · NORMAL</div>'+
-      '<div class="sp-mech-control" id="sp-dash-relay1">RELAY 2 · NORMAL</div>'+
-      '<div style="margin-top:18px;color:#9f8054;font:600 .68rem Georgia,serif;line-height:1.7">Remote activation remains available from the brass relay controls above. This panel mirrors live device state.</div>';
-    right.appendChild(relayReadout);
-    shell.append(instruments,center,right);
-    grid.replaceWith(shell);
-    if(relayCard)relayCard.remove();
-  }
-
-  function buildRadioConsole(){
-    const tab=$("#tab-wifi");
-    if(!tab||q(".sp-radio-console"))return;
-    const host=document.createElement("div");
-    host.className="card sp-radio-console";
-    host.innerHTML='<div class="sp-radio-face"><div class="sp-screen-title">WIRELESS TELEGRAPH</div><div class="sp-radio-lamp"><span class="sp-led" id="sp-wifi-led"></span><strong id="sp-wifi-state">OFFLINE</strong></div><div class="sp-radio-reading"><span>SSID</span><b id="sp-wifi-ssid">—</b></div><div class="sp-radio-reading"><span>RSSI</span><b id="sp-wifi-rssi">—</b></div></div>'+
-      '<div class="sp-radio-control"><div class="sp-control-caption">WIRELESS POWER</div><div class="sp-lever" id="sp-wifi-lever" role="button" tabindex="0"><span></span><b>OFF</b></div></div>'+
-      '<div class="sp-radio-control"><div class="sp-control-caption">SPECTRUM SCANNER</div><div class="sp-mech-control" id="sp-scan-lever">PULL TO SCAN</div><div class="help" id="sp-scan-readout">Ready.</div></div>';
-    tab.insertBefore(host,tab.firstElementChild);
-    const toggle=$("wifi-toggle"), reconnect=$("#wifi-reconnect-form");
-    if(toggle?.parentElement)toggle.parentElement.classList.add("sp-hidden-backend");
-    if(reconnect)reconnect.classList.add("sp-hidden-backend");
-    const act=()=>{
-      const text=(toggle?.textContent||"").toUpperCase();
-      click("wifi-toggle");
-      if(text.includes("OFF"))setTimeout(()=>{const b=q("#wifi-reconnect-form button");if(b)b.click()},450);
-    };
-    const lever=$("#sp-wifi-lever");
-    lever?.addEventListener("click",act);
-    lever?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();act()}});
-    $("sp-scan-lever")?.addEventListener("click",()=>{
-      const f=$("#wifi-scan-form");if(!f)return;
-      $("sp-scan-readout").textContent="Scanning ether…";
-      formSubmit(f);
-      setTimeout(()=>{$("sp-scan-readout").textContent="Scan complete / awaiting next pull."},4500);
-    });
-  }
-
-  function buildNetworkConsole(){
-    const tab=$("#tab-network"), form=tab?.querySelector('form[action="/network/save"]');
-    if(!form||q(".sp-network-console"))return;
-    const panel=document.createElement("div");
-    panel.className="card sp-network-console";
-    panel.innerHTML='<div class="sp-screen-title">ADDRESSING ENGINE</div>'+
-      '<div class="sp-network-readout"><div><span>LIVE ADDRESS</span><b id="sp-net-ip">—</b></div><div><span>GATEWAY</span><b id="sp-net-gateway">—</b></div><div><span>DNS</span><b id="sp-net-dns">—</b></div></div>'+
-      '<div class="sp-mode-machine"><span>ADDRESS MODE</span><div class="sp-mode-lever" id="sp-mode-lever" role="button" tabindex="0"><i></i><b>DHCP</b></div></div>';
-    tab.insertBefore(panel,tab.firstElementChild);
-    const select=$("#net-mode"), lever=$("#sp-mode-lever");
-    if(select)select.classList.add("sp-backend-select");
-    const sync=()=>{
-      const v=select?.value==="static"?"STATIC":"DHCP";
-      if(lever){lever.classList.toggle("active",v==="static");lever.querySelector("b").textContent=v}
-    };
-    const toggle=()=>{
-      if(!select)return;
-      select.value=select.value==="static"?"dhcp":"static";
-      select.dispatchEvent(new Event("change",{bubbles:true}));
-      sync();
-    };
-    lever?.addEventListener("click",toggle);
-    lever?.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle()}});
-    sync();
-  }
-
-  function relayCard(id){
-    const name=$("#relay"+id+"-name"), normal=$("#relay"+id+"-normal"), mode=$("#relay"+id+"-mode"), pulse=$("#relay"+id+"-pulse"), title=$("#relay-title-"+id);
-    if(!name||!normal||!mode||!pulse||!title)return null;
-    const card=document.createElement("div");
-    card.className="sp-relay-machine";
-    card.dataset.relay=id;
-    card.innerHTML='<div class="sp-relay-coil"></div>'+
-      '<div class="sp-relay-name" id="sp-relay-name-'+id+'">'+esc(name.value||title.textContent)+'</div>'+
-      '<div class="sp-relay-state" id="sp-relay-state-'+id+'" role="button" tabindex="0">NORMAL</div>'+
-      '<div class="sp-control-row"><div class="sp-mech-control" id="sp-relay-normal-'+id+'">CONTACT: OPEN</div><div class="sp-mech-control" id="sp-relay-mode-'+id+'">LATCHED</div></div>'+
-      '<div class="sp-dial" id="sp-pulse-dial-'+id+'" role="slider" tabindex="0" aria-label="Pulse duration"></div>'+
-      '<div class="sp-dial-value" id="sp-pulse-value-'+id+'">250 ms</div>'+
-      '<input class="sp-relay-name-input" id="sp-relay-name-input-'+id+'" maxlength="32" aria-label="Relay name">'+
-      '<div class="sp-mech-control sp-commit" id="sp-relay-save-'+id+'">Commit relay settings</div>';
-
-    const sync=()=>{
-      const nm=name.value||title.textContent||("Relay "+(id+1));
-      const state=($("#relay-state-"+id)?.textContent||"NORMAL").trim().toUpperCase();
-      const n=normal.value==="closed"?"CLOSED":"OPEN";
-      const mo=mode.value==="pulse"?"PULSE":"LATCHED";
-      const pv=Math.max(10,Math.min(60000,Number(pulse.value)||250));
-      const ne=$("#sp-relay-name-"+id), ni=$("#sp-relay-name-input-"+id), st=$("#sp-relay-state-"+id);
-      if(ne)ne.textContent=nm;
-      if(ni&&document.activeElement!==ni)ni.value=nm;
-      if(st){st.textContent=state==="ACTIVE"?"ACTIVATE":"NORMAL";st.classList.toggle("on",state==="ACTIVE")}
-      const cn=$("#sp-relay-normal-"+id);if(cn){cn.textContent="CONTACT: "+n;cn.classList.toggle("active",n==="CLOSED")}
-      const cm=$("#sp-relay-mode-"+id);if(cm){cm.textContent=mo;cm.classList.toggle("active",mo==="PULSE")}
-      const pvEl=$("#sp-pulse-value-"+id);if(pvEl)pvEl.textContent=pv+" ms";
-      const dial=$("#sp-pulse-dial-"+id);if(dial)dial.style.setProperty("--dial-angle",(-135+(pv-10)/59990*270)+"deg");
-    };
-    const setPulse=v=>{pulse.value=String(Math.round(Math.max(10,Math.min(60000,v))));sync()};
-    const dial=$("#sp-pulse-dial-"+id);
-    let drag=null;
-    dial.addEventListener("pointerdown",e=>{drag={y:e.clientY,value:Number(pulse.value)||250};dial.setPointerCapture(e.pointerId)});
-    dial.addEventListener("pointermove",e=>{if(drag)setPulse(drag.value+(drag.y-e.clientY)*75)});
-    dial.addEventListener("pointerup",()=>{drag=null});
-    dial.addEventListener("pointercancel",()=>{drag=null});
-    dial.addEventListener("wheel",e=>{e.preventDefault();setPulse((Number(pulse.value)||250)+(e.deltaY<0?50:-50))},{passive:false});
-    dial.addEventListener("keydown",e=>{if(e.key==="ArrowUp"){e.preventDefault();setPulse((Number(pulse.value)||250)+50)}if(e.key==="ArrowDown"){e.preventDefault();setPulse((Number(pulse.value)||250)-50)}});
-    $("#sp-relay-normal-"+id).addEventListener("click",()=>{normal.value=normal.value==="open"?"closed":"open";sync()});
-    $("#sp-relay-mode-"+id).addEventListener("click",()=>{mode.value=mode.value==="latched"?"pulse":"latched";sync()});
-    $("#sp-relay-state-"+id).addEventListener("click",()=>click(id===0?"relay-power-button":"relay-reset-button"));
-    $("#sp-relay-state-"+id).addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();click(id===0?"relay-power-button":"relay-reset-button")}});
-    $("#sp-relay-name-input-"+id).addEventListener("input",e=>{name.value=e.target.value;title.textContent=e.target.value||("Relay "+(id+1))});
-    $("#sp-relay-save-"+id).addEventListener("click",()=>{
-      const form=q('#tab-relays form[action="/relay/config"]');
-      if(form)formSubmit(form);
-    });
-    sync();
-    return card;
-  }
-
-  function buildRelayConsole(){
-    const tab=$("#tab-relays"), form=tab?.querySelector('form[action="/relay/config"]');
-    if(!form||q(".sp-relay-console"))return;
-    const intro=tab.querySelector(".card");
-    const console=document.createElement("div");
-    console.className="sp-relay-console";
-    const a=relayCard(0),b=relayCard(1);
-    if(a)console.appendChild(a);if(b)console.appendChild(b);
-    if(intro)intro.after(console);else tab.prepend(console);
-    form.classList.add("sp-hidden-backend");
-  }
-
-  function updateInstruments(){
-    const status=($("#dash-wifi-status")?.textContent||"").trim().toUpperCase();
-    const rssi=parseFloat($("#dash-rssi")?.textContent||"");
-    const cpu=parseFloat($("#dash-cpu")?.textContent||"");
-    const up=parseFloat($("#dash-uptime")?.textContent||"");
-    const rssiVal=Number.isFinite(rssi)?Math.max(-100,Math.min(-20,rssi)):null;
-    const cpuVal=Number.isFinite(cpu)?cpu:null;
-    const upVal=Number.isFinite(up)?up:null;
-    const rv=$("sp-gauge-rssi-value"),cv=$("sp-gauge-cpu-value"),uv=$("sp-gauge-up-value");
-    if(rv)rv.textContent=rssiVal===null?"— dBm":Math.round(rssiVal)+" dBm";
-    if(cv)cv.textContent=cpuVal===null?"— MHz":Math.round(cpuVal)+" MHz";
-    if(uv){
-      if(upVal===null)uv.textContent="—";
-      else{const h=Math.floor(upVal/3600),m=Math.floor((upVal%3600)/60);uv.textContent=(h?String(h)+"h ":"")+String(m).padStart(2,"0")+"m"}
-    }
-    const rg=$("sp-gauge-rssi");if(rg&&rssiVal!==null)rg.style.setProperty("--needle",(-135+(rssiVal+100)/80*270)+"deg");
-    const cg=$("sp-gauge-cpu");if(cg&&cpuVal!==null)cg.style.setProperty("--needle",(-135+Math.max(0,Math.min(240,cpuVal))/240*270)+"deg");
-    const ug=$("sp-gauge-up");if(ug&&upVal!==null)ug.style.setProperty("--needle",(-135+(upVal%86400)/86400*270)+"deg");
-    const led=$("sp-online-led");if(led)led.classList.toggle("on",status==="CONNECTED");
-    const wf=$("sp-wifi-state"),ws=$("sp-wifi-ssid"),wr=$("sp-wifi-rssi");
-    if(wf)wf.textContent=status||"OFFLINE";
-    if(ws)ws.textContent=$("#dash-ssid")?.textContent||"—";
-    if(wr)wr.textContent=Number.isFinite(rssi)?Math.round(rssi)+" dBm":"—";
-    const wled=$("sp-wifi-led");if(wled)wled.classList.toggle("on",status==="CONNECTED");
-    const wl=$("sp-wifi-lever"),wt=$("#wifi-toggle")?.textContent||"";
-    if(wl){const enabled=!wt.toUpperCase().includes("TURN WI-FI ON");wl.classList.toggle("active",enabled);wl.querySelector("b").textContent=enabled?"ON":"OFF"}
-    const nip=$("sp-net-ip"),ng=$("sp-net-gateway"),nd=$("sp-net-dns");
-    if(nip)nip.textContent=$("#net-live-ip")?.textContent||"—";
-    if(ng)ng.textContent=$("#net-live-gateway")?.textContent||"—";
-    if(nd)nd.textContent=$("#net-live-dns1")?.textContent||"—";
-    const hb=$("sp-header-build"),hu=$("sp-header-uptime"),hc=$("sp-header-clock");
-    if(hb)hb.textContent=$("#dash-build")?.textContent||"—";
-    if(hu)hu.textContent=$("#dash-uptime")?.textContent||"—";
-    if(hc)hc.textContent=new Date().toLocaleString(undefined,{month:"short",day:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}).toUpperCase();
-    const di=$("sp-dash-relay0"),d2=$("sp-dash-relay1");
-    [di,d2].forEach((el,i)=>{
-      if(!el)return;
-      const state=($("#relay-state-"+i)?.textContent||"NORMAL").trim().toUpperCase();
-      const name=$("#relay-title-"+i)?.textContent||("RELAY "+(i+1));
-      el.textContent=name+" · "+state;el.classList.toggle("active",state==="ACTIVE");
-    });
-    [0,1].forEach(i=>{
-      const card=q('.sp-relay-machine[data-relay="'+i+'"]');
-      if(!card)return;
-      const name=$("#relay"+i+"-name"),state=$("#relay-state-"+i),mode=$("#relay"+i+"-mode"),normal=$("#relay"+i+"-normal"),pulse=$("#relay"+i+"-pulse");
-      if(card.querySelector(".sp-relay-name"))card.querySelector(".sp-relay-name").textContent=name?.value||("Relay "+(i+1));
-      const st=card.querySelector(".sp-relay-state");
-      if(st){const on=(state?.textContent||"").trim().toUpperCase()==="ACTIVE";st.classList.toggle("on",on);st.textContent=on?"ACTIVATE":"NORMAL"}
-      const cn=card.querySelector('[id^="sp-relay-normal-"]');if(cn)cn.textContent="CONTACT: "+(normal?.value==="closed"?"CLOSED":"OPEN");
-      const cm=card.querySelector('[id^="sp-relay-mode-"]');if(cm)cm.textContent=(mode?.value==="pulse"?"PULSE":"LATCHED");
-      const pv=card.querySelector(".sp-dial-value");if(pv)pv.textContent=(Number(pulse?.value)||250)+" ms";
-    });
-  }
-
-  function init(){
-    document.body.classList.add("steampunk-active");
-    document.body.dataset.externalUi="steampunk";
-    addMachinery();
-    labelNavigation();
-    buildDashboard();
-    buildRadioConsole();
-    buildNetworkConsole();
-    buildRelayConsole();
-    updateInstruments();
-    setInterval(updateInstruments,1000);
-  }
-
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});
-  else init();
+function frame(){
+ if(q(".sp-frame"))return;
+ document.body.classList.add("sp-foundry");
+ const f=document.createElement("div");f.className="sp-frame";
+ f.innerHTML='<div class="sp-top-tubes">'+tube("t1")+tube("t2")+tube("t3")+'</div><header class="sp-header"><div class="sp-lamp"></div><div class="sp-title"><h1>ESP32-C3</h1><h2>RELAY CONTROLLER</h2><small>AETHERIC CONTROL APPARATUS // HEADLESS CONTROL AND CONFIGURATION</small></div><div class="sp-build"><span>BUILD</span><b id="sp-build">—</b><span>UPTIME</span><b id="sp-uptime">—</b></div></header><div class="sp-nav-host"></div><main class="sp-main"></main><div class="sp-corner gear-left">'+gear()+"</div><div class=\"sp-corner gear-right\">"+gear()+"</div>";
+ document.body.prepend(f);
+ const nav=q(".tabs"),main=q(".sp-main");if(nav)q(".sp-nav-host").append(nav);
+ qa("[data-tab-link]").forEach(a=>{const id=a.dataset.tabLink;a.innerHTML='<i>'+({dashboard:"◉",relays:"⚙",wifi:"⌁",network:"◎",diagnostics:"ϟ",storage:"▤",system:"⚙"}[id]||"•")+'</i><span>'+({dashboard:"DASHBOARD",relays:"RELAYS",wifi:"WIFI",network:"NETWORK",diagnostics:"DIAGNOSTICS",storage:"STORAGE",system:"SYSTEM"}[id]||id.toUpperCase())+"</span>"});
+ qa(".tab").forEach(t=>main.append(t));
+}
+function dashboard(){
+ const t=$("tab-dashboard");if(!t||t.dataset.spBuilt)return;t.dataset.spBuilt=1;
+ t.innerHTML='<div class="sp-dashboard"><aside class="sp-gauges">'+gauge("SIGNAL","sp-rssi","dBm")+gauge("CPU CLOCK","sp-cpu","MHz")+gauge("UPTIME","sp-up","")+'</aside><section class="sp-plate sp-central">'+
+ '<div class="sp-plate-head"><small>CENTRAL TELEMETRY</small><b>SYSTEM STATUS</b></div><div class="sp-plate-body"><div class="sp-online"><i id="sp-online"></i><b id="sp-online-text">OFFLINE</b></div><div class="sp-data"><div><span>HOSTNAME</span><b id="sp-host">—</b></div><div><span>IP ADDRESS</span><b id="sp-ip">—</b></div><div><span>GATEWAY</span><b id="sp-gw">—</b></div><div><span>DNS 1</span><b id="sp-dns">—</b></div><div><span>WIFI</span><b id="sp-wifi-status">—</b></div><div><span>FIRMWARE</span><b id="sp-fw">—</b></div></div><div class="sp-blueprint">⚙<br><small>AETHERIC ENGINE</small></div></div></section><aside class="sp-side">'+
+ plate("WIRELESS","RADIO",'<div class="sp-big-led" id="sp-wled"></div><b id="sp-side-ssid">—</b><span id="sp-side-rssi">—</span><div class="sp-bars"><i></i><i></i><i></i><i></i><i></i></div>')+
+ plate("NETWORK","ADDRESSING",'<b id="sp-side-ip">—</b><span>IP ADDRESS</span><b id="sp-side-gw">—</b><span>GATEWAY</span>')+
+ plate("ACTIVITY LOG","EVENT ROLL",'<div class="sp-log-mini">SYSTEM READY<br>WIRELESS LINK STANDBY<br>RELAY CONTROL ARMED</div>')+
+ '</aside></div>';
+}
+function relay(){
+ const t=$("tab-relays");if(!t||t.dataset.spBuilt)return;t.dataset.spBuilt=1;
+ const original=q('#tab-relays form[action="/relay/config"]');
+ t.innerHTML='<div class="sp-intro"><small>RELAY WORKS</small><b>DUAL ELECTROMECHANICAL CONTROL</b><em>Physical controls below operate the existing relay configuration and API.</em></div><div class="sp-relays" id="sp-relays"></div>';
+ const out=q("#sp-relays");
+ [0,1].forEach(i=>{const n=$("relay"+i+"-name"),normal=$("relay"+i+"-normal"),mode=$("relay"+i+"-mode"),pulse=$("relay"+i+"-pulse");if(!n)return;
+ const c=document.createElement("article");c.className="sp-relay";
+ c.innerHTML='<div class="sp-coil">'+Array.from({length:20},()=>"<i></i>").join("")+'</div><div class="sp-relay-head"><h2 id="sp-rname-'+i+'">Relay '+(i+1)+'</h2><div class="sp-contact-lamp" id="sp-lamp-'+i+'">OFF</div></div><div class="sp-terminal">GPIO '+(i?6:5)+' <span>ELECTROMAGNETIC CONTACTOR</span></div><div class="sp-controls"><label>NAME<input id="sp-name-'+i+'"></label><label>NORMAL CONTACT<select id="sp-normal-'+i+'"><option value="open">OPEN</option><option value="closed">CLOSED</option></select></label><label>ACTIVATION<select id="sp-mode-'+i+'"><option value="latched">LATCHED</option><option value="pulse">PULSE</option></select></label><label>PULSE DURATION<div class="sp-dial-control"><button id="sp-minus-'+i+'" type="button">−</button><b id="sp-pulse-'+i+'">250 ms</b><button id="sp-plus-'+i+'" type="button">+</button></div></label></div><button class="sp-fire" id="sp-fire-'+i+'">ACTUATE RELAY</button><button class="sp-save" id="sp-save-'+i+'">COMMIT SETTINGS</button>';
+ out.append(c);
+ const sync=()=>{$("sp-rname-"+i).textContent=n.value||"Relay "+(i+1);$("sp-name-"+i).value=n.value;$("sp-normal-"+i).value=normal.value;$("sp-mode-"+i).value=mode.value;$("sp-pulse-"+i).textContent=(Number(pulse.value)||250)+" ms"};
+ sync();
+ $("sp-name-"+i).oninput=e=>{n.value=e.target.value;sync()};
+ $("sp-normal-"+i).onchange=e=>normal.value=e.target.value;
+ $("sp-mode-"+i).onchange=e=>mode.value=e.target.value;
+ $("sp-minus-"+i).onclick=()=>{pulse.value=Math.max(10,(Number(pulse.value)||250)-50);sync()};
+ $("sp-plus-"+i).onclick=()=>{pulse.value=Math.min(60000,(Number(pulse.value)||250)+50);sync()};
+ $("sp-save-"+i).onclick=()=>original?.requestSubmit?.();
+ $("sp-fire-"+i).onclick=()=>click(i?"relay-reset-button":"relay-power-button");
+ });
+ original?.classList.add("sp-backend");
+}
+function wifi(){
+ const t=$("tab-wifi");if(!t||t.dataset.spBuilt)return;t.dataset.spBuilt=1;
+ const save=q('form[action="/wifi/save"]'),toggle=$("wifi-toggle"),scan=$("wifi-scan-form"),recon=$("wifi-reconnect-form"),tx=q('form[action="/wifi/txpower"]');
+ t.innerHTML='<div class="sp-instrument-grid">'+plate("WIRELESS TELEGRAPH","RADIO CONTROL",'<div class="sp-radio-head"><div class="sp-big-led" id="sp-wled2"></div><b id="sp-wstate">OFFLINE</b></div><div class="sp-readout"><span>SSID</span><b id="sp-wssid">—</b></div><div class="sp-readout"><span>RSSI</span><b id="sp-wrssi">—</b></div><div class="sp-readout"><span>CHANNEL</span><b id="sp-wchannel">—</b></div><button class="sp-lever" id="sp-wtoggle">WIRELESS POWER</button><button class="sp-button" id="sp-wreconnect">RECONNECT</button>')+
+ plate("RADIO CABINET","CREDENTIALS",'<div id="sp-wifi-form"></div>')+
+ plate("SPECTRUM SCANNER","DISCOVERY",'<div class="sp-scan-screen" id="sp-scan-screen">READY / AWAITING SCAN</div><button class="sp-button" id="sp-scan">SCAN THE ETHER</button>')+
+ plate("TRANSMITTER","TX POWER",'<div id="sp-tx-form"></div>')+'</div>';
+ if(save){q("#sp-wifi-form").append(save);save.classList.add("sp-backend-form")}
+ if(tx){q("#sp-tx-form").append(tx);tx.classList.add("sp-backend-form")}
+ $("sp-wtoggle").onclick=()=>toggle?.click();$("sp-wreconnect").onclick=()=>recon?.querySelector("button")?.click();$("sp-scan").onclick=()=>scan?.requestSubmit?.();
+ [recon,scan,toggle].forEach(e=>e?.classList.add("sp-backend"));
+}
+function network(){
+ const t=$("tab-network");if(!t||t.dataset.spBuilt)return;t.dataset.spBuilt=1;const f=q('form[action="/network/save"]');
+ t.innerHTML='<div class="sp-network-bay">'+plate("ADDRESSING ENGINE","NETWORK EXCHANGE",'<div class="sp-address-mode"><span>ADDRESS MODE</span><button id="sp-mode">DHCP</button></div><div id="sp-net-form"></div>')+plate("LIVE CONNECTION","TELEMETRY",'<div class="sp-network-live"><b id="sp-nip">—</b><span>IP ADDRESS</span><b id="sp-ngw">—</b><span>GATEWAY</span><b id="sp-ndns">—</b><span>DNS 1</span><b id="sp-nrssi">—</b><span>RSSI</span></div>')+'</div>';
+ if(f){$("sp-net-form").append(f);f.classList.add("sp-backend-form")}
+ $("sp-mode").onclick=()=>{const s=$("net-mode");if(!s)return;s.value=s.value==="static"?"dhcp":"static";s.dispatchEvent(new Event("change",{bubbles:true}));$("sp-mode").textContent=s.value.toUpperCase()};
+}
+function diagnostics(){
+ const t=$("tab-diagnostics");if(!t||t.dataset.spBuilt)return;t.dataset.spBuilt=1;const f=q('form[action="/diagnostics/toggle"]'),ta=$("diagnostic-console");
+ t.innerHTML=plate("ENGINEER'S LOG","DIAGNOSTIC TELEGRAPH",'<div class="sp-console" id="sp-console"></div><div class="sp-diagnostic-controls"><button class="sp-button" id="sp-diag-toggle">DIAGNOSTICS</button><span>LIVE SCROLL</span></div>');
+ const mirror=()=>{const c=$("sp-console");if(c){c.textContent=ta?.value||"Waiting for diagnostics…";c.scrollTop=c.scrollHeight}};setInterval(mirror,700);$("sp-diag-toggle").onclick=()=>f?.querySelector("button")?.click();f?.classList.add("sp-backend");
+}
+function simpleTabs(){
+ ["tab-storage","tab-system"].forEach(id=>{const t=$(id);if(!t||t.dataset.spBuilt)return;t.dataset.spBuilt=1;t.querySelectorAll(".card").forEach(c=>c.classList.add("sp-system-panel"))});
+}
+function update(){
+ const st=($("dash-wifi-status")?.textContent||"").trim().toUpperCase(),on=st==="CONNECTED";
+ const r=parseFloat($("dash-rssi")?.textContent),cpu=parseFloat($("dash-cpu")?.textContent),up=parseFloat($("dash-uptime")?.textContent);
+ const set=(id,v)=>{if($(id))$(id).textContent=v};
+ set("sp-rssi",Number.isFinite(r)?Math.round(r)+" dBm":"— dBm");set("sp-cpu",Number.isFinite(cpu)?Math.round(cpu)+" MHz":"— MHz");set("sp-up",Number.isFinite(up)?Math.floor(up/3600)+"h "+String(Math.floor(up/60)%60).padStart(2,"0")+"m":"—");
+ set("sp-online-text",on?"ONLINE":"OFFLINE");$("sp-online")?.classList.toggle("on",on);$("sp-wled")?.classList.toggle("on",on);$("sp-wled2")?.classList.toggle("on",on);set("sp-wstate",on?"ONLINE":"OFFLINE");
+ set("sp-wssid",$("dash-ssid")?.textContent||"—");set("sp-wrssi",$("dash-rssi")?.textContent||"—");set("sp-wchannel",$("dash-channel")?.textContent||"—");set("sp-side-ssid",$("dash-ssid")?.textContent||"—");set("sp-side-rssi",$("dash-rssi")?.textContent||"—");set("sp-side-ip",$("dash-ip")?.textContent||"—");set("sp-side-gw",$("net-live-gateway")?.textContent||"—");
+ set("sp-ip",$("dash-ip")?.textContent||"—");set("sp-gw",$("net-live-gateway")?.textContent||"—");set("sp-dns",$("net-live-dns1")?.textContent||"—");set("sp-fw",$("dash-build")?.textContent||"—");set("sp-nip",$("net-live-ip")?.textContent||"—");set("sp-ngw",$("net-live-gateway")?.textContent||"—");set("sp-ndns",$("net-live-dns1")?.textContent||"—");set("sp-nrssi",$("net-rssi")?.textContent||"—");set("sp-host",$("hostname")?.value||"relay-esp32");set("sp-wifi-status",st||"—");set("sp-build",$("dash-build")?.textContent||"—");set("sp-uptime",$("dash-uptime")?.textContent||"—");
+}
+function init(){frame();dashboard();relay();wifi();network();diagnostics();simpleTabs();update();setInterval(update,1000)}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
 })();
