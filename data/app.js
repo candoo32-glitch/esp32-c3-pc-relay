@@ -50,12 +50,16 @@ function promotePendingUiStyle(style){
   style.dataset.externalUi="true";
 }
 
-function installExternalUiScript(source){
-  const script=document.createElement("script");
-  script.dataset.externalUi="true";
-  script.textContent=source;
-  document.head.appendChild(script);
-  return script;
+function installExternalUiScript(url){
+  return new Promise((resolve,reject)=>{
+    const script=document.createElement("script");
+    script.dataset.externalUi="true";
+    script.async=false;
+    script.src=url+(url.includes("?")?"&":"?")+"t="+Date.now();
+    script.onload=()=>resolve(script);
+    script.onerror=()=>reject(new Error("UI script could not be loaded"));
+    document.head.appendChild(script);
+  });
 }
 
 async function activateUi(uiId){
@@ -92,20 +96,19 @@ async function activateUi(uiId){
      * removed loadExternalUiAsset() helper.
      */
     const stylesheetSource=await fetchExternalUiSource(uiAssetUrl(id,assets.stylesheet));
-    const scriptSource=assets.script
-      ? await fetchExternalUiSource(uiAssetUrl(id,assets.script))
-      : "";
+    const scriptUrl=assets.script ? uiAssetUrl(id,assets.script) : "";
 
     /*
-     * Stage the new CSS while the old CSS is still active.  Only after all
-     * network fetches have succeeded do we remove the old package.
+     * Stage the new CSS while the old CSS is still active. The JavaScript
+     * package is loaded as a real external script so Safari/WebKit and any
+     * page CSP do not silently discard dynamically injected inline scripts.
      */
     pendingStyle=installExternalUiStyle(stylesheetSource);
     removeExternalUi(true);
     promotePendingUiStyle(pendingStyle);
     pendingStyle=null;
 
-    if(scriptSource)installExternalUiScript(scriptSource);
+    if(scriptUrl)await installExternalUiScript(scriptUrl);
 
     activeExternalUi=id;
     document.documentElement.dataset.externalUi=id;
