@@ -8,6 +8,10 @@
     {
       "id": "matrix",
       "name": "The Matrix"
+    },
+    {
+      "id": "nebula-v2",
+      "name": "Nebula V2"
     }
   ]
 }
