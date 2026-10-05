@@ -256,11 +256,7 @@
                 "type": "button",
                 "text": "Scan Wi-Fi",
                 "action": {
-                  "action": "form.submit",
-                  "args": {
-                    "url": "/wifi/scan",
-                    "form": null
-                  }
+                  "action": "wifi.scan"
                 }
               },
               {
@@ -456,8 +452,14 @@
                     "name": "relay0_normal",
                     "bind": "relays[0].normal",
                     "options": [
-                      "OPEN",
-                      "CLOSED"
+                      {
+                        "value": "open",
+                        "label": "OPEN"
+                      },
+                      {
+                        "value": "closed",
+                        "label": "CLOSED"
+                      }
                     ]
                   },
                   {
@@ -465,8 +467,14 @@
                     "name": "relay0_mode",
                     "bind": "relays[0].mode",
                     "options": [
-                      "LATCHED",
-                      "PULSE"
+                      {
+                        "value": "latched",
+                        "label": "LATCHED"
+                      },
+                      {
+                        "value": "pulse",
+                        "label": "PULSE"
+                      }
                     ]
                   },
                   {
@@ -489,8 +497,14 @@
                     "name": "relay1_normal",
                     "bind": "relays[1].normal",
                     "options": [
-                      "OPEN",
-                      "CLOSED"
+                      {
+                        "value": "open",
+                        "label": "OPEN"
+                      },
+                      {
+                        "value": "closed",
+                        "label": "CLOSED"
+                      }
                     ]
                   },
                   {
@@ -498,8 +512,14 @@
                     "name": "relay1_mode",
                     "bind": "relays[1].mode",
                     "options": [
-                      "LATCHED",
-                      "PULSE"
+                      {
+                        "value": "latched",
+                        "label": "LATCHED"
+                      },
+                      {
+                        "value": "pulse",
+                        "label": "PULSE"
+                      }
                     ]
                   },
                   {
