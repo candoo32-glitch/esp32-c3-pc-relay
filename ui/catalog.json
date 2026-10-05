@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "uis": [
+    {
+      "id": "lcars",
+      "name": "LCARS Modern"
+    }
+  ]
+}
