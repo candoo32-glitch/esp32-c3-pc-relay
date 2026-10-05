@@ -305,8 +305,17 @@
                     "label": "NETWORK / SSID",
                     "children": [
                       {
+                        "type": "input",
+                        "id": "ssid",
+                        "name": "ssid",
+                        "bind": "wifi.savedSsid",
+                        "maxLength": 32,
+                        "required": true,
+                        "autocomplete": "off"
+                      },
+                      {
                         "type": "wifi-scanner",
-                        "name": "ssid"
+                        "target": "#v2-ssid"
                       }
                     ]
                   },
@@ -317,10 +326,15 @@
                       {
                         "type": "secret",
                         "name": "password",
-                        "placeholder": "Leave blank for open network",
+                        "savedBind": "wifi.passwordSaved",
+                        "placeholder": "********",
                         "maxLength": 63
                       }
                     ]
+                  },
+                  {
+                    "type": "text",
+                    "text": "Credentials are saved only after a successful connection. SSID is limited to 32 characters and password to 63."
                   },
                   {
                     "type": "button",
@@ -341,11 +355,11 @@
             "children": [
               {
                 "type": "wifi-scanner",
-                "name": "ssid"
+                "target": "#v2-ssid"
               },
               {
                 "type": "text",
-                "text": "Select an access point to place its SSID in the field above. Hidden networks can still be entered manually."
+                "text": "Click a network to place its SSID into the credentials field. Hidden networks can still be entered manually."
               }
             ]
           },
@@ -462,7 +476,8 @@
                         "name": "hostname",
                         "bind": "network.hostname",
                         "maxLength": 32,
-                        "placeholder": "device-name"
+                        "placeholder": "device-name",
+                        "pattern": "[A-Za-z0-9-]+"
                       }
                     ]
                   },
@@ -483,7 +498,8 @@
                             "value": "static",
                             "label": "STATIC"
                           }
-                        ]
+                        ],
+                        "submitOnChange": false
                       }
                     ]
                   },
@@ -738,7 +754,8 @@
                             "value": "closed",
                             "label": "CLOSED"
                           }
-                        ]
+                        ],
+                        "transform": "lower"
                       }
                     ]
                   },
@@ -759,7 +776,8 @@
                             "value": "pulse",
                             "label": "PULSE"
                           }
-                        ]
+                        ],
+                        "transform": "lower"
                       }
                     ]
                   },
@@ -776,7 +794,8 @@
                         "max": 60000,
                         "step": 1
                       }
-                    ]
+                    ],
+                    "visibleIf": "relays[0].mode == pulse"
                   },
                   {
                     "type": "field",
@@ -808,7 +827,8 @@
                             "value": "closed",
                             "label": "CLOSED"
                           }
-                        ]
+                        ],
+                        "transform": "lower"
                       }
                     ]
                   },
@@ -829,7 +849,8 @@
                             "value": "pulse",
                             "label": "PULSE"
                           }
-                        ]
+                        ],
+                        "transform": "lower"
                       }
                     ]
                   },
@@ -846,7 +867,8 @@
                         "max": 60000,
                         "step": 1
                       }
-                    ]
+                    ],
+                    "visibleIf": "relays[1].mode == pulse"
                   },
                   {
                     "type": "button",
@@ -880,27 +902,8 @@
             "label": "NVS STATUS",
             "children": [
               {
-                "type": "value",
-                "label": "Partition size",
-                "bind": "nvs.size",
-                "format": "number"
-              },
-              {
-                "type": "value",
-                "label": "Used entries",
-                "bind": "nvs.used",
-                "format": "number"
-              },
-              {
-                "type": "value",
-                "label": "Free entries",
-                "bind": "nvs.free",
-                "format": "number"
-              },
-              {
-                "type": "link",
-                "text": "Download configuration backup",
-                "href": "/config/backup"
+                "type": "text",
+                "text": "Read-only persistent configuration inspector. Sensitive values are masked by firmware."
               },
               {
                 "type": "nvs-browser"
@@ -912,6 +915,10 @@
             "label": "FILESYSTEM",
             "children": [
               {
+                "type": "text",
+                "text": "Manage the Web filesystem. Uploading a file with the same name replaces the existing copy."
+              },
+              {
                 "type": "form",
                 "action": "/storage/upload",
                 "children": [
@@ -919,6 +926,7 @@
                     "type": "input",
                     "name": "storagefile",
                     "inputType": "file",
+                    "accept": ".html,.css,.js,.json,.txt,.xml,.svg,.bin",
                     "required": true
                   },
                   {
@@ -927,12 +935,6 @@
                     "submit": true
                   }
                 ]
-              },
-              {
-                "type": "link",
-                "text": "Open Recovery Updater",
-                "href": "/recovery",
-                "target": "_blank"
               },
               {
                 "type": "file-browser"
@@ -944,6 +946,10 @@
             "label": "CONFIGURATION BACKUP",
             "children": [
               {
+                "type": "text",
+                "text": "Save or restore the device's complete NVS configuration. Backups contain Wi-Fi credentials and other configuration values, so treat the file as sensitive."
+              },
+              {
                 "type": "link",
                 "text": "Download backup",
                 "href": "/config/backup"
@@ -951,11 +957,13 @@
               {
                 "type": "form",
                 "action": "/config/restore",
+                "rebootAfter": true,
                 "children": [
                   {
                     "type": "input",
                     "name": "configfile",
                     "inputType": "file",
+                    "accept": ".bin,application/octet-stream",
                     "required": true
                   },
                   {
@@ -964,10 +972,6 @@
                     "submit": true
                   }
                 ]
-              },
-              {
-                "type": "text",
-                "text": "Backups contain saved configuration and Wi-Fi credentials; treat them as sensitive."
               }
             ]
           },
@@ -989,22 +993,6 @@
                     "submit": true
                   }
                 ]
-              }
-            ]
-          },
-          {
-            "type": "panel",
-            "label": "STORAGE OPERATIONS",
-            "children": [
-              {
-                "type": "text",
-                "text": "V2 exposes the same SPIFFS and NVS inspection capabilities as the protected built-in interface. Sensitive NVS values remain masked by firmware."
-              },
-              {
-                "type": "link",
-                "text": "Open Recovery Updater",
-                "href": "/recovery",
-                "target": "_blank"
               }
             ]
           }
@@ -1256,31 +1244,27 @@
             "label": "MANUAL FIRMWARE",
             "children": [
               {
+                "type": "text",
+                "text": "Application image for the ESP32-C3 OTA firmware partition. Images are validated against the target partition before acceptance."
+              },
+              {
                 "type": "form",
                 "action": "/system/update",
+                "rebootAfter": true,
                 "children": [
                   {
-                    "type": "field",
-                    "label": "FIRMWARE IMAGE (.BIN)",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "firmware",
-                        "inputType": "file",
-                        "required": true
-                      }
-                    ]
+                    "type": "input",
+                    "name": "firmware",
+                    "inputType": "file",
+                    "accept": ".bin,application/octet-stream",
+                    "required": true
                   },
                   {
                     "type": "button",
-                    "text": "Install firmware image",
+                    "text": "Upgrade firmware",
                     "submit": true
                   }
                 ]
-              },
-              {
-                "type": "text",
-                "text": "Manual firmware updates preserve NVS configuration and reboot the ESP32-C3."
               }
             ]
           },
@@ -1289,31 +1273,43 @@
             "label": "MANUAL WEB UI",
             "children": [
               {
+                "type": "text",
+                "text": "SPIFFS image containing the complete Web UI. Published images use the -spiffs.bin suffix."
+              },
+              {
                 "type": "form",
                 "action": "/system/update-web",
+                "rebootAfter": true,
                 "children": [
                   {
-                    "type": "field",
-                    "label": "WEB FILESYSTEM IMAGE (-SPIFFS.BIN)",
-                    "children": [
-                      {
-                        "type": "input",
-                        "name": "web-filesystem",
-                        "inputType": "file",
-                        "required": true
-                      }
-                    ]
+                    "type": "input",
+                    "name": "web-filesystem",
+                    "inputType": "file",
+                    "accept": ".bin,application/octet-stream",
+                    "required": true
                   },
                   {
                     "type": "button",
-                    "text": "Install Web UI image",
+                    "text": "Upgrade Web UI",
                     "submit": true
                   }
                 ]
-              },
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "RECOVERY",
+            "children": [
               {
                 "type": "text",
-                "text": "Use a Web UI filesystem image ending in -spiffs.bin. This updates the Web UI filesystem without replacing firmware."
+                "text": "Standalone updater for recovering the normal Web UI."
+              },
+              {
+                "type": "link",
+                "text": "Open Recovery Updater",
+                "href": "/recovery",
+                "target": "_blank"
               }
             ]
           }
