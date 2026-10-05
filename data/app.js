@@ -4,8 +4,31 @@ const $=id=>document.getElementById(id);
 let wifiCredentialsDirty=false;
 const UI_REPOSITORY="__UI_REPOSITORY__";
 const UI_BRANCH="__UI_BRANCH__";
-const UI_ROOT_URL="https://raw.githubusercontent.com/"+UI_REPOSITORY+"/"+UI_BRANCH+"/ui";
-const UI_CATALOG_URL=UI_ROOT_URL+"/catalog.json";
+const UI_BRANCH_ROOT_URL="https://raw.githubusercontent.com/"+UI_REPOSITORY+"/"+UI_BRANCH+"/ui";
+let UI_ROOT_URL=UI_BRANCH_ROOT_URL;
+let UI_CATALOG_URL=UI_ROOT_URL+"/catalog.json";
+let uiRootResolved=false;
+
+async function resolveUiRootUrl(){
+  if(uiRootResolved)return UI_ROOT_URL;
+  try{
+    const apiUrl="https://api.github.com/repos/"+UI_REPOSITORY+"/branches/"+encodeURIComponent(UI_BRANCH)+"?uiCacheBust="+Date.now();
+    const r=await fetchWithTimeout(apiUrl,{cache:"no-store"});
+    if(!r.ok)throw Error("GitHub branch HTTP "+r.status);
+    const branch=await r.json();
+    const sha=String(branch?.commit?.sha||"").trim();
+    if(!/^[0-9a-f]{40}$/i.test(sha))throw Error("GitHub branch SHA unavailable");
+    UI_ROOT_URL="https://raw.githubusercontent.com/"+UI_REPOSITORY+"/"+sha+"/ui";
+    UI_CATALOG_URL=UI_ROOT_URL+"/catalog.json";
+  }catch(e){
+    /* Fall back to the branch URL if GitHub API is temporarily unavailable. */
+    UI_ROOT_URL=UI_BRANCH_ROOT_URL;
+    UI_CATALOG_URL=UI_ROOT_URL+"/catalog.json";
+    console.warn("Could not pin GitHub UI branch to a commit; using branch URL:",e);
+  }
+  uiRootResolved=true;
+  return UI_ROOT_URL;
+}
 const UI_MANIFEST_VERSION=1;
 let uiCatalogLoaded=false;
 let activeExternalUi="";
@@ -139,9 +162,9 @@ async function fetchExternalUiSource(url){
      * theme assets. This is especially useful for DOM V2 JSON/CSS assets;
      * it does not move or embed the theme into firmware.
      */
-    const rawPrefix="https://raw.githubusercontent.com/"+UI_REPOSITORY+"/"+UI_BRANCH+"/";
+    const rawPrefix="https://raw.githubusercontent.com/"+UI_REPOSITORY+"/";
     if(!url.startsWith(rawPrefix))throw new Error("UI asset unavailable: "+url+" ("+primaryError.message+")");
-    const cdnUrl="https://cdn.jsdelivr.net/gh/"+UI_REPOSITORY+"@"+UI_BRANCH+"/"+url.slice(rawPrefix.length);
+    const cdnUrl="https://cdn.jsdelivr.net/gh/"+UI_REPOSITORY+"/"+url.slice(rawPrefix.length);
     const cdnBusted=cdnUrl+"?uiCacheBust="+Date.now();
     const fallback=await fetchWithTimeout(cdnBusted,{cache:"no-store"});
     if(!fallback.ok)throw new Error("UI asset HTTP "+fallback.status+" via GitHub and jsDelivr: "+url);
@@ -170,8 +193,8 @@ function installExternalUiScript(url){
      * a <script src> tag in Safari/WebKit. Use jsDelivr only for executable
      * theme JavaScript; the files still live in this GitHub branch.
      */
-    const rawPrefix="https://raw.githubusercontent.com/"+UI_REPOSITORY+"/"+UI_BRANCH+"/";
-    const cdnPrefix="https://cdn.jsdelivr.net/gh/"+UI_REPOSITORY+"@"+UI_BRANCH+"/";
+    const rawPrefix="https://raw.githubusercontent.com/"+UI_REPOSITORY+"/";
+    const cdnPrefix="https://cdn.jsdelivr.net/gh/"+UI_REPOSITORY+"/";
     const scriptUrl=url.startsWith(rawPrefix)
       ? cdnPrefix+url.slice(rawPrefix.length)
       : url;
@@ -203,6 +226,7 @@ async function activateUi(uiId){
   let stage="manifest load";
 
   try{
+    await resolveUiRootUrl();
     const manifestUrl=UI_ROOT_URL+"/"+encodeURIComponent(id)+"/manifest.json?uiCacheBust="+Date.now();
     const r=await fetchWithTimeout(manifestUrl,{cache:"no-store"});
     if(!r.ok)throw Error("Manifest HTTP "+r.status);
@@ -282,6 +306,7 @@ async function loadUiCatalog(){
   const select=$("ui-selection");
   if(!select)return;
   try{
+    await resolveUiRootUrl();
     const r=await fetchWithTimeout(UI_CATALOG_URL+"?uiCacheBust="+Date.now(),{cache:"no-store"});
     if(!r.ok)throw Error(r.status);
     const catalog=await r.json();
