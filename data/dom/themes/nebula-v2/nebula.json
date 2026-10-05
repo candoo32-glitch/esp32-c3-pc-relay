@@ -121,12 +121,8 @@
                 }
               },
               {
-                "type": "button",
-                "text": "Refresh telemetry",
-                "action": {
-                  "action": "wifi.reconnect",
-                  "refresh": true
-                }
+                "type": "text",
+                "text": "Live telemetry • 1 second polling"
               }
             ]
           }
