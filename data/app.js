@@ -69,7 +69,8 @@ async function activateDomV2Theme(uiId,manifest){
     v2Root.hidden=true;
     v2Root.removeAttribute("data-v2-theme");
     document.documentElement.removeAttribute("data-v2-theme");
-    showUiLoadError(uiId,stage,e,performance.now()-started);
+    e.uiStage=stage;
+    e.uiElapsedMs=performance.now()-started;
     throw e;
   }
 }
@@ -306,7 +307,7 @@ async function activateUi(uiId){
       document.body.classList.add("external-ui-fallback");
     }
 
-    showUiLoadError(id,stage,e,performance.now()-started);
+    showUiLoadError(id,e?.uiStage||stage,e,e?.uiElapsedMs??(performance.now()-started));
     console.warn("External UI could not be loaded; keeping the currently active UI:",e);
     return false;
   }
