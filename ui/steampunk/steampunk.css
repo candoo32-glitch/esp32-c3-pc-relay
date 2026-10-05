@@ -329,3 +329,720 @@ textarea.diagnostic-console{
   .sp-network-readout{grid-template-columns:1fr}
   .sp-mode-machine{justify-content:center;flex-direction:column}
 }
+
+
+/* ========================================================================
+   STEAMPUNK FOUNDRY — MACHINE CONSOLE OVERHAUL
+   The existing DOM and firmware remain authoritative. This layer changes
+   presentation only, turning the ordinary web layout into one instrument.
+   ======================================================================== */
+
+:root{
+  --sp-bg:#120a06;
+  --sp-black:#090705;
+  --sp-iron:#171513;
+  --sp-iron-hi:#302a25;
+  --sp-brass:#a66b28;
+  --sp-brass-hi:#efbd59;
+  --sp-brass-pale:#f5d58b;
+  --sp-copper:#9c4826;
+  --sp-copper-hi:#d87535;
+  --sp-wood:#29150c;
+  --sp-cream:#e8d0a0;
+  --sp-green:#75e44f;
+  --sp-red:#b83c2b;
+  --sp-blue:#78b7c9;
+}
+
+/* Chassis */
+html{
+  min-height:100%;
+  background:#080604!important;
+}
+body{
+  min-height:100vh!important;
+  margin:0!important;
+  padding:12px 22px 54px!important;
+  color:var(--sp-cream)!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  background:
+    radial-gradient(ellipse at 50% 8%,rgba(255,151,42,.12),transparent 34%),
+    linear-gradient(90deg,rgba(0,0,0,.86),transparent 8%,transparent 92%,rgba(0,0,0,.86)),
+    linear-gradient(rgba(24,12,7,.86),rgba(8,5,3,.97)),
+    var(--sp-plate)!important;
+  background-size:auto,auto,auto,cover!important;
+  background-attachment:fixed!important;
+}
+body::before{
+  content:""!important;
+  position:fixed!important;inset:0!important;pointer-events:none!important;z-index:0!important;
+  background:
+    linear-gradient(90deg,rgba(0,0,0,.55),transparent 12%,transparent 88%,rgba(0,0,0,.55)),
+    repeating-linear-gradient(90deg,transparent 0 78px,rgba(255,178,80,.018) 79px,transparent 80px)!important;
+}
+body::after{
+  opacity:.12!important;
+  background-image:radial-gradient(rgba(255,224,163,.22) .65px,transparent .8px)!important;
+  background-size:5px 5px!important;
+}
+
+/* Header plate */
+body>h1{
+  position:relative!important;
+  z-index:10!important;
+  width:min(1240px,calc(100% - 300px))!important;
+  max-width:none!important;
+  min-height:92px!important;
+  margin:8px auto 5px!important;
+  padding:18px 28px 12px 118px!important;
+  display:flex!important;
+  align-items:center!important;
+  color:#efc36a!important;
+  font-size:clamp(1.7rem,3vw,3rem)!important;
+  letter-spacing:.14em!important;
+  text-shadow:0 2px 0 #241006,0 0 20px rgba(255,139,26,.17)!important;
+  border:3px solid #81521f!important;
+  border-radius:10px!important;
+  background:
+    linear-gradient(90deg,rgba(0,0,0,.35),transparent 18%,transparent 82%,rgba(0,0,0,.35)),
+    linear-gradient(#352217,#120b07)!important;
+  box-shadow:
+    inset 0 0 0 2px #3c2716,
+    inset 0 0 25px #000,
+    0 5px 0 #080503,
+    0 14px 26px rgba(0,0,0,.8)!important;
+}
+body>h1::before{
+  content:""!important;
+  position:absolute!important;
+  left:25px!important;
+  top:50%!important;
+  width:56px!important;
+  height:56px!important;
+  transform:translateY(-50%)!important;
+  border-radius:50%!important;
+  background:
+    radial-gradient(circle at 35% 30%,#fff3a6 0 7%,#ffc34b 8% 38%,#d47b17 39% 60%,#5b3513 61% 72%,#1c1009 73%)!important;
+  border:3px solid #a96c25!important;
+  box-shadow:0 0 20px rgba(255,145,32,.75),inset 0 0 8px #ffefb0,0 3px 8px #000!important;
+}
+body>h1::after{
+  content:"ESP32-C3 RELAY CONTROLLER"!important;
+  position:absolute!important;
+  left:50%!important;
+  bottom:5px!important;
+  transform:translateX(-50%)!important;
+  color:#8e6a3f!important;
+  font:700 .5rem Georgia,serif!important;
+  letter-spacing:.32em!important;
+  white-space:nowrap!important;
+}
+body>.muted{
+  width:min(1240px,calc(100% - 300px))!important;
+  max-width:none!important;
+  margin:0 auto 10px!important;
+  padding:3px 12px!important;
+  color:#92704a!important;
+  font-size:.55rem!important;
+  letter-spacing:.26em!important;
+  text-align:left!important;
+}
+body>.muted::before{content:"AETHERIC CONTROL APPARATUS  //  HEADLESS CONTROL AND CONFIGURATION"!important}
+
+/* Header instruments */
+.sp-header-meta{
+  position:absolute;
+  top:18px;
+  right:27px;
+  width:250px;
+  min-height:91px;
+  z-index:20;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px;
+  padding:7px;
+  background:linear-gradient(#392418,#140b07);
+  border:2px solid #80521f;
+  border-radius:8px;
+  box-shadow:inset 0 0 0 1px #4c2e17,0 7px 18px #000;
+}
+.sp-header-meta>div{
+  border:1px solid #69451f;
+  background:#1a100b;
+  box-shadow:inset 0 0 10px #000;
+  text-align:center;
+  padding:5px 4px;
+}
+.sp-header-meta span{
+  display:block;
+  color:#9d7848;
+  font:800 .48rem Georgia,serif;
+  letter-spacing:.16em;
+}
+.sp-header-meta b{
+  display:block;
+  margin-top:4px;
+  color:#eac47b;
+  font:800 .72rem "Courier New",monospace;
+}
+.sp-header-meta .sp-meta-clock{
+  grid-column:1/-1;
+  padding:4px;
+}
+.sp-meta-clock span{
+  color:#d1a55c;
+  font-size:.56rem;
+}
+
+/* Mechanical nav */
+.tabs{
+  position:relative!important;
+  z-index:12!important;
+  width:min(1240px,calc(100% - 40px))!important;
+  max-width:none!important;
+  margin:10px auto 14px!important;
+  padding:7px!important;
+  display:flex!important;
+  gap:5px!important;
+  background:linear-gradient(#33261c,#120c08)!important;
+  border:3px solid #70471e!important;
+  border-radius:9px!important;
+  box-shadow:inset 0 0 0 1px #a06a2a,inset 0 -7px 17px #000,0 7px 18px #000!important;
+}
+.tabs a{
+  position:relative!important;
+  min-width:110px!important;
+  min-height:58px!important;
+  padding:29px 9px 7px!important;
+  flex:1 1 0!important;
+  color:#d0aa68!important;
+  background:linear-gradient(#443023,#1c120c)!important;
+  border:1px solid #815428!important;
+  border-radius:5px!important;
+  box-shadow:inset 0 1px rgba(255,220,150,.2),inset 0 -9px 10px rgba(0,0,0,.55),0 2px 3px #000!important;
+  font:800 .62rem Georgia,serif!important;
+  letter-spacing:.08em!important;
+  text-transform:uppercase!important;
+  text-align:center!important;
+}
+.tabs a::before{
+  content:attr(data-sp-icon)!important;
+  position:absolute!important;
+  left:50%!important;
+  top:4px!important;
+  transform:translateX(-50%)!important;
+  width:25px!important;
+  height:25px!important;
+  display:grid!important;
+  place-items:center!important;
+  color:#dca952!important;
+  border:2px solid #835522!important;
+  border-radius:50%!important;
+  background:radial-gradient(circle,#5a3c22,#17100b)!important;
+  box-shadow:inset 0 0 6px #000,0 2px 3px #000!important;
+  font-size:.95rem!important;
+}
+.tabs a:hover,.tabs a.active{
+  color:#211106!important;
+  background:linear-gradient(#f1c46a,#8e571e)!important;
+  border-color:#e7b85d!important;
+  box-shadow:0 0 15px rgba(255,160,40,.25),inset 0 2px rgba(255,255,220,.45),0 3px 6px #000!important;
+}
+.tabs a:hover::before,.tabs a.active::before{
+  color:#4c2a0c!important;
+  background:radial-gradient(circle,#ffe69c,#b56d20)!important;
+  border-color:#6c4118!important;
+}
+
+/* Main machine bay */
+.tab{
+  position:relative!important;
+  z-index:5!important;
+  width:min(1240px,calc(100% - 40px))!important;
+  max-width:none!important;
+  margin:0 auto!important;
+  animation:none!important;
+}
+.tab::after{
+  content:"";
+  position:absolute;
+  inset:-10px;
+  z-index:-1;
+  pointer-events:none;
+  border:1px solid rgba(163,101,35,.22);
+  box-shadow:inset 0 0 40px rgba(0,0,0,.65);
+}
+
+/* Cards become bolted panels */
+.card,
+.sp-machine-screen,
+.sp-radio-face,
+.sp-radio-control,
+.sp-network-console{
+  position:relative!important;
+  color:var(--sp-cream)!important;
+  background:
+    linear-gradient(135deg,rgba(255,188,80,.045),transparent 35%),
+    linear-gradient(180deg,#211914,#0f0b08)!important;
+  border:2px solid #71491f!important;
+  border-radius:8px!important;
+  box-shadow:
+    inset 0 0 0 1px #332015,
+    inset 0 0 28px rgba(0,0,0,.9),
+    0 6px 14px rgba(0,0,0,.9)!important;
+}
+.card{
+  margin:10px 0!important;
+  padding:18px!important;
+}
+.card::before{
+  content:"";
+  position:absolute;
+  inset:6px;
+  pointer-events:none;
+  border:1px solid rgba(197,143,63,.16);
+  border-radius:4px;
+}
+.card::after{
+  content:"◆  ◆  ◆";
+  position:absolute;
+  right:11px;
+  top:8px;
+  color:#76502b;
+  font:700 7px Georgia,serif;
+  letter-spacing:4px;
+}
+h2{
+  color:#e8bb63!important;
+  margin:0 0 11px!important;
+  font:800 1.08rem Georgia,serif!important;
+  letter-spacing:.11em!important;
+  text-transform:uppercase!important;
+  text-shadow:0 2px #080503!important;
+}
+.section-heading{
+  border-bottom:1px solid #5d3b1c!important;
+  padding-bottom:9px!important;
+}
+.eyebrow{
+  color:#a47b47!important;
+  font-size:.55rem!important;
+  letter-spacing:.2em!important;
+}
+.help,.muted{color:#a2855e!important}
+
+/* bolts on every panel */
+.card .section-heading::before,
+.card .section-heading::after{
+  content:"";
+  position:absolute;
+  width:8px;height:8px;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#e5c274,#67431f 55%,#160c07);
+  border:1px solid #8a5a25;
+  box-shadow:0 1px 2px #000;
+}
+.card .section-heading::before{left:9px;top:9px}
+.card .section-heading::after{right:9px;top:9px}
+
+/* Dashboard: instrument cabinet */
+.sp-dashboard-machinery{
+  display:grid!important;
+  grid-template-columns:174px minmax(0,1fr) 255px!important;
+  gap:12px!important;
+  padding:4px!important;
+  background:linear-gradient(#20150f,#0c0805)!important;
+  border:3px solid #69431d!important;
+  border-radius:9px!important;
+  box-shadow:inset 0 0 0 1px #3e2817,inset 0 0 40px #000,0 8px 20px #000!important;
+}
+.sp-instrument-bank{
+  padding:7px 5px!important;
+  background:linear-gradient(90deg,#100a07,#24170f,#100a07)!important;
+  border-right:2px solid #5d3c1d!important;
+}
+.sp-gauge-wrap{padding:4px 0!important}
+.sp-gauge{
+  width:146px!important;height:146px!important;
+  border:5px solid #65411e!important;
+  background:
+    radial-gradient(circle,#d9bd82 0 54%,#815b2e 55% 61%,#20130c 62% 70%,#9c6728 71% 76%,#21130b 77%)!important;
+  box-shadow:inset 0 0 18px #4a2e18,0 5px 10px #000!important;
+}
+.sp-gauge::before{
+  opacity:.7!important;
+  background:repeating-conic-gradient(from -42deg,#4e311c 0 1deg,transparent 1deg 10deg)!important;
+}
+.sp-gauge-label{color:#3b2616!important}
+.sp-gauge-value{color:#24150c!important}
+
+/* Central telemetry */
+.sp-machine-screen{
+  min-height:0!important;
+  padding:15px!important;
+  background:
+    radial-gradient(circle at 80% 22%,rgba(116,225,80,.08),transparent 23%),
+    linear-gradient(#1d1814,#0c0b09)!important;
+}
+.sp-machine-screen .sp-screen-title{
+  color:#dfb663!important;
+  border-bottom:1px solid #5b3a1c!important;
+  font-size:.65rem!important;
+  letter-spacing:.16em!important;
+}
+.sp-dashboard-data{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:8px!important;
+}
+.sp-dashboard-data .card{
+  margin:0!important;
+  padding:12px!important;
+  min-width:0!important;
+}
+.sp-dashboard-data .card h2{
+  font-size:.72rem!important;
+}
+.sp-dashboard-data .card::after{display:none!important}
+.kv td{
+  border-bottom:1px solid rgba(179,119,44,.16)!important;
+  padding:5px 4px!important;
+}
+.kv td:first-child{
+  color:#a98250!important;
+  font-size:.58rem!important;
+  white-space:nowrap!important;
+}
+.kv td:last-child{
+  color:#f0d7a0!important;
+  font-family:"Courier New",monospace!important;
+  font-size:.67rem!important;
+}
+.status{
+  color:#7bea58!important;
+  background:#0c170a!important;
+  border-color:#55713c!important;
+  box-shadow:inset 0 0 8px #000,0 0 10px rgba(112,230,76,.18)!important;
+}
+
+/* Relay machinery */
+.sp-relay-console{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:13px!important;
+  margin-top:10px!important;
+}
+.sp-relay-machine{
+  padding:13px!important;
+  border:3px solid #71461d!important;
+  border-radius:8px!important;
+  background:
+    radial-gradient(circle at 50% 0,rgba(217,126,49,.13),transparent 30%),
+    linear-gradient(135deg,#332116,#100a07 60%,#28180e)!important;
+  box-shadow:inset 0 0 0 1px #9a6025,inset 0 0 24px #000,0 7px 14px #000!important;
+}
+.sp-relay-coil{
+  height:53px!important;
+  margin-bottom:8px!important;
+  border:2px solid #74411e!important;
+  background:
+    repeating-linear-gradient(90deg,#6e2d18 0 3px,#d27a38 3px 5px,#71321b 5px 8px)!important;
+  box-shadow:inset 0 5px 10px #250b06,0 2px 4px #000!important;
+}
+.sp-relay-name{
+  color:#e8c273!important;
+  text-align:center!important;
+  font-size:.95rem!important;
+}
+.sp-relay-state{
+  width:66px!important;height:66px!important;
+  border:5px solid #5a321b!important;
+  background:radial-gradient(circle at 35% 30%,#9a2b1d,#49130e 60%,#160704)!important;
+  box-shadow:inset 0 0 12px #000,0 0 8px rgba(255,60,30,.18)!important;
+}
+.sp-relay-state.on{
+  background:radial-gradient(circle at 35% 30%,#e5ff9c,#4c8e28 42%,#18320e 72%)!important;
+  color:#ecffd9!important;
+  border-color:#6b994a!important;
+  box-shadow:0 0 18px rgba(115,235,67,.4),inset 0 0 12px #14200d!important;
+}
+.sp-mech-control{
+  min-height:36px!important;
+  padding:8px 7px!important;
+  color:#d8b16b!important;
+  background:linear-gradient(#3c291a,#160d08)!important;
+  border:2px solid #74491f!important;
+  font-size:.58rem!important;
+}
+.sp-mech-control.active{
+  color:#211107!important;
+  background:linear-gradient(#e9bd65,#8f571e)!important;
+}
+.sp-dial{
+  width:78px!important;height:78px!important;
+  border-color:#815321!important;
+  background:radial-gradient(circle at 35% 30%,#e0b45c,#70431c 45%,#21130b 68%,#a56c28 69% 75%,#2a180d 76%)!important;
+}
+.sp-dial-value{
+  color:#e6c17b!important;
+  font-size:.66rem!important;
+}
+.sp-relay-name-input{
+  font-size:.72rem!important;
+  min-height:32px!important;
+}
+
+/* Wireless / network machinery */
+.sp-radio-console{
+  display:grid!important;
+  grid-template-columns:minmax(0,1.5fr) 150px 190px!important;
+  gap:10px!important;
+  padding:10px!important;
+}
+.sp-radio-face,.sp-radio-control{
+  min-height:126px!important;
+  padding:12px!important;
+}
+.sp-radio-lamp{
+  color:#d8b16b!important;
+  font-size:.85rem!important;
+}
+.sp-lever{
+  width:65px!important;height:105px!important;
+}
+.sp-network-console{
+  grid-template-columns:1.1fr 1fr!important;
+  gap:10px!important;
+  padding:13px!important;
+}
+.sp-network-readout div{
+  padding:8px!important;
+  background:#100b07!important;
+  border-color:#4c3119!important;
+}
+.sp-network-readout span{
+  color:#947047!important;
+  font-size:.5rem!important;
+}
+.sp-network-readout b{
+  color:#e5ce99!important;
+  font-size:.62rem!important;
+}
+.sp-mode-lever{
+  border-color:#754a20!important;
+}
+
+/* Ordinary forms retain function but become machine controls */
+input,select,textarea{
+  min-height:36px!important;
+  color:#f0d9a9!important;
+  background:linear-gradient(#291b12,#0e0906)!important;
+  border:2px solid #70491f!important;
+  border-radius:4px!important;
+  font-family:"Courier New",monospace!important;
+  box-shadow:inset 0 2px 8px #000,0 1px 0 rgba(255,220,150,.08)!important;
+}
+label{
+  color:#ad8551!important;
+  font-size:.58rem!important;
+  letter-spacing:.11em!important;
+}
+button:not(.theme-option),.config-backup-button,.recovery-link{
+  min-height:37px!important;
+  color:#241307!important;
+  background:linear-gradient(#e7bb63,#8b541c)!important;
+  border:2px solid #6c421b!important;
+  border-radius:5px!important;
+  font:800 .61rem Georgia,serif!important;
+  letter-spacing:.08em!important;
+  text-transform:uppercase!important;
+  box-shadow:inset 0 1px rgba(255,250,205,.55),0 3px 5px #000!important;
+}
+button:not(.theme-option):hover{filter:brightness(1.08)!important}
+button.secondary:not(.theme-option){
+  color:#e4c58d!important;
+  background:linear-gradient(#39291d,#17100b)!important;
+}
+button.danger:not(.theme-option),.danger-zone button:not(.theme-option){
+  color:#ffe2d7!important;
+  background:linear-gradient(#873327,#41140e)!important;
+}
+
+/* Tables, storage, diagnostics: instrument panels rather than browser widgets */
+.table-wrap{
+  border:2px solid #5c3b1c!important;
+  border-radius:5px!important;
+  background:#0e0906!important;
+  box-shadow:inset 0 0 20px #000!important;
+}
+.table-wrap th{
+  color:#e0b25f!important;
+  background:#26170e!important;
+  border-bottom:2px solid #5e3b1c!important;
+  font-size:.62rem!important;
+  letter-spacing:.08em!important;
+  text-transform:uppercase!important;
+}
+.table-wrap td{
+  border-top-color:#332015!important;
+  color:#d9c092!important;
+  font-size:.68rem!important;
+}
+textarea.diagnostic-console{
+  min-height:390px!important;
+  color:#d8d0bb!important;
+  background:
+    linear-gradient(rgba(73,42,17,.1),rgba(73,42,17,.1)),
+    repeating-linear-gradient(0deg,transparent 0 20px,rgba(111,72,31,.12) 21px),
+    #0c0b09!important;
+  border:3px solid #6b451f!important;
+  box-shadow:inset 0 0 30px #000,0 5px 10px #000!important;
+}
+.storage-meter,.ota-progress-track{
+  background:#0d0805!important;
+  border:2px solid #61401f!important;
+  box-shadow:inset 0 0 8px #000!important;
+}
+.storage-meter-bar,.ota-progress-bar{
+  background:linear-gradient(90deg,#713d18,#d49a3f,#efbf61)!important;
+  box-shadow:0 0 10px rgba(221,157,52,.25)!important;
+}
+
+/* Floating relay control becomes a small physical control box */
+.relay-float{
+  position:fixed!important;
+  top:122px!important;
+  right:24px!important;
+  width:190px!important;
+  z-index:150!important;
+  padding:8px!important;
+  background:linear-gradient(#38251a,#120b07)!important;
+  border:2px solid #825526!important;
+  border-radius:7px!important;
+  box-shadow:inset 0 0 0 1px #4a2d16,0 7px 18px #000!important;
+}
+.relay-float-title{
+  color:#d8ae61!important;
+  font-size:.52rem!important;
+  letter-spacing:.15em!important;
+}
+.relay-float-buttons{gap:5px!important}
+.relay-float .relay-button{
+  min-height:35px!important;
+  background:linear-gradient(#4a3020,#21130c)!important;
+  border:1px solid #865629!important;
+}
+
+/* Side tubes / gears */
+.sp-machinery{z-index:2!important}
+.sp-tube{
+  width:63px!important;height:185px!important;
+  filter:drop-shadow(0 0 10px rgba(255,134,25,.34))!important;
+}
+.sp-tube.left{left:0!important;top:165px!important}
+.sp-tube.right{right:0!important;top:205px!important;transform:scale(.82)!important}
+.sp-gear{
+  opacity:.55!important;
+  filter:drop-shadow(0 3px 4px #000)!important;
+}
+.sp-gear.g1{right:4px!important;bottom:25px!important;width:145px!important;height:145px!important}
+.sp-gear.g2{left:4px!important;bottom:85px!important;width:105px!important;height:105px!important}
+
+/* Hide old tiny plaque; the header now carries the instrument labels */
+.sp-plaque{display:none!important}
+.sp-hidden-backend{display:none!important}
+.sp-backend-select{
+  position:absolute!important;
+  width:1px!important;height:1px!important;
+  opacity:0!important;pointer-events:none!important;
+}
+
+/* Dense instrument feel for the remaining tabs */
+#tab-storage .card:first-child,
+#tab-diagnostics .card:first-child,
+#tab-system .card:first-child{
+  border-top:4px solid #75491e!important;
+}
+#tab-storage .card h2,
+#tab-diagnostics .card h2,
+#tab-system .card h2{
+  padding-left:5px!important;
+}
+#tab-storage .table-wrap,
+#tab-diagnostics .table-wrap,
+#tab-system .table-wrap{
+  margin-top:7px!important;
+}
+
+/* Keep content usable on tablets and phones */
+@media(max-width:1050px){
+  body{padding:8px 10px 50px!important}
+  body>h1,.tab,.tabs,body>.muted{
+    width:100%!important;
+  }
+  body>h1{
+    min-height:76px!important;
+    padding:14px 190px 12px 85px!important;
+    font-size:1.6rem!important;
+  }
+  .sp-header-meta{
+    right:17px;top:13px;width:165px;min-height:76px;
+  }
+  .sp-header-meta b{font-size:.58rem}
+  .tabs a{min-width:85px}
+  .sp-dashboard-machinery{
+    grid-template-columns:135px minmax(0,1fr)!important;
+  }
+  .sp-instrument-bank{
+    grid-row:1/3;
+  }
+  .sp-dashboard-machinery>.sp-machine-screen:last-child{
+    grid-column:2;
+  }
+  .relay-float{
+    position:relative!important;
+    top:auto!important;right:auto!important;
+    width:100%!important;margin:7px auto!important;
+  }
+}
+@media(max-width:720px){
+  body>h1{
+    width:100%!important;
+    padding:67px 10px 11px!important;
+    min-height:116px!important;
+    justify-content:center!important;
+    text-align:center!important;
+    font-size:1.28rem!important;
+  }
+  body>h1::before{top:22px!important;left:50%!important;transform:translateX(-50%)!important;width:42px!important;height:42px!important}
+  body>h1::after{bottom:4px!important;font-size:.4rem!important}
+  .sp-header-meta{
+    position:absolute;top:7px;left:8px;right:8px;width:auto;min-height:44px;
+    grid-template-columns:1fr 1fr 1.7fr;
+  }
+  .sp-header-meta .sp-meta-clock{grid-column:auto}
+  .tabs{overflow-x:auto}
+  .tabs a{min-width:92px}
+  .sp-dashboard-machinery{
+    display:block!important;
+  }
+  .sp-instrument-bank{
+    display:grid!important;
+    grid-template-columns:repeat(3,1fr)!important;
+    border-right:0!important;
+    border-bottom:2px solid #5d3c1d!important;
+  }
+  .sp-gauge{width:100px!important;height:100px!important}
+  .sp-dashboard-data,
+  .sp-relay-console,
+  .sp-radio-console,
+  .sp-network-console{
+    grid-template-columns:1fr!important;
+  }
+  .sp-radio-face{grid-column:auto!important}
+}
+
+/* Reduced-motion accessibility */
+@media(prefers-reduced-motion:reduce){
+  .sp-gear{animation:none!important}
+}
