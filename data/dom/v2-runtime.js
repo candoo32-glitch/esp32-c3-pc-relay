@@ -394,6 +394,150 @@
     return e;
   });
 
+
+  // V2 utility components. These own presentation-only browser behavior and
+  // talk to the same public endpoints as the protected built-in UI.
+  registry.set("field",(n)=>{
+    const e=common(document.createElement("label"),n);e.classList.add("v2-field");
+    if(n.label){const l=document.createElement("span");l.className="v2-field-label";l.textContent=String(bindValue(n.label));e.appendChild(l)}
+    (n.children||[]).forEach(c=>e.appendChild(renderNode(c)));
+    return e;
+  });
+  registry.set("secret",(n)=>{
+    const e=common(document.createElement("div"),n);e.classList.add("v2-secret");
+    const input=document.createElement("input");input.className="v2-input";input.type="password";
+    input.autocomplete="new-password";
+    if(n.name)input.name=String(n.name);
+    if(n.placeholder)input.placeholder=String(bindValue(n.placeholder));
+    if(n.maxLength)input.maxLength=Number(n.maxLength);
+    if(n.required)input.required=true;
+    const button=document.createElement("button");button.type="button";button.className="v2-button v2-secret-toggle";
+    button.textContent="SHOW";
+    button.onclick=()=>{const shown=input.type==="text";input.type=shown?"password":"text";button.textContent=shown?"SHOW":"HIDE"};
+    e.append(input,button);return e;
+  });
+  registry.set("relay-detail",(n)=>{
+    const id=Number(n.relay??0),relay=get(state.data,"relays["+id+"]",{});
+    const e=common(document.createElement("section"),n);e.classList.add("v2-relay-detail");
+    const title=document.createElement("div");title.className="v2-relay-detail-title";title.textContent=String(relay.name||n.label||("Relay "+(id+1)));
+    const grid=document.createElement("div");grid.className="v2-relay-detail-grid";
+    const rows=[
+      ["GPIO",n.gpio??relay.gpio??"-"],
+      ["CONTACT",relay.state?"ACTIVE":"NORMAL"],
+      ["NORMAL STATE",relay.normal??"-"],
+      ["MODE",relay.mode??"-"],
+      ["PULSE",relay.mode==="PULSE"||relay.mode==="pulse"?(String(relay.pulse??"-")+" ms"):"—"]
+    ];
+    rows.forEach(([k,v])=>{const a=document.createElement("span");a.className="v2-label";a.textContent=k;const b=document.createElement("strong");b.textContent=String(v);const row=document.createElement("div");row.append(a,b);grid.appendChild(row)});
+    e.append(title,grid);return e;
+  });
+  registry.set("relay-dock",(n)=>{
+    const e=common(document.createElement("aside"),n);e.classList.add("v2-relay-dock");e.setAttribute("aria-label","Relay controls");
+    [0,1].forEach(id=>{
+      const relay=get(state.data,"relays["+id+"]",{});
+      const b=document.createElement("button");b.type="button";b.className="v2-relay-dock-button";
+      b.dataset.state=relay.state?"on":"off";
+      b.textContent=String(relay.name||("Relay "+(id+1)));
+      const dot=document.createElement("span");dot.className="v2-relay-dock-dot";b.prepend(dot);
+      b.onclick=()=>actionFromNode(b,{action:"relay.toggle",args:{id}});
+      e.appendChild(b);
+    });
+    state.listeners.add(()=>{e.querySelectorAll(".v2-relay-dock-button").forEach((b,i)=>{const r=get(state.data,"relays["+i+"]",{});b.dataset.state=r.state?"on":"off";b.lastChild.textContent=String(r.name||("Relay "+(i+1)))})});
+    return e;
+  });
+  registry.set("wifi-scanner",(n)=>{
+    const e=common(document.createElement("section"),n);e.classList.add("v2-wifi-scanner");
+    const head=document.createElement("div");head.className="v2-tool-head";
+    const status=document.createElement("span");status.className="v2-tool-status";status.textContent="Ready";
+    const button=document.createElement("button");button.type="button";button.className="v2-button";button.textContent="SCAN NOW";
+    const list=document.createElement("div");list.className="v2-scan-results";
+    const render=d=>{
+      const networks=Array.isArray(d?.networks)?d.networks:[];
+      list.innerHTML="";
+      if(!networks.length){list.innerHTML='<div class="v2-empty">No networks found.</div>';return}
+      const table=document.createElement("table");table.className="v2-tool-table";
+      table.innerHTML="<thead><tr><th>SSID</th><th>RSSI</th><th>CH</th><th>SECURITY</th><th>BSSID</th></tr></thead>";
+      const body=document.createElement("tbody");
+      networks.forEach(x=>{const tr=document.createElement("tr");[x.ssid||"(hidden)",String(x.rssi??"—")+" dBm",x.channel??"—",x.security??"—",x.bssid??"—"].forEach(v=>{const td=document.createElement("td");td.textContent=String(v);tr.appendChild(td)});tr.onclick=()=>{const input=e.querySelector("input[data-v2-scan-ssid]");if(input)input.value=String(x.ssid||"");};body.appendChild(tr)});
+      table.appendChild(body);list.appendChild(table);
+      const note=document.createElement("div");note.className="v2-tool-status";note.textContent=networks.length+" access point"+(networks.length===1?"":"s")+" found";list.appendChild(note);
+    };
+    button.onclick=async()=>{
+      button.disabled=true;status.textContent="Scanning…";
+      try{const r=await fetch("/wifi/scan",{method:"POST",cache:"no-store"});if(!r.ok)throw Error(r.status);render(await r.json());status.textContent="Scan complete"}catch(err){status.textContent="Scan failed";list.innerHTML='<div class="v2-empty">Wi-Fi scan failed.</div>'}finally{button.disabled=false}
+    };
+    const input=document.createElement("input");input.className="v2-input";input.placeholder="Selected SSID";input.dataset.v2ScanSsid="true";
+    head.append(button,status);e.append(head,input,list);return e;
+  });
+  registry.set("file-browser",(n)=>{
+    const e=common(document.createElement("section"),n);e.classList.add("v2-file-browser");
+    const head=document.createElement("div");head.className="v2-tool-head";
+    const summary=document.createElement("span");summary.className="v2-tool-status";summary.textContent="Loading filesystem…";
+    const refreshButton=document.createElement("button");refreshButton.type="button";refreshButton.className="v2-button";refreshButton.textContent="REFRESH";
+    const body=document.createElement("div");body.className="v2-file-list";
+    const viewer=document.createElement("pre");viewer.className="v2-file-viewer";viewer.hidden=true;
+    const load=async()=>{
+      summary.textContent="Reading SPIFFS…";
+      try{
+        const r=await fetch("/api/storage/files",{cache:"no-store"});if(!r.ok)throw Error(r.status);
+        const d=await r.json(),files=Array.isArray(d.files)?d.files:[];
+        const used=Number(d.used)||0,total=Number(d.total)||0,pct=total?Math.min(100,used*100/total):0;
+        summary.textContent=files.length+" files • "+used.toLocaleString()+" / "+total.toLocaleString()+" bytes ("+pct.toFixed(1)+"%)";
+        body.innerHTML="";
+        if(!files.length){body.innerHTML='<div class="v2-empty">Filesystem is empty.</div>';return}
+        const table=document.createElement("table");table.className="v2-tool-table";table.innerHTML="<thead><tr><th>FILE</th><th>SIZE</th><th>ACTIONS</th></tr></thead>";
+        const tb=document.createElement("tbody");
+        files.forEach(f=>{
+          const tr=document.createElement("tr");const name=document.createElement("td");name.textContent=String(f.path);
+          const size=document.createElement("td");size.textContent=Number(f.size||0).toLocaleString()+" B";
+          const actions=document.createElement("td");actions.className="v2-file-actions";
+          const viewable=/\.(html?|css|js|json|txt|xml|svg)$/i.test(String(f.path));
+          if(viewable){const b=document.createElement("button");b.className="v2-button";b.textContent="VIEW";b.onclick=async()=>{try{const r=await fetch("/storage/view?path="+encodeURIComponent(f.path),{cache:"no-store"});if(!r.ok)throw Error(r.status);viewer.textContent=await r.text();viewer.hidden=false}catch(x){viewer.textContent="Unable to view file.";viewer.hidden=false}};actions.appendChild(b)}
+          const a=document.createElement("a");a.className="v2-button";a.href="/storage/download?path="+encodeURIComponent(f.path);a.textContent="DOWNLOAD";actions.appendChild(a);
+          const del=document.createElement("button");del.className="v2-button v2-danger-button";del.textContent="ERASE";del.onclick=async()=>{if(!confirm("Erase "+f.path+"? This cannot be undone."))return;try{const r=await fetch("/storage/delete",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"path="+encodeURIComponent(f.path),cache:"no-store"});if(!r.ok)throw Error(r.status);await load()}catch(x){summary.textContent="Erase failed"}};actions.appendChild(del);
+          tr.append(name,size,actions);tb.appendChild(tr);
+        });
+        table.appendChild(tb);body.appendChild(table);
+      }catch(x){summary.textContent="SPIFFS unavailable";body.innerHTML='<div class="v2-empty">Web storage could not be read.</div>'}
+    };
+    refreshButton.onclick=load;head.append(refreshButton,summary);e.append(head,body,viewer);load();return e;
+  });
+  registry.set("nvs-browser",(n)=>{
+    const e=common(document.createElement("section"),n);e.classList.add("v2-nvs-browser");
+    const head=document.createElement("div");head.className="v2-tool-head";
+    const filter=document.createElement("input");filter.className="v2-input";filter.placeholder="Filter namespace, key, type, value…";
+    const refreshButton=document.createElement("button");refreshButton.type="button";refreshButton.className="v2-button";refreshButton.textContent="REFRESH";
+    const status=document.createElement("span");status.className="v2-tool-status";status.textContent="Loading NVS…";
+    const body=document.createElement("div");body.className="v2-nvs-list";let entries=[];
+    const render=()=>{
+      const q=filter.value.trim().toLowerCase(),groups={};
+      entries.forEach(x=>{if(q&&!([x.namespace,x.key,x.type,x.value].join(" ").toLowerCase().includes(q)))return;(groups[x.namespace]||(groups[x.namespace]=[])).push(x)});
+      body.innerHTML="";const names=Object.keys(groups).sort();
+      if(!names.length){body.innerHTML='<div class="v2-empty">No matching NVS entries.</div>';return}
+      names.forEach(ns=>{const d=document.createElement("details");d.open=true;const s=document.createElement("summary");s.textContent=ns+" • "+groups[ns].length+" entr"+(groups[ns].length===1?"y":"ies");const table=document.createElement("table");table.className="v2-tool-table";table.innerHTML="<thead><tr><th>KEY</th><th>TYPE</th><th>VALUE</th></tr></thead>";const tb=document.createElement("tbody");groups[ns].forEach(x=>{const tr=document.createElement("tr");[x.key,x.type,x.value].forEach(v=>{const td=document.createElement("td");td.textContent=String(v??"");tr.appendChild(td)});tb.appendChild(tr)});table.appendChild(tb);d.append(s,table);body.appendChild(d)})};
+    const load=async()=>{status.textContent="Reading NVS…";try{const [a,b]=await Promise.all([fetch("/api/nvs",{cache:"no-store"}),fetch("/api/nvs/stats",{cache:"no-store"})]);if(!a.ok||!b.ok)throw Error("NVS");const d=await a.json(),s=await b.json();entries=Array.isArray(d.entries)?d.entries:[];status.textContent=(s.namespaceCount??0)+" namespaces • "+(s.usedEntries??0)+" used • "+(s.freeEntries??0)+" free";render()}catch(x){status.textContent="NVS unavailable";body.innerHTML='<div class="v2-empty">Configuration inspection could not be loaded.</div>'}};
+    filter.oninput=render;refreshButton.onclick=load;head.append(filter,refreshButton,status);e.append(head,body);load();return e;
+  });
+  registry.set("ota-monitor",(n)=>{
+    const e=common(document.createElement("section"),n);e.classList.add("v2-ota-monitor");
+    const head=document.createElement("div");head.className="v2-tool-head";
+    const button=document.createElement("button");button.type="button";button.className="v2-button";button.textContent="CHECK & INSTALL UPDATES";
+    const status=document.createElement("span");status.className="v2-tool-status";status.textContent="Ready";
+    const details=document.createElement("div");details.className="v2-ota-details";
+    const makeRow=(label)=>{const row=document.createElement("div");row.className="v2-ota-row";const title=document.createElement("strong");title.textContent=label;const track=document.createElement("div");track.className="v2-meter-track";const bar=document.createElement("div");bar.className="v2-meter-bar";track.appendChild(bar);const info=document.createElement("span");info.className="v2-tool-status";row.append(title,track,info);return {row,bar,info}};
+    const fw=makeRow("FIRMWARE"),web=makeRow("WEB UI");details.append(fw.row,web.row);e.append(head,details);
+    let timer=null;
+    const paint=d=>{
+      status.textContent=d.message||d.stage||"Updating";
+      const rows=[["firmware",fw],["web",web)];
+      rows.forEach(([name,row])=>{const active=d.component===name; if(active||d.stage==="complete"||d.stage==="rebooting")row.row.hidden=false});
+      if(d.component){const row=d.component==="web"?web:fw;const pct=d.total>0?Math.min(100,d.received*100/d.total):0;row.bar.style.width=pct+"%";row.info.textContent=d.total>0?Math.round(pct)+"% • "+Number(d.received||0).toLocaleString()+" / "+Number(d.total).toLocaleString()+" bytes":Number(d.received||0).toLocaleString()+" bytes"}};
+    const stop=()=>{if(timer){clearInterval(timer);timer=null}button.disabled=false};
+    const poll=async()=>{try{const r=await fetch("/system/update-status",{cache:"no-store"});if(!r.ok)throw Error(r.status);const d=await r.json();paint(d);if(["idle","complete","error"].includes(d.stage)){stop();if(d.stage==="rebooting"){button.disabled=true;}}}catch(x){status.textContent="Waiting for ESP32…"}};
+    button.onclick=async()=>{button.disabled=true;status.textContent="Starting OTA…";try{const r=await fetch("/system/update-latest",{method:"POST",cache:"no-store"});if(!r.ok)throw Error(r.status);await poll();if(!timer)timer=setInterval(poll,500)}catch(x){status.textContent="Update request failed";button.disabled=false}};
+    head.append(button,status);poll();return e;
+  });
+
   function renderNode(node){
     if(!node||typeof node!=="object")return document.createComment("invalid V2 node");
     const type=String(node.type||"container");
