@@ -107,6 +107,7 @@
   });
   actions.set("wifi.toggle",()=>post("/wifi/toggle"));
   actions.set("wifi.reconnect",()=>post("/wifi/reconnect"));
+  actions.set("wifi.scan",()=>post("/wifi/scan"));
   actions.set("diagnostics.toggle",()=>post("/diagnostics/toggle"));
   actions.set("system.reboot",()=>post("/system/reboot"));
   actions.set("ota.latest",()=>post("/system/update-latest"));
