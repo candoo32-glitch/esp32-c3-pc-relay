@@ -120,18 +120,44 @@ async function loadDomV2Extension(){
       }
       if(runtimeUrl){
         try{
-          await new Promise((resolve,reject)=>{
+          await new Promise(async (resolve,reject)=>{
             if(window.ESP32V2){resolve();return}
-            const script=document.createElement("script");
-            script.dataset.domV2="true";
-            script.async=false;
-            script.src=runtimeUrl+"?domV2CacheBust="+Date.now();
-            script.onload=()=>{
-              if(window.ESP32V2)resolve();
-              else reject(Error("DOM V2 runtime executed but did not create ESP32V2"));
-            };
-            script.onerror=()=>reject(Error("DOM V2 runtime script failed to load"));
-            document.head.appendChild(script);
+            let objectUrl="";
+            try{
+              const runtime=await fetchWithTimeout(runtimeUrl+"?domV2CacheBust="+Date.now(),{cache:"no-store"});
+              if(!runtime.ok)throw Error("DOM V2 runtime HTTP "+runtime.status);
+              const source=await runtime.text();
+              if(!source.trim())throw Error("DOM V2 runtime returned an empty response");
+
+              /*
+               * Load the fetched source through a Blob URL. This deliberately
+               * separates transport from execution: the ESP32 only has to
+               * deliver JavaScript text, while WebKit executes it as a normal
+               * external script. It also avoids relying on the ESP32 HTTP
+               * server's JavaScript MIME handling.
+               */
+              const blob=new Blob([source],{type:"text/javascript"});
+              objectUrl=URL.createObjectURL(blob);
+              const script=document.createElement("script");
+              script.dataset.domV2="true";
+              script.async=false;
+              script.src=objectUrl;
+              script.onload=()=>{
+                URL.revokeObjectURL(objectUrl);
+                objectUrl="";
+                if(window.ESP32V2)resolve();
+                else reject(Error("DOM V2 runtime executed but did not create ESP32V2"));
+              };
+              script.onerror=()=>{
+                if(objectUrl)URL.revokeObjectURL(objectUrl);
+                objectUrl="";
+                reject(Error("DOM V2 runtime fetched successfully but WebKit could not execute it"));
+              };
+              document.head.appendChild(script);
+            }catch(e){
+              if(objectUrl)URL.revokeObjectURL(objectUrl);
+              reject(e);
+            }
           });
           if(!window.ESP32V2?.init)throw Error("DOM V2 runtime loaded but did not initialize");
           if(!window.ESP32V2.init(v2Root))throw Error("DOM V2 runtime initialized without a root");
