@@ -66,7 +66,7 @@
   function evaluate(expr){
     if(expr==null)return true;
     if(typeof expr!=="string")return !!expr;
-    const m=expr.match(/^\\s*([^\\s]+)\\s*(===|!==|==|!=|>=|<=|>|<|contains)\\s*(.+?)\\s*$/);
+    const m=expr.match(/^\s*([^\s]+)\s*(===|!==|==|!=|>=|<=|>|<|contains)\s*(.+?)\s*$/);
     if(!m)return !!bindValue(expr);
     const left=bindValue(m[1]), raw=m[3].replace(/^["']|["']$/g,"");
     const right=isNaN(Number(raw))?raw:Number(raw);
@@ -152,7 +152,7 @@
 
   function resolveAsset(src){
     if(!src)return "";
-    if(/^https?:\\/\\//i.test(src)||src[0]==="/")return src;
+    if(/^https?:\/\//i.test(src)||src[0]==="/")return src;
     return "/dom/"+src.replace(/^\\.\\//,"");
   }
 
