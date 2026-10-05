@@ -1607,6 +1607,15 @@ void begin() {
   server.on("/dom/v2.html", HTTP_GET, []() {
     handleStaticAsset("/dom/v2.html", "text/html; charset=utf-8");
   });
+  server.on("/dom/v2-runtime.js", HTTP_GET, []() {
+    handleStaticAsset("/dom/v2-runtime.js", "application/javascript; charset=utf-8");
+  });
+  server.on("/dom/v2.css", HTTP_GET, []() {
+    handleStaticAsset("/dom/v2.css", "text/css; charset=utf-8");
+  });
+  server.on("/dom/example-dashboard.json", HTTP_GET, []() {
+    handleStaticAsset("/dom/example-dashboard.json", "application/json; charset=utf-8");
+  });
   server.on("/api/state", HTTP_GET, handlePageState);
   server.on("/api/nvs", HTTP_GET, handleNvsState);
   server.on("/api/nvs/stats", HTTP_GET, handleNvsStats);
