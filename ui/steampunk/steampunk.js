@@ -22,10 +22,10 @@
     m.className="sp-machinery";
     m.innerHTML='<div class="sp-tube left"></div><div class="sp-tube right"></div><div class="sp-gear g1"></div><div class="sp-gear g2"></div>';
     document.body.appendChild(m);
-    const p=document.createElement("div");
-    p.className="sp-plaque";
-    p.textContent="STEAM / AETHER / CONTROL";
-    document.body.appendChild(p);
+    const meta=document.createElement("div");
+    meta.className="sp-header-meta";
+    meta.innerHTML='<div class="sp-meta-build"><span>BUILD</span><b id="sp-header-build">—</b></div><div class="sp-meta-uptime"><span>UPTIME</span><b id="sp-header-uptime">—</b></div><div class="sp-meta-clock"><span id="sp-header-clock">—</span></div>';
+    document.body.appendChild(meta);
   }
 
   function labelNavigation(){
@@ -221,6 +221,10 @@
     if(nip)nip.textContent=$("#net-live-ip")?.textContent||"—";
     if(ng)ng.textContent=$("#net-live-gateway")?.textContent||"—";
     if(nd)nd.textContent=$("#net-live-dns1")?.textContent||"—";
+    const hb=$("sp-header-build"),hu=$("sp-header-uptime"),hc=$("sp-header-clock");
+    if(hb)hb.textContent=$("#dash-build")?.textContent||"—";
+    if(hu)hu.textContent=$("#dash-uptime")?.textContent||"—";
+    if(hc)hc.textContent=new Date().toLocaleString(undefined,{month:"short",day:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"}).toUpperCase();
     const di=$("sp-dash-relay0"),d2=$("sp-dash-relay1");
     [di,d2].forEach((el,i)=>{
       if(!el)return;
