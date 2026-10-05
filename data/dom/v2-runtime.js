@@ -274,6 +274,7 @@
       e.appendChild(opt);
     });
     if(n.bind!=null)e.value=String(bindValue(n.bind)??"");
+    if(n.submitOnChange)e.addEventListener("change",async()=>{const form=e.closest("form");if(!form)return;try{await submitForm(String(bindValue(form.dataset.v2Action||"")),form)}catch(err){form.dataset.v2Error="true"}});
     return e;
   });
   registry.set("textarea",(n)=>{
