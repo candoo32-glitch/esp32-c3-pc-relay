@@ -1244,12 +1244,8 @@
                         "value": "20",
                         "label": "Original"
                       }
-                    ]
-                  },
-                  {
-                    "type": "button",
-                    "text": "Apply color theme",
-                    "submit": true
+                    ],
+                    "submitOnChange": true
                   }
                 ]
               }
@@ -1302,7 +1298,7 @@
                     "children": [
                       {
                         "type": "input",
-                        "name": "web",
+                        "name": "web-filesystem",
                         "inputType": "file",
                         "required": true
                       }
