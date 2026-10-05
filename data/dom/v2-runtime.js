@@ -82,6 +82,16 @@
     }
   }
 
+  async function submitForm(url,form){
+    const fields=new FormData(form);
+    const hasFile=[...form.querySelectorAll("input[type=file]")].some(e=>e.files&&e.files.length);
+    const body=hasFile?fields:new URLSearchParams(fields);
+    const headers=hasFile?{}:{"Content-Type":"application/x-www-form-urlencoded"};
+    const r=await fetch(url,{method:"POST",headers,body,cache:"no-store"});
+    if(!r.ok)throw Error("V2 form HTTP "+r.status);
+    return r;
+  }
+
   async function post(url,body){
     const encoded=typeof body==="string"?body:new URLSearchParams(body||{}).toString();
     const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:encoded,cache:"no-store"});
@@ -102,6 +112,7 @@
   actions.set("ota.latest",()=>post("/system/update-latest"));
   actions.set("ui.select",({id})=>post("/system/ui-selection",{ui:id}));
   actions.set("theme.select",({id})=>post("/system/theme",{theme:id}));
+  actions.set("form.submit",({url,form})=>submitForm(url,form));
 
   async function dispatch(name,args){
     const fn=actions.get(String(name||""));
@@ -114,9 +125,18 @@
   function notify(){for(const fn of [...state.listeners]){try{fn(state.data)}catch(e){console.warn("V2 listener:",e)}}}
   async function refresh(){
     try{
-      const r=await fetch("/api/state",{cache:"no-store"});
-      if(!r.ok)throw Error(r.status);
-      state.data=await r.json();
+      const [stateResponse,diagnosticsResponse]=await Promise.all([
+        fetch("/api/state",{cache:"no-store"}),
+        fetch("/api/diagnostics",{cache:"no-store"})
+      ]);
+      if(!stateResponse.ok)throw Error(stateResponse.status);
+      state.data=await stateResponse.json();
+      if(diagnosticsResponse.ok){
+        try{
+          const diagnostics=await diagnosticsResponse.json();
+          state.data.diagnosticsLog=Array.isArray(diagnostics?.lines)?diagnostics.lines:[];
+        }catch(e){}
+      }
       state.online=true;
       notify();
       return state.data;
@@ -219,6 +239,75 @@
     e.textContent=format(bindValue(n.bind??n.value??n.text),n.format);
     return e;
   });
+  registry.set("input",(n)=>{
+    const e=common(document.createElement("input"),n);
+    e.classList.add("v2-input");
+    e.type=String(n.inputType||n.type||"text");
+    if(n.name)e.name=String(n.name);
+    if(n.placeholder)e.placeholder=String(bindValue(n.placeholder));
+    if(n.maxLength)e.maxLength=Number(n.maxLength);
+    if(n.min!=null)e.min=String(n.min);
+    if(n.max!=null)e.max=String(n.max);
+    if(n.step!=null)e.step=String(n.step);
+    if(n.required)e.required=true;
+    if(n.bind!=null){
+      const value=bindValue(n.bind);
+      if(value!=null)e.value=String(value);
+    }else if(n.value!=null)e.value=String(bindValue(n.value));
+    return e;
+  });
+  registry.set("select",(n)=>{
+    const e=common(document.createElement("select"),n);
+    e.classList.add("v2-select");
+    if(n.name)e.name=String(n.name);
+    (n.options||[]).forEach(o=>{
+      const opt=document.createElement("option");
+      if(typeof o==="string"){opt.value=o;opt.textContent=o}
+      else{opt.value=String(o.value??"");opt.textContent=String(o.label??o.value??"")}
+      e.appendChild(opt);
+    });
+    if(n.bind!=null)e.value=String(bindValue(n.bind)??"");
+    return e;
+  });
+  registry.set("textarea",(n)=>{
+    const e=common(document.createElement("textarea"),n);
+    e.classList.add("v2-textarea");
+    if(n.name)e.name=String(n.name);
+    if(n.rows)e.rows=Number(n.rows);
+    if(n.placeholder)e.placeholder=String(bindValue(n.placeholder));
+    if(n.bind!=null)e.value=String(bindValue(n.bind)??"");
+    else if(n.value!=null)e.value=String(bindValue(n.value)??"");
+    return e;
+  });
+  registry.set("link",(n)=>{
+    const e=common(document.createElement("a"),n);
+    e.classList.add("v2-link");
+    e.href=String(bindValue(n.href||"#"));
+    if(n.target)e.target=String(n.target);
+    e.textContent=String(bindValue(n.text||n.label||n.href||"Link"));
+    return e;
+  });
+  registry.set("form",(n)=>{
+    const e=common(document.createElement("form"),n);
+    e.classList.add("v2-form");
+    children(e,n);
+    e.addEventListener("submit",async ev=>{
+      ev.preventDefault();
+      const submitter=ev.submitter;
+      if(submitter)submitter.setAttribute("aria-busy","true");
+      try{
+        await submitForm(String(bindValue(n.action||"")),e);
+        await refresh();
+      }catch(err){
+        console.warn("V2 form failed:",err);
+        e.dataset.v2Error="true";
+      }finally{
+        if(submitter)submitter.removeAttribute("aria-busy");
+      }
+    });
+    return e;
+  });
+
   registry.set("value",(n)=>{
     const e=common(document.createElement("div"),n);
     e.classList.add("v2-value");
@@ -235,7 +324,7 @@
     return e;
   });
   registry.set("button",(n)=>{
-    const e=common(document.createElement("button"),n);e.type="button";e.classList.add("v2-button");
+    const e=common(document.createElement("button"),n);e.type=n.submit?"submit":"button";e.classList.add("v2-button");
     e.textContent=String(bindValue(n.text??n.label??"Action"));
     if(n.action)e.addEventListener("click",()=>actionFromNode(e,n.action));
     return e;
