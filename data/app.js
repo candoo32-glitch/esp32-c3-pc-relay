@@ -120,22 +120,22 @@ async function loadDomV2Extension(){
       }
       if(runtimeUrl){
         try{
-          await new Promise((resolve,reject)=>{
-            if(window.ESP32V2){resolve();return}
+          if(!window.ESP32V2){
+            const runtime=await fetchWithTimeout(runtimeUrl+"?domV2CacheBust="+Date.now(),{cache:"no-store"});
+            if(!runtime.ok)throw Error("DOM V2 runtime HTTP "+runtime.status);
+            const source=await runtime.text();
+            if(!source.trim())throw Error("DOM V2 runtime returned an empty response");
             const script=document.createElement("script");
             script.dataset.domV2="true";
-            script.async=false;
-            script.src=runtimeUrl+"?domV2CacheBust="+Date.now();
-            script.onload=()=>{
-              if(window.ESP32V2?.init)resolve();
-              else reject(Error("DOM V2 runtime loaded but did not initialize"));
-            };
-            script.onerror=()=>reject(Error("DOM V2 runtime could not be loaded"));
+            script.textContent=source;
             document.head.appendChild(script);
-          });
-          if(!window.ESP32V2?.init)throw Error("DOM V2 runtime unavailable after load");
+          }
+          if(!window.ESP32V2?.init)throw Error("DOM V2 runtime loaded but did not initialize");
           if(!window.ESP32V2.init(v2Root))throw Error("DOM V2 runtime initialized without a root");
-        }catch(e){console.warn("Optional DOM V2 runtime unavailable:",e)}
+        }catch(e){
+          window.__ESP32V2_LOAD_ERROR=e;
+          console.warn("Optional DOM V2 runtime unavailable:",e);
+        }
       }
     }
     document.documentElement.dataset.domV2="active";
@@ -253,7 +253,11 @@ async function activateUi(uiId){
     if(String(manifest?.id||"")!==id)throw Error("UI manifest ID mismatch");
 
     if(String(manifest?.engine||"") === "dom-v2"){
-      if(!window.ESP32V2)throw Error("DOM V2 runtime unavailable");
+      stage="DOM V2 runtime check";
+      if(!window.ESP32V2){
+        const detail=window.__ESP32V2_LOAD_ERROR?.message||"DOM V2 runtime unavailable";
+        throw Error(detail);
+      }
       await activateDomV2Theme(id,manifest);
       activeExternalUi=id;
       document.documentElement.dataset.externalUi="v2";
