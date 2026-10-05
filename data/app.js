@@ -28,12 +28,20 @@ function showUiLoadError(uiId,stage,error,elapsedMs){
   e.dataset.uiError=String(uiId||"");
 }
 
+function setV1UiVisible(visible){
+  for(const element of document.body.children){
+    if(element.id==="dom-v2-root" || element.tagName==="SCRIPT")continue;
+    element.hidden=!visible;
+  }
+}
+
 async function activateDomV2Theme(uiId,manifest){
   const started=performance.now();
   let stage="DOM V2 activation";
   /*
-   * DOM V2 themes are additive overlays. They NEVER remove or replace V1.
-   * A failed V2 theme load leaves the existing V1 UI untouched.
+   * DOM V2 is a complete presentation layer when selected. The protected
+   * V1/built-in DOM remains in the document so switching back is immediate,
+   * but it is hidden while V2 is active.
    */
   const v2Root=$("dom-v2-root");
   if(!v2Root)throw Error("DOM V2 root unavailable");
@@ -63,12 +71,14 @@ async function activateDomV2Theme(uiId,manifest){
     }
 
     document.documentElement.dataset.v2Theme=String(uiId);
+    setV1UiVisible(false);
     return true;
   }catch(e){
     if(pendingStyle)pendingStyle.remove();
     v2Root.hidden=true;
     v2Root.removeAttribute("data-v2-theme");
     document.documentElement.removeAttribute("data-v2-theme");
+    setV1UiVisible(true);
     e.uiStage=stage;
     e.uiElapsedMs=performance.now()-started;
     throw e;
@@ -76,6 +86,7 @@ async function activateDomV2Theme(uiId,manifest){
 }
 
 function disableDomV2Theme(){
+  setV1UiVisible(true);
   document.querySelectorAll("[data-v2-theme],[data-v2-theme-pending]").forEach(e=>e.remove());
   const v2Root=$("dom-v2-root");
   if(v2Root){
