@@ -891,6 +891,10 @@ async function bootstrapPage(){
   // The built-in UI is the guaranteed local fallback. Render it first;
   // GitHub-hosted themes are strictly a background enhancement.
   await load(false);
+
+  // Optional DOM v2 extension: V1 is already rendered and remains authoritative.
+  await loadDomV2Extension();
+
   uiInitialLoad=false;
   document.documentElement.classList.remove("ui-boot-pending");
 
