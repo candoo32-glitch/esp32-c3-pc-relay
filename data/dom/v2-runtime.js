@@ -130,6 +130,14 @@
   }
 
   function notify(){for(const fn of [...state.listeners]){try{fn(state.data)}catch(e){console.warn("V2 listener:",e)}}}
+  function watch(el,paint){
+    const listener=()=>{
+      if(!el.isConnected){state.listeners.delete(listener);return;}
+      try{paint()}catch(e){console.warn("V2 live binding:",e)}
+    };
+    state.listeners.add(listener);paint();
+    return ()=>state.listeners.delete(listener);
+  }
   async function refresh(){
     try{
       const [stateResponse,diagnosticsResponse]=await Promise.all([
@@ -257,6 +265,10 @@
     if(n.max!=null)e.max=String(n.max);
     if(n.step!=null)e.step=String(n.step);
     if(n.required)e.required=true;
+    if(n.pattern)e.pattern=String(n.pattern);
+    if(n.autocomplete)e.autocomplete=String(n.autocomplete);
+    if(n.accept)e.accept=String(n.accept);
+    if(n.disabled)e.disabled=true;
     if(n.bind!=null){
       const value=bindValue(n.bind);
       if(value!=null)e.value=String(value);
@@ -318,19 +330,16 @@
   });
 
   registry.set("value",(n)=>{
-    const e=common(document.createElement("div"),n);
-    e.classList.add("v2-value");
+    const e=common(document.createElement("div"),n);e.classList.add("v2-value");
     if(n.label){const l=document.createElement("span");l.className="v2-label";l.textContent=String(bindValue(n.label));e.appendChild(l)}
-    const v=document.createElement("span");v.className="v2-value-number";v.textContent=format(bindValue(n.bind),n.format);e.appendChild(v);
-    return e;
+    const v=document.createElement("span");v.className="v2-value-number";e.appendChild(v);
+    watch(e,()=>{v.textContent=format(bindValue(n.bind??n.value),n.format)});return e;
   });
   registry.set("status",(n)=>{
     const e=common(document.createElement("div"),n);e.classList.add("v2-status");
-    const value=bindValue(n.bind);
-    e.dataset.state=String(n.map&&n.map[String(value)]||value||"unknown").toLowerCase();
     if(n.label){const l=document.createElement("span");l.className="v2-label";l.textContent=String(bindValue(n.label));e.appendChild(l)}
-    const v=document.createElement("strong");v.textContent=n.map&&n.map[String(value)]!=null?n.map[String(value)]:format(value,n.format);e.appendChild(v);
-    return e;
+    const v=document.createElement("strong");e.appendChild(v);
+    watch(e,()=>{const value=bindValue(n.bind);e.dataset.state=String(n.map&&n.map[String(value)]||value||"unknown").toLowerCase();v.textContent=n.map&&n.map[String(value)]!=null?n.map[String(value)]:format(value,n.format)});return e;
   });
   registry.set("button",(n)=>{
     const e=common(document.createElement("button"),n);e.type=n.submit?"submit":"button";e.classList.add("v2-button");
@@ -345,32 +354,24 @@
     return e;
   });
   registry.set("relay",(n)=>{
-    const id=Number(n.relay??n.id??0),relay=get(state.data,"relays."+id,{});
-    const e=common(document.createElement("div"),n);e.classList.add("v2-relay");
-    const title=document.createElement("div");title.className="v2-relay-title";title.textContent=String(relay.name||n.label||("Relay "+(id+1)));
-    const stateEl=document.createElement("strong");stateEl.className="v2-relay-state";stateEl.textContent=relay.state?"ON":"OFF";stateEl.dataset.state=relay.state?"on":"off";
-    const b=document.createElement("button");b.type="button";b.className="v2-button";b.textContent=relay.state?"Deactivate":"Activate";
-    b.onclick=()=>actionFromNode(b,{action:"relay.toggle",args:{id}});
+    const id=Number(n.relay??n.id??0),e=common(document.createElement("div"),n);e.classList.add("v2-relay");
+    const title=document.createElement("div");title.className="v2-relay-title";
+    const stateEl=document.createElement("strong");stateEl.className="v2-relay-state";
+    const b=document.createElement("button");b.type="button";b.className="v2-button";b.onclick=()=>actionFromNode(b,{action:"relay.toggle",args:{id}});
     e.append(title,stateEl,b);
+    watch(e,()=>{const relay=get(state.data,"relays."+id,{});title.textContent=String(relay.name||n.label||("Relay "+(id+1)));stateEl.textContent=relay.state?"ON":"OFF";stateEl.dataset.state=relay.state?"on":"off";b.textContent=relay.state?"Deactivate":"Activate"});
     return e;
   });
   registry.set("gauge",(n)=>{
     const e=common(document.createElement("div"),n);e.classList.add("v2-gauge");
-    const value=Number(bindValue(n.bind))||0,min=Number(n.min??0),max=Number(n.max??100);
-    const pct=Math.max(0,Math.min(100,(value-min)*100/(max-min||1)));
-    const ring=document.createElement("div");ring.className="v2-gauge-ring";ring.style.setProperty("--v2-gauge-pct",pct+"%");
-    const val=document.createElement("strong");val.textContent=format(value,n.format||"number");
-    const label=document.createElement("span");label.className="v2-label";label.textContent=String(bindValue(n.label||""));
-    ring.append(val,label);e.appendChild(ring);return e;
+    const ring=document.createElement("div");ring.className="v2-gauge-ring";
+    const val=document.createElement("strong");const label=document.createElement("span");label.className="v2-label";label.textContent=String(bindValue(n.label||""));ring.append(val,label);e.appendChild(ring);
+    watch(e,()=>{const value=Number(bindValue(n.bind))||0,min=Number(n.min??0),max=Number(n.max??100);const pct=Math.max(0,Math.min(100,(value-min)*100/(max-min||1)));ring.style.setProperty("--v2-gauge-pct",pct+"%");val.textContent=format(value,n.format||"number")});return e;
   });
   registry.set("meter",(n)=>{
     const e=common(document.createElement("div"),n);e.classList.add("v2-meter");
-    const value=Number(bindValue(n.bind))||0,min=Number(n.min??0),max=Number(n.max??100);
-    const pct=Math.max(0,Math.min(100,(value-min)*100/(max-min||1)));
-    const label=document.createElement("div");label.className="v2-meter-label";label.textContent=String(bindValue(n.label||""));
-    const track=document.createElement("div");track.className="v2-meter-track";
-    const bar=document.createElement("div");bar.className="v2-meter-bar";bar.style.width=pct+"%";track.appendChild(bar);
-    e.append(label,track);return e;
+    const label=document.createElement("div");label.className="v2-meter-label";label.textContent=String(bindValue(n.label||""));const track=document.createElement("div");track.className="v2-meter-track";const bar=document.createElement("div");bar.className="v2-meter-bar";track.appendChild(bar);e.append(label,track);
+    watch(e,()=>{const value=Number(bindValue(n.bind))||0,min=Number(n.min??0),max=Number(n.max??100);bar.style.width=Math.max(0,Math.min(100,(value-min)*100/(max-min||1)))+"%"});return e;
   });
   registry.set("progress",(n)=>{
     const e=common(document.createElement("div"),n);e.classList.add("v2-progress");
@@ -383,8 +384,7 @@
   });
   registry.set("log",(n)=>{
     const e=common(document.createElement("pre"),n);e.classList.add("v2-log");
-    const lines=bindValue(n.bind);e.textContent=Array.isArray(lines)?lines.join("\\n"):String(lines??"");
-    return e;
+    watch(e,()=>{const lines=bindValue(n.bind);e.textContent=Array.isArray(lines)?lines.join("\\n"):String(lines??"")});return e;
   });
   registry.set("image",(n)=>{
     const e=common(document.createElement("img"),n);e.classList.add("v2-image");e.src=resolveAsset(String(bindValue(n.src)||""));e.alt=String(bindValue(n.alt||""));return e;
@@ -407,69 +407,33 @@
   });
   registry.set("secret",(n)=>{
     const e=common(document.createElement("div"),n);e.classList.add("v2-secret");
-    const input=document.createElement("input");input.className="v2-input";input.type="password";
-    input.autocomplete="new-password";
-    if(n.name)input.name=String(n.name);
-    if(n.placeholder)input.placeholder=String(bindValue(n.placeholder));
-    if(n.maxLength)input.maxLength=Number(n.maxLength);
-    if(n.required)input.required=true;
-    const button=document.createElement("button");button.type="button";button.className="v2-button v2-secret-toggle";
-    button.textContent="SHOW";
-    button.onclick=()=>{const shown=input.type==="text";input.type=shown?"password":"text";button.textContent=shown?"SHOW":"HIDE"};
-    e.append(input,button);return e;
+    const input=document.createElement("input");input.className="v2-input";input.type="password";input.autocomplete="off";
+    if(n.name)input.name=String(n.name);if(n.maxLength)input.maxLength=Number(n.maxLength);if(n.required)input.required=true;if(n.placeholder)input.placeholder=String(bindValue(n.placeholder));
+    const button=document.createElement("button");button.type="button";button.className="v2-button v2-secret-toggle";button.textContent="Show password";button.disabled=false;
+    const saved=()=>n.savedBind?!!bindValue(n.savedBind):false;
+    const reset=()=>{if(saved()&&!input.dataset.dirty){input.value="********";button.disabled=true}else if(!input.dataset.dirty){input.value="";button.disabled=false}input.type="password";button.textContent="Show password"};
+    input.addEventListener("input",()=>{input.dataset.dirty="true";button.disabled=!input.value;});
+    input.addEventListener("focus",()=>{if(input.value==="********"){input.value="";input.dataset.dirty="true";button.disabled=true}});
+    button.onclick=()=>{const shown=input.type==="text";input.type=shown?"password":"text";button.textContent=shown?"Show password":"Hide password"};
+    e.append(input,button);reset();return e;
   });
   registry.set("relay-detail",(n)=>{
-    const id=Number(n.relay??0),relay=get(state.data,"relays["+id+"]",{});
-    const e=common(document.createElement("section"),n);e.classList.add("v2-relay-detail");
-    const title=document.createElement("div");title.className="v2-relay-detail-title";title.textContent=String(relay.name||n.label||("Relay "+(id+1)));
-    const grid=document.createElement("div");grid.className="v2-relay-detail-grid";
-    const rows=[
-      ["GPIO",n.gpio??relay.gpio??"-"],
-      ["CONTACT",relay.state?"ACTIVE":"NORMAL"],
-      ["NORMAL STATE",relay.normal??"-"],
-      ["MODE",relay.mode??"-"],
-      ["PULSE",relay.mode==="PULSE"||relay.mode==="pulse"?(String(relay.pulse??"-")+" ms"):"—"]
-    ];
-    rows.forEach(([k,v])=>{const a=document.createElement("span");a.className="v2-label";a.textContent=k;const b=document.createElement("strong");b.textContent=String(v);const row=document.createElement("div");row.append(a,b);grid.appendChild(row)});
-    e.append(title,grid);return e;
+    const id=Number(n.relay??0),e=common(document.createElement("section"),n);e.classList.add("v2-relay-detail");
+    const title=document.createElement("div");title.className="v2-relay-detail-title";const grid=document.createElement("div");grid.className="v2-relay-detail-grid";e.append(title,grid);
+    watch(e,()=>{const relay=get(state.data,"relays["+id+"]",{});title.textContent=String(relay.name||n.label||("Relay "+(id+1)));grid.innerHTML="";[["GPIO",n.gpio??relay.gpio??"-"],["CONTACT",relay.state?"ACTIVE":"NORMAL"],["NORMAL STATE",relay.normal??"-"],["MODE",relay.mode??"-"],["PULSE",relay.mode==="PULSE"||relay.mode==="pulse"?(String(relay.pulse??"-")+" ms"):"—"]].forEach(([k,v])=>{const row=document.createElement("div"),a=document.createElement("span"),b=document.createElement("strong");a.className="v2-label";a.textContent=k;b.textContent=String(v);row.append(a,b);grid.appendChild(row)})});return e;
   });
   registry.set("relay-dock",(n)=>{
     const e=common(document.createElement("aside"),n);e.classList.add("v2-relay-dock");e.setAttribute("aria-label","Relay controls");
-    [0,1].forEach(id=>{
-      const relay=get(state.data,"relays["+id+"]",{});
-      const b=document.createElement("button");b.type="button";b.className="v2-relay-dock-button";
-      b.dataset.state=relay.state?"on":"off";
-      b.textContent=String(relay.name||("Relay "+(id+1)));
-      const dot=document.createElement("span");dot.className="v2-relay-dock-dot";b.prepend(dot);
-      b.onclick=()=>actionFromNode(b,{action:"relay.toggle",args:{id}});
-      e.appendChild(b);
-    });
-    state.listeners.add(()=>{e.querySelectorAll(".v2-relay-dock-button").forEach((b,i)=>{const r=get(state.data,"relays["+i+"]",{});b.dataset.state=r.state?"on":"off";b.lastChild.textContent=String(r.name||("Relay "+(i+1)))})});
-    return e;
+    const buttons=[0,1].map(id=>{const b=document.createElement("button");b.type="button";b.className="v2-relay-dock-button";const dot=document.createElement("span");dot.className="v2-relay-dock-dot";b.prepend(dot);b.onclick=()=>actionFromNode(b,{action:"relay.toggle",args:{id}});e.appendChild(b);return b});
+    watch(e,()=>buttons.forEach((b,id)=>{const r=get(state.data,"relays["+id+"]",{});b.dataset.state=r.state?"on":"off";b.lastChild.textContent=String(r.name||("Relay "+(id+1)))}));return e;
   });
   registry.set("wifi-scanner",(n)=>{
     const e=common(document.createElement("section"),n);e.classList.add("v2-wifi-scanner");
-    const head=document.createElement("div");head.className="v2-tool-head";
-    const status=document.createElement("span");status.className="v2-tool-status";status.textContent="Ready";
-    const button=document.createElement("button");button.type="button";button.className="v2-button";button.textContent="SCAN NOW";
-    const list=document.createElement("div");list.className="v2-scan-results";
-    const render=d=>{
-      const networks=Array.isArray(d?.networks)?d.networks:[];
-      list.innerHTML="";
-      if(!networks.length){list.innerHTML='<div class="v2-empty">No networks found.</div>';return}
-      const table=document.createElement("table");table.className="v2-tool-table";
-      table.innerHTML="<thead><tr><th>SSID</th><th>RSSI</th><th>CH</th><th>SECURITY</th><th>BSSID</th></tr></thead>";
-      const body=document.createElement("tbody");
-      networks.forEach(x=>{const tr=document.createElement("tr");[x.ssid||"(hidden)",String(x.rssi??"—")+" dBm",x.channel??"—",x.security??"—",x.bssid??"—"].forEach(v=>{const td=document.createElement("td");td.textContent=String(v);tr.appendChild(td)});tr.onclick=()=>{const input=e.querySelector("input[data-v2-scan-ssid]");if(input)input.value=String(x.ssid||"");};body.appendChild(tr)});
-      table.appendChild(body);list.appendChild(table);
-      const note=document.createElement("div");note.className="v2-tool-status";note.textContent=networks.length+" access point"+(networks.length===1?"":"s")+" found";list.appendChild(note);
-    };
-    button.onclick=async()=>{
-      button.disabled=true;status.textContent="Scanning…";
-      try{const r=await fetch("/wifi/scan",{method:"POST",cache:"no-store"});if(!r.ok)throw Error(r.status);render(await r.json());status.textContent="Scan complete"}catch(err){status.textContent="Scan failed";list.innerHTML='<div class="v2-empty">Wi-Fi scan failed.</div>'}finally{button.disabled=false}
-    };
-    const input=document.createElement("input");input.className="v2-input";input.placeholder="Selected SSID";input.dataset.v2ScanSsid="true";if(n.name)input.name=String(n.name);
-    head.append(button,status);e.append(head,input,list);return e;
+    const head=document.createElement("div");head.className="v2-tool-head";const status=document.createElement("span");status.className="v2-tool-status";status.textContent="Ready";const button=document.createElement("button");button.type="button";button.className="v2-button";button.textContent="Scan now";const list=document.createElement("div");list.className="v2-scan-results";
+    const target=()=>e.closest("form")?.elements?.namedItem(String(n.target||"ssid"));
+    const render=d=>{const networks=Array.isArray(d?.networks)?d.networks:[];list.innerHTML="";if(!networks.length){list.innerHTML='<div class="v2-empty">No networks found. Scan to discover nearby access points.</div>';return}const table=document.createElement("table");table.className="v2-tool-table";table.innerHTML="<thead><tr><th>SSID</th><th>RSSI</th><th>CH</th><th>SECURITY</th><th>BSSID</th></tr></thead>";const body=document.createElement("tbody");networks.forEach(x=>{const tr=document.createElement("tr");[x.ssid||"(hidden)",(x.rssi??"—")+" dBm",x.channel??"—",x.security??"—",x.bssid??"—"].forEach(v=>{const td=document.createElement("td");td.textContent=String(v);tr.appendChild(td)});tr.onclick=()=>{const input=target();if(input&&x.ssid){input.value=String(x.ssid);input.dispatchEvent(new Event("input",{bubbles:true}));status.textContent="Selected "+x.ssid}};body.appendChild(tr)});table.appendChild(body);list.appendChild(table);status.textContent=networks.length+" access point"+(networks.length===1?"":"s")+" found"};
+    button.onclick=async()=>{button.disabled=true;status.textContent="Scanning…";try{const r=await fetch("/wifi/scan",{method:"POST",cache:"no-store"});if(!r.ok)throw Error(r.status);render(await r.json())}catch(err){status.textContent="Scan failed";list.innerHTML='<div class="v2-empty">Wi-Fi scan failed.</div>'}finally{button.disabled=false}};
+    head.append(button,status);e.append(head,list);return e;
   });
   registry.set("file-browser",(n)=>{
     const e=common(document.createElement("section"),n);e.classList.add("v2-file-browser");
@@ -496,7 +460,7 @@
           const viewable=/\.(html?|css|js|json|txt|xml|svg)$/i.test(String(f.path));
           if(viewable){const b=document.createElement("button");b.className="v2-button";b.textContent="VIEW";b.onclick=async()=>{try{const r=await fetch("/storage/view?path="+encodeURIComponent(f.path),{cache:"no-store"});if(!r.ok)throw Error(r.status);viewer.textContent=await r.text();viewer.hidden=false}catch(x){viewer.textContent="Unable to view file.";viewer.hidden=false}};actions.appendChild(b)}
           const a=document.createElement("a");a.className="v2-button";a.href="/storage/download?path="+encodeURIComponent(f.path);a.textContent="DOWNLOAD";actions.appendChild(a);
-          const del=document.createElement("button");del.className="v2-button v2-danger-button";del.textContent="ERASE";del.onclick=async()=>{if(!confirm("Erase "+f.path+"? This cannot be undone."))return;try{const r=await fetch("/storage/delete",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"path="+encodeURIComponent(f.path),cache:"no-store"});if(!r.ok)throw Error(r.status);await load()}catch(x){summary.textContent="Erase failed"}};actions.appendChild(del);
+          const del=document.createElement("button");del.className="v2-button v2-danger-button";del.textContent="ERASE";del.onclick=async()=>{const core=/^\/(index\.html|style\.css|app\.js)$/i.test(String(f.path));const warning=core?"\\n\\nThis is a core Web UI file. Erasing it can make the normal UI unusable. Recovery Updater remains available.":"";if(!confirm("Erase "+f.path+"? This cannot be undone."+warning))return;try{const r=await fetch("/storage/delete",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"path="+encodeURIComponent(f.path),cache:"no-store"});if(!r.ok)throw Error(r.status);await load()}catch(x){summary.textContent="Erase failed"}};actions.appendChild(del);
           tr.append(name,size,actions);tb.appendChild(tr);
         });
         table.appendChild(tb);body.appendChild(table);
