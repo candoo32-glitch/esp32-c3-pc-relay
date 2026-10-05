@@ -30,3 +30,10 @@ body>h1,body>body>.muted{display:none!important}
 input,select,textarea{color:#ead6aa!important;background:#120b07!important;border:2px solid #70481e!important;border-radius:4px!important;min-height:34px!important}.card{background:transparent!important}.sp-system-panel{margin:0 0 12px!important}
 button{cursor:pointer}
 @media(max-width:900px){body{padding:0 8px 40px!important}.sp-header{margin-right:0;padding-left:80px}.sp-build{display:none}.sp-dashboard{grid-template-columns:1fr}.sp-gauges{display:grid;grid-template-columns:repeat(3,1fr)}.sp-gauge{width:145px;height:145px}.sp-side{display:grid;grid-template-columns:1fr 1fr}.sp-relays,.sp-instrument-grid,.sp-network-bay{grid-template-columns:1fr}.tabs{overflow-x:auto}.tabs a{min-width:90px}.sp-title h1{font-size:27px}.sp-title h2{font-size:15px}.sp-top-tubes{display:none}}
+
+.sp-backend-data{display:none!important}
+.sp-backend-form{position:relative!important}
+.sp-clock{margin-top:5px;padding-top:4px;border-top:1px solid #60401f;color:#c99d54;font:700 9px "Courier New",monospace;letter-spacing:.06em}
+.sp-header .sp-build{display:block}
+.sp-address-mode{display:flex;align-items:center;gap:12px;margin-bottom:10px;color:#a67a45;font-size:10px;letter-spacing:.12em}
+.sp-address-mode button{margin:0!important;min-width:125px}
