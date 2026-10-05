@@ -21,6 +21,9 @@
         "gap": "12px",
         "children": [
           {
+            "type": "relay-dock"
+          },
+          {
             "type": "panel",
             "label": "SYSTEM",
             "children": [
@@ -82,6 +85,16 @@
                 "type": "value",
                 "label": "Channel",
                 "bind": "wifi.channel"
+              },
+              {
+                "type": "value",
+                "label": "BSSID",
+                "bind": "wifi.bssid"
+              },
+              {
+                "type": "value",
+                "label": "TX power",
+                "bind": "wifi.tx"
               }
             ]
           },
@@ -148,6 +161,11 @@
                 "type": "value",
                 "label": "DNS 2",
                 "bind": "network.dns2"
+              },
+              {
+                "type": "value",
+                "label": "Authentication",
+                "bind": "network.auth"
               }
             ]
           },
@@ -177,6 +195,22 @@
                 }
               }
             ]
+          },
+          {
+            "type": "panel",
+            "label": "RELAY TELEMETRY",
+            "children": [
+              {
+                "type": "relay-detail",
+                "relay": 0,
+                "gpio": 5
+              },
+              {
+                "type": "relay-detail",
+                "relay": 1,
+                "gpio": 6
+              }
+            ]
           }
         ]
       }
@@ -189,6 +223,9 @@
         "columns": "repeat(2,minmax(0,1fr))",
         "gap": "12px",
         "children": [
+          {
+            "type": "relay-dock"
+          },
           {
             "type": "panel",
             "label": "CONNECTION",
@@ -264,19 +301,26 @@
                 "action": "/wifi/save",
                 "children": [
                   {
-                    "type": "input",
-                    "name": "ssid",
-                    "bind": "wifi.savedSsid",
-                    "placeholder": "Network name",
-                    "required": true,
-                    "maxLength": 32
+                    "type": "field",
+                    "label": "NETWORK / SSID",
+                    "children": [
+                      {
+                        "type": "wifi-scanner",
+                        "name": "ssid"
+                      }
+                    ]
                   },
                   {
-                    "type": "input",
-                    "name": "password",
-                    "inputType": "password",
-                    "placeholder": "Leave blank for open network",
-                    "maxLength": 63
+                    "type": "field",
+                    "label": "PASSWORD",
+                    "children": [
+                      {
+                        "type": "secret",
+                        "name": "password",
+                        "placeholder": "Leave blank for open network",
+                        "maxLength": 63
+                      }
+                    ]
                   },
                   {
                     "type": "button",
@@ -296,20 +340,12 @@
             "label": "DISCOVERY",
             "children": [
               {
-                "type": "button",
-                "text": "Scan Wi-Fi",
-                "action": {
-                  "action": "wifi.scan"
-                }
+                "type": "wifi-scanner",
+                "name": "ssid"
               },
               {
                 "type": "text",
-                "text": "Scan temporarily pauses normal Wi-Fi connection activity while results are collected."
-              },
-              {
-                "type": "link",
-                "text": "Open built-in Wi-Fi scanner",
-                "href": "#wifi"
+                "text": "Select an access point to place its SSID in the field above. Hidden networks can still be entered manually."
               }
             ]
           },
@@ -354,6 +390,9 @@
         "columns": "repeat(2,minmax(0,1fr))",
         "gap": "12px",
         "children": [
+          {
+            "type": "relay-dock"
+          },
           {
             "type": "panel",
             "label": "LIVE CONNECTION",
@@ -415,52 +454,99 @@
                 "action": "/network/save",
                 "children": [
                   {
-                    "type": "input",
-                    "name": "hostname",
-                    "bind": "network.hostname",
-                    "maxLength": 32,
-                    "placeholder": "device-name"
-                  },
-                  {
-                    "type": "select",
-                    "name": "mode",
-                    "bind": "network.mode",
-                    "options": [
+                    "type": "field",
+                    "label": "HOSTNAME",
+                    "children": [
                       {
-                        "value": "dhcp",
-                        "label": "DHCP"
-                      },
-                      {
-                        "value": "static",
-                        "label": "STATIC"
+                        "type": "input",
+                        "name": "hostname",
+                        "bind": "network.hostname",
+                        "maxLength": 32,
+                        "placeholder": "device-name"
                       }
                     ]
                   },
                   {
-                    "type": "input",
-                    "name": "ip",
-                    "bind": "network.ip",
-                    "placeholder": "192.168.1.50"
+                    "type": "field",
+                    "label": "ADDRESS MODE",
+                    "children": [
+                      {
+                        "type": "select",
+                        "name": "mode",
+                        "bind": "network.mode",
+                        "options": [
+                          {
+                            "value": "dhcp",
+                            "label": "DHCP"
+                          },
+                          {
+                            "value": "static",
+                            "label": "STATIC"
+                          }
+                        ]
+                      }
+                    ]
                   },
                   {
-                    "type": "input",
-                    "name": "gateway",
-                    "bind": "network.gateway"
+                    "type": "field",
+                    "label": "STATIC IP ADDRESS",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "ip",
+                        "bind": "network.ip",
+                        "placeholder": "192.168.1.50"
+                      }
+                    ],
+                    "visibleIf": "network.mode == static"
                   },
                   {
-                    "type": "input",
-                    "name": "subnet",
-                    "bind": "network.subnet"
+                    "type": "field",
+                    "label": "STATIC GATEWAY",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "gateway",
+                        "bind": "network.gateway"
+                      }
+                    ],
+                    "visibleIf": "network.mode == static"
                   },
                   {
-                    "type": "input",
-                    "name": "dns1",
-                    "bind": "network.dns1"
+                    "type": "field",
+                    "label": "STATIC SUBNET",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "subnet",
+                        "bind": "network.subnet"
+                      }
+                    ],
+                    "visibleIf": "network.mode == static"
                   },
                   {
-                    "type": "input",
-                    "name": "dns2",
-                    "bind": "network.dns2"
+                    "type": "field",
+                    "label": "STATIC DNS 1",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "dns1",
+                        "bind": "network.dns1"
+                      }
+                    ],
+                    "visibleIf": "network.mode == static"
+                  },
+                  {
+                    "type": "field",
+                    "label": "STATIC DNS 2",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "dns2",
+                        "bind": "network.dns2"
+                      }
+                    ],
+                    "visibleIf": "network.mode == static"
                   },
                   {
                     "type": "button",
@@ -486,6 +572,29 @@
         "columns": "1fr",
         "gap": "12px",
         "children": [
+          {
+            "type": "panel",
+            "label": "DOM V2 TELEMETRY",
+            "children": [
+              {
+                "type": "value",
+                "label": "Runtime",
+                "value": "DOM V2"
+              },
+              {
+                "type": "value",
+                "label": "Presentation",
+                "value": "Nebula V2"
+              },
+              {
+                "type": "text",
+                "text": "Nebula is an external presentation rendered by DOM V2; the protected built-in UI and V1 themes remain separate."
+              }
+            ]
+          },
+          {
+            "type": "relay-dock"
+          },
           {
             "type": "panel",
             "label": "DIAGNOSTIC STATE",
@@ -559,6 +668,31 @@
         "gap": "12px",
         "children": [
           {
+            "type": "relay-dock"
+          },
+          {
+            "type": "panel",
+            "label": "RELAY 1 TELEMETRY",
+            "children": [
+              {
+                "type": "relay-detail",
+                "relay": 0,
+                "gpio": 5
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "RELAY 2 TELEMETRY",
+            "children": [
+              {
+                "type": "relay-detail",
+                "relay": 1,
+                "gpio": 6
+              }
+            ]
+          },
+          {
             "type": "relay",
             "relay": 0
           },
@@ -575,96 +709,144 @@
                 "action": "/relay/config",
                 "children": [
                   {
-                    "type": "input",
-                    "name": "relay0_name",
-                    "bind": "relays[0].name",
-                    "maxLength": 32,
-                    "placeholder": "Relay 1"
-                  },
-                  {
-                    "type": "select",
-                    "name": "relay0_normal",
-                    "bind": "relays[0].normal",
-                    "options": [
+                    "type": "field",
+                    "label": "RELAY 1 NAME",
+                    "children": [
                       {
-                        "value": "open",
-                        "label": "OPEN"
-                      },
-                      {
-                        "value": "closed",
-                        "label": "CLOSED"
+                        "type": "input",
+                        "name": "relay0_name",
+                        "bind": "relays[0].name",
+                        "maxLength": 32,
+                        "placeholder": "Relay 1"
                       }
                     ]
                   },
                   {
-                    "type": "select",
-                    "name": "relay0_mode",
-                    "bind": "relays[0].mode",
-                    "options": [
+                    "type": "field",
+                    "label": "RELAY 1 NORMAL STATE",
+                    "children": [
                       {
-                        "value": "latched",
-                        "label": "LATCHED"
-                      },
-                      {
-                        "value": "pulse",
-                        "label": "PULSE"
+                        "type": "select",
+                        "name": "relay0_normal",
+                        "bind": "relays[0].normal",
+                        "options": [
+                          {
+                            "value": "open",
+                            "label": "OPEN"
+                          },
+                          {
+                            "value": "closed",
+                            "label": "CLOSED"
+                          }
+                        ]
                       }
                     ]
                   },
                   {
-                    "type": "input",
-                    "name": "relay0_pulse",
-                    "bind": "relays[0].pulse",
-                    "inputType": "number",
-                    "min": 10,
-                    "max": 60000,
-                    "step": 1
-                  },
-                  {
-                    "type": "input",
-                    "name": "relay1_name",
-                    "bind": "relays[1].name",
-                    "maxLength": 32,
-                    "placeholder": "Relay 2"
-                  },
-                  {
-                    "type": "select",
-                    "name": "relay1_normal",
-                    "bind": "relays[1].normal",
-                    "options": [
+                    "type": "field",
+                    "label": "RELAY 1 ACTIVATION MODE",
+                    "children": [
                       {
-                        "value": "open",
-                        "label": "OPEN"
-                      },
-                      {
-                        "value": "closed",
-                        "label": "CLOSED"
+                        "type": "select",
+                        "name": "relay0_mode",
+                        "bind": "relays[0].mode",
+                        "options": [
+                          {
+                            "value": "latched",
+                            "label": "LATCHED"
+                          },
+                          {
+                            "value": "pulse",
+                            "label": "PULSE"
+                          }
+                        ]
                       }
                     ]
                   },
                   {
-                    "type": "select",
-                    "name": "relay1_mode",
-                    "bind": "relays[1].mode",
-                    "options": [
+                    "type": "field",
+                    "label": "RELAY 1 PULSE",
+                    "children": [
                       {
-                        "value": "latched",
-                        "label": "LATCHED"
-                      },
-                      {
-                        "value": "pulse",
-                        "label": "PULSE"
+                        "type": "input",
+                        "name": "relay0_pulse",
+                        "bind": "relays[0].pulse",
+                        "inputType": "number",
+                        "min": 10,
+                        "max": 60000,
+                        "step": 1
                       }
                     ]
                   },
                   {
-                    "type": "input",
-                    "name": "relay1_pulse",
-                    "bind": "relays[1].pulse",
-                    "inputType": "number",
-                    "min": 10,
-                    "max": 60000,
-                    "step": 1
+                    "type": "field",
+                    "label": "RELAY 2 NAME",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "relay1_name",
+                        "bind": "relays[1].name",
+                        "maxLength": 32,
+                        "placeholder": "Relay 2"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "field",
+                    "label": "RELAY 2 NORMAL STATE",
+                    "children": [
+                      {
+                        "type": "select",
+                        "name": "relay1_normal",
+                        "bind": "relays[1].normal",
+                        "options": [
+                          {
+                            "value": "open",
+                            "label": "OPEN"
+                          },
+                          {
+                            "value": "closed",
+                            "label": "CLOSED"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "field",
+                    "label": "RELAY 2 ACTIVATION MODE",
+                    "children": [
+                      {
+                        "type": "select",
+                        "name": "relay1_mode",
+                        "bind": "relays[1].mode",
+                        "options": [
+                          {
+                            "value": "latched",
+                            "label": "LATCHED"
+                          },
+                          {
+                            "value": "pulse",
+                            "label": "PULSE"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "field",
+                    "label": "RELAY 2 PULSE",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "relay1_pulse",
+                        "bind": "relays[1].pulse",
+                        "inputType": "number",
+                        "min": 10,
+                        "max": 60000,
+                        "step": 1
+                      }
+                    ]
                   },
                   {
                     "type": "button",
@@ -691,6 +873,9 @@
         "gap": "12px",
         "children": [
           {
+            "type": "relay-dock"
+          },
+          {
             "type": "panel",
             "label": "NVS STATUS",
             "children": [
@@ -716,6 +901,9 @@
                 "type": "link",
                 "text": "Download configuration backup",
                 "href": "/config/backup"
+              },
+              {
+                "type": "nvs-browser"
               }
             ]
           },
@@ -745,6 +933,9 @@
                 "text": "Open Recovery Updater",
                 "href": "/recovery",
                 "target": "_blank"
+              },
+              {
+                "type": "file-browser"
               }
             ]
           },
@@ -800,6 +991,22 @@
                 ]
               }
             ]
+          },
+          {
+            "type": "panel",
+            "label": "STORAGE OPERATIONS",
+            "children": [
+              {
+                "type": "text",
+                "text": "V2 exposes the same SPIFFS and NVS inspection capabilities as the protected built-in interface. Sensitive NVS values remain masked by firmware."
+              },
+              {
+                "type": "link",
+                "text": "Open Recovery Updater",
+                "href": "/recovery",
+                "target": "_blank"
+              }
+            ]
           }
         ]
       }
@@ -812,6 +1019,9 @@
         "columns": "repeat(2,minmax(0,1fr))",
         "gap": "12px",
         "children": [
+          {
+            "type": "relay-dock"
+          },
           {
             "type": "panel",
             "label": "FIRMWARE",
@@ -920,11 +1130,7 @@
             "label": "SYSTEM ACTIONS",
             "children": [
               {
-                "type": "button",
-                "text": "Check and install updates",
-                "action": {
-                  "action": "ota.latest"
-                }
+                "type": "ota-monitor"
               },
               {
                 "type": "button",
@@ -1048,9 +1254,86 @@
                 ]
               }
             ]
+          },
+          {
+            "type": "panel",
+            "label": "MANUAL FIRMWARE",
+            "children": [
+              {
+                "type": "form",
+                "action": "/system/update",
+                "children": [
+                  {
+                    "type": "field",
+                    "label": "FIRMWARE IMAGE (.BIN)",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "firmware",
+                        "inputType": "file",
+                        "required": true
+                      }
+                    ]
+                  },
+                  {
+                    "type": "button",
+                    "text": "Install firmware image",
+                    "submit": true
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "Manual firmware updates preserve NVS configuration and reboot the ESP32-C3."
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "MANUAL WEB UI",
+            "children": [
+              {
+                "type": "form",
+                "action": "/system/update-web",
+                "children": [
+                  {
+                    "type": "field",
+                    "label": "WEB FILESYSTEM IMAGE (-SPIFFS.BIN)",
+                    "children": [
+                      {
+                        "type": "input",
+                        "name": "web",
+                        "inputType": "file",
+                        "required": true
+                      }
+                    ]
+                  },
+                  {
+                    "type": "button",
+                    "text": "Install Web UI image",
+                    "submit": true
+                  }
+                ]
+              },
+              {
+                "type": "text",
+                "text": "Use a Web UI filesystem image ending in -spiffs.bin. This updates the Web UI filesystem without replacing firmware."
+              }
+            ]
           }
         ]
       }
     }
-  }
+  },
+  "description": "Nebula V2 is a GitHub-hosted DOM V2 presentation that mirrors the protected built-in capabilities while exercising live V2 tools for Wi-Fi scanning, relay telemetry, storage inspection, NVS inspection, and OTA progress.",
+  "v2Tools": [
+    "relay-dock",
+    "relay-detail",
+    "field",
+    "secret",
+    "wifi-scanner",
+    "file-browser",
+    "nvs-browser",
+    "ota-monitor"
+  ]
 }
