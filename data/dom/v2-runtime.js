@@ -374,6 +374,7 @@
     registerRenderer:registerComponent,
     loadSchema,
     renderSchema,
+    init,
     showView,
     resolveAsset,
     format,
