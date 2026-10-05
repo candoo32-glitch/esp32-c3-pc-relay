@@ -2,6 +2,182 @@
 "use strict";
 const $=id=>document.getElementById(id);
 let wifiCredentialsDirty=false;
+const UI_ROOT_URL="https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/ui";
+const UI_CATALOG_URL=UI_ROOT_URL+"/catalog.json";
+const UI_MANIFEST_VERSION=1;
+let uiCatalogLoaded=false;
+let activeExternalUi="";
+let uiInitialLoad=true;
+let uiInitialFallback=false;
+const UI_FETCH_TIMEOUT_MS=4000;
+
+function fetchWithTimeout(url,options={},timeoutMs=UI_FETCH_TIMEOUT_MS){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  return fetch(url,{...options,signal:controller.signal}).finally(()=>clearTimeout(timer));
+}
+
+function uiAssetUrl(uiId,asset){
+  return UI_ROOT_URL+"/"+encodeURIComponent(uiId)+"/"+String(asset||"").split("/").map(encodeURIComponent).join("/");
+}
+
+function removeExternalUi(keepPending=false){
+  const selector=keepPending?"[data-external-ui]":"[data-external-ui],[data-ui-pending]";
+  document.querySelectorAll(selector).forEach(e=>e.remove());
+  document.body.classList.remove("external-ui-active","external-ui-fallback","lcars-ready");
+  document.body.removeAttribute("data-lcars-tab");
+  document.documentElement.removeAttribute("data-external-ui");
+  document.documentElement.style.removeProperty("--lcars-active-tab");
+  activeExternalUi="";
+}
+
+async function fetchExternalUiSource(url){
+  const cacheBustedUrl=url+(url.includes("?")?"&":"?")+"uiCacheBust="+Date.now();
+  const r=await fetchWithTimeout(cacheBustedUrl,{cache:"no-store"});
+  if(!r.ok)throw new Error("UI asset HTTP "+r.status+": "+url);
+  return await r.text();
+}
+
+function installExternalUiStyle(source){
+  const style=document.createElement("style");
+  style.dataset.uiPending="true";
+  style.textContent=source;
+  document.head.appendChild(style);
+  return style;
+}
+
+function promotePendingUiStyle(style){
+  style.removeAttribute("data-ui-pending");
+  style.dataset.externalUi="true";
+}
+
+function installExternalUiScript(url){
+  return new Promise((resolve,reject)=>{
+    /*
+     * GitHub Raw intentionally serves repository files as text/plain with
+     * nosniff. That is fine for fetch(), but it is not a reliable source for
+     * a <script src> tag in Safari/WebKit. Use jsDelivr only for executable
+     * theme JavaScript; the files still live in this GitHub branch.
+     */
+    const rawPrefix="https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/";
+    const cdnPrefix="https://cdn.jsdelivr.net/gh/candoo32-glitch/esp32-c3-pc-relay@idf-6-migration/";
+    const scriptUrl=url.startsWith(rawPrefix)
+      ? cdnPrefix+url.slice(rawPrefix.length)
+      : url;
+    const script=document.createElement("script");
+    script.dataset.externalUi="true";
+    script.async=false;
+    script.src=scriptUrl+(scriptUrl.includes("?")?"&":"?")+"uiCacheBust="+Date.now();
+    script.onload=()=>resolve(script);
+    script.onerror=()=>reject(new Error("UI script could not be loaded"));
+    document.head.appendChild(script);
+  });
+}
+
+async function activateUi(uiId){
+  const id=String(uiId||"builtin").trim();
+
+  if(id==="builtin"){
+    removeExternalUi();
+    activeExternalUi="builtin";
+    return true;
+  }
+
+  if(!/^[A-Za-z0-9._-]{1,63}$/.test(id))throw Error("Invalid UI id");
+
+  let pendingStyle=null;
+
+  try{
+    const manifestUrl=UI_ROOT_URL+"/"+encodeURIComponent(id)+"/manifest.json?uiCacheBust="+Date.now();
+    const r=await fetchWithTimeout(manifestUrl,{cache:"no-store"});
+    if(!r.ok)throw Error("Manifest HTTP "+r.status);
+
+    const manifest=await r.json();
+    if(Number(manifest?.version||0)!==UI_MANIFEST_VERSION)throw Error("Unsupported UI manifest");
+    if(String(manifest?.id||"")!==id)throw Error("UI manifest ID mismatch");
+    if(String(manifest?.requires||"")!=="builtin-dom-v1")throw Error("Unsupported UI DOM contract");
+
+    const assets=manifest.assets||{};
+    if(!assets.stylesheet)throw Error("UI stylesheet missing");
+
+    /*
+     * IMPORTANT:
+     * Fetch the complete new package BEFORE touching the currently active
+     * theme.  The old implementation removed the active theme first and then
+     * attempted to load it, which produced a white screen and also called a
+     * removed loadExternalUiAsset() helper.
+     */
+    const stylesheetSource=await fetchExternalUiSource(uiAssetUrl(id,assets.stylesheet));
+    const scriptUrl=assets.script ? uiAssetUrl(id,assets.script) : "";
+
+    /*
+     * Stage the new CSS while the old CSS is still active. The JavaScript
+     * package is loaded as a real external script so Safari/WebKit and any
+     * page CSP do not silently discard dynamically injected inline scripts.
+     */
+    pendingStyle=installExternalUiStyle(stylesheetSource);
+    removeExternalUi(true);
+    promotePendingUiStyle(pendingStyle);
+    pendingStyle=null;
+
+    if(scriptUrl){
+      await installExternalUiScript(scriptUrl);
+      window.dispatchEvent(new Event("external-ui-activate"));
+    }
+
+    activeExternalUi=id;
+    document.documentElement.dataset.externalUi=id;
+    document.body.classList.add("external-ui-active");
+    return true;
+  }catch(e){
+    if(pendingStyle)pendingStyle.remove();
+
+    /*
+     * A failed switch must never leave half a theme installed.  The caller
+     * keeps the saved NVS selection unchanged and the built-in DOM remains
+     * usable.
+     */
+    if(!activeExternalUi){
+      uiInitialFallback=true;
+      activeExternalUi="builtin";
+      document.documentElement.dataset.externalUi="builtin";
+      document.body.classList.add("external-ui-fallback");
+    }
+
+    console.warn("External UI could not be loaded; keeping the currently active UI:",e);
+    return false;
+  }
+}
+
+async function loadUiCatalog(){
+  const select=$("ui-selection");
+  if(!select)return;
+  try{
+    const r=await fetchWithTimeout(UI_CATALOG_URL+"?uiCacheBust="+Date.now(),{cache:"no-store"});
+    if(!r.ok)throw Error(r.status);
+    const catalog=await r.json();
+    const entries=Array.isArray(catalog?.uis)?catalog.uis:[];
+    const seen=new Set(["builtin"]);
+    entries.forEach(ui=>{
+      const id=String(ui?.id||"").trim();
+      const name=String(ui?.name||"").trim();
+      if(!id||!name||seen.has(id)||!/^[A-Za-z0-9._-]{1,63}$/.test(id))return;
+      seen.add(id);
+      const option=document.createElement("option");
+      option.value=id;
+      option.textContent=name;
+      select.appendChild(option);
+    });
+    uiCatalogLoaded=true;
+    const selected=String(select.dataset.savedSelection||"builtin");
+    select.value=seen.has(selected)?selected:"builtin";
+  }catch(e){
+    uiCatalogLoaded=false;
+    select.value="builtin";
+  }
+}
+
+
 let networkFormDirty=false;
 let stateFailureCount=0;
 const STATE_FAILURE_THRESHOLD=3;
@@ -168,7 +344,7 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  setRelay(s.relays[0],0);setRelay(s.relays[1],1);
 
  text("dash-uptime",s.system.uptime+" seconds");text("dash-build",s.system.build);text("dash-idf",s.system.idf);text("dash-cpu",s.system.cpu+" MHz");
- text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
+ text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");const uiSelect=$("ui-selection");if(uiSelect){const selected=String(s.system.uiSelection||"builtin");uiSelect.dataset.savedSelection=selected;if(uiCatalogLoaded)uiSelect.value=[...uiSelect.options].some(o=>o.value===selected)?selected:"builtin";}text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
  text("page-status",w.status);
 }
@@ -206,6 +382,36 @@ async function saveTheme(value){
    if(status){status.textContent="Theme could not be saved";status.className="help bad";}
  }
 }
+
+async function saveUiSelection(value){
+ uiInitialFallback=false;
+ const status=$("ui-selection-status");
+ try{
+   if(value!=="builtin"){
+     const available=[...($("ui-selection")?.options||[])].some(o=>o.value===value);
+     if(!available)throw Error("UI is not in the GitHub catalog");
+   }
+   if(status){status.textContent="Loading UI…";status.className="help";}
+   const r=await fetch("/system/ui-selection",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"ui="+encodeURIComponent(value),cache:"no-store"});
+   if(!r.ok)throw Error(r.status);
+   // Persist the selection first. The browser then performs a clean page
+   // reload so the selected UI is initialized from a completely fresh DOM.
+   // This avoids stale theme scripts/CSS surviving a live swap.
+   const select=$("ui-selection");
+   if(select)select.dataset.savedSelection=String(value);
+   if(status){
+     status.textContent=value==="builtin"?"Built-in UI saved — reloading…":"UI saved — reloading…";
+     status.className="help ok";
+   }
+   const reloadUrl=window.location.pathname+"?uiReload="+Date.now()+window.location.hash;
+   window.location.replace(reloadUrl);
+   return;
+ }catch(e){
+   if(status){status.textContent="UI selection failed: "+(e.message||"unknown error");status.className="help bad";}
+   const select=$("ui-selection");
+   if(select)select.value=String(select.dataset.savedSelection||"builtin");
+ }
+}
 let diagnosticPollTimer=null;
 let diagnosticPollBusy=false;
 async function loadDiagnostics(){
@@ -236,7 +442,7 @@ function stopDiagnosticPolling(){
  clearInterval(diagnosticPollTimer);
  diagnosticPollTimer=null;
 }
-async function load(){
+async function load(applyExternalUi=true){
  if(otaMonitorRunning||otaUpdateStarting)return;
  try{
    const r=await fetch("/api/state",{cache:"no-store"});
@@ -244,6 +450,18 @@ async function load(){
    const state=await r.json();
    stateFailureCount=0;
    render(state);
+   if(!applyExternalUi)return;
+   const selectedUi=String(state.system?.uiSelection||"builtin");
+   // A failed external UI load must never block the built-in UI or cause
+   // repeated GitHub requests during the normal 5-second state poll.
+   if(selectedUi!=="builtin" && uiInitialFallback)return;
+   if(selectedUi!==activeExternalUi){
+     const loaded=await activateUi(selectedUi);
+     if(!loaded && selectedUi!=="builtin"){
+       const status=$("ui-selection-status");
+       if(status){status.textContent="Saved UI unavailable — using Built-in";status.className="help bad";}
+     }
+   }
  }catch(e){
    stateFailureCount++;
    if(stateFailureCount>=STATE_FAILURE_THRESHOLD){
@@ -280,7 +498,7 @@ $("configfile")?.addEventListener("change",e=>{
   const label=$("configfile-name");
   if(label)label.textContent=file?file.name:"Choose backup file…";
 });
-$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});
+$("theme-picker-button").addEventListener("click",()=>{const o=$("theme-options");if(o.hidden)openThemeOptions();else closeThemeOptions();});const uiSelect=$("ui-selection");if(uiSelect)uiSelect.addEventListener("change",()=>saveUiSelection(uiSelect.value));
 document.querySelectorAll(".theme-option").forEach(o=>o.addEventListener("click",async()=>{closeThemeOptions();await saveTheme(o.dataset.themeValue);}));
 document.addEventListener("click",e=>{const p=document.querySelector(".theme-picker");if(p&&!p.contains(e.target))closeThemeOptions();});
 $("ssid").addEventListener("input",()=>{wifiCredentialsDirty=true;filterSsidOptions();});$("wifi-ssid-toggle").addEventListener("click",()=>{const o=$("wifi-ssid-options");if(o.hidden){openSsidOptions()}else closeSsidOptions();});$("ssid").addEventListener("focus",()=>{if(document.querySelector(".ssid-option"))openSsidOptions();});document.addEventListener("click",e=>{const box=document.querySelector(".ssid-combobox");if(box&&!box.contains(e.target))closeSsidOptions();});
@@ -644,8 +862,21 @@ window.addEventListener("hashchange",currentTab);
 currentTab();
 $("net-mode").addEventListener("change",()=>{$("static-fields").style.display=$("net-mode").value==="static"?"grid":"none"});
 async function bootstrapPage(){
- await load();
- await resumeOtaStatus();
+  // The built-in UI is the guaranteed local fallback. Render it first;
+  // GitHub-hosted themes are strictly a background enhancement.
+  await load(false);
+  uiInitialLoad=false;
+  document.documentElement.classList.remove("ui-boot-pending");
+
+  // Never let GitHub availability hold the page hostage.
+  try{
+    await loadUiCatalog();
+    await load(true);
+  }catch(e){
+    console.warn("External UI bootstrap failed; continuing with built-in UI:",e);
+  }
+
+  await resumeOtaStatus();
 }
 bootstrapPage();
 setInterval(load,5000);
