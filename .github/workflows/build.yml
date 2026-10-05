@@ -59,6 +59,24 @@ jobs:
           echo "WEB_BUILD_VERSION=${{ github.run_number }}" >> "$GITHUB_ENV"
           echo "BUILD_BRANCH_NAME=${{ github.head_ref || github.ref_name }}" >> "$GITHUB_ENV"
 
+      - name: Stamp repository-aware theme context
+        run: |
+          # The checked-in app.js contains placeholders so the same source works
+          # on every firmware branch. Resolve them only in the filesystem build.
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("data/app.js")
+          s = p.read_text(encoding="utf-8")
+          repo = "${{ github.repository }}"
+          branch = "${{ github.head_ref || github.ref_name }}"
+          s = s.replace("__UI_REPOSITORY__", repo).replace("__UI_BRANCH__", branch)
+          if "__UI_REPOSITORY__" in s or "__UI_BRANCH__" in s:
+              raise SystemExit("ERROR: unresolved UI build-context placeholder")
+          p.write_text(s, encoding="utf-8")
+          PY
+          echo "Theme repository: ${{ github.repository }}"
+          echo "Theme branch: ${{ github.head_ref || github.ref_name }}"
+
       - name: Install and patch Arduino-ESP32 build tools
         run: |
           pio pkg install
