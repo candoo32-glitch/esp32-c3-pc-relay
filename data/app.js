@@ -135,7 +135,7 @@ async function activateUi(uiId){
   }
 }
 
-async function loadUiCatalog(){
+async async function loadUiCatalog(){
   const select=$("ui-selection");
   if(!select)return;
   try{
