@@ -1,7 +1,7 @@
 {
   "id": "steampunk",
   "name": "Steampunk Brassworks",
-  "version": 2,
+  "version": 1,
   "description": "A brass, copper, gauge-and-gear control console inspired by the supplied steampunk reference panel.",
   "assets": {
     "stylesheet": "steampunk.css",
