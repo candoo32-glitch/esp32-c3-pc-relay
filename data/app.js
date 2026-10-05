@@ -120,16 +120,19 @@ async function loadDomV2Extension(){
       }
       if(runtimeUrl){
         try{
-          if(!window.ESP32V2){
-            const runtime=await fetchWithTimeout(runtimeUrl+"?domV2CacheBust="+Date.now(),{cache:"no-store"});
-            if(!runtime.ok)throw Error("DOM V2 runtime HTTP "+runtime.status);
-            const source=await runtime.text();
-            if(!source.trim())throw Error("DOM V2 runtime returned an empty response");
+          await new Promise((resolve,reject)=>{
+            if(window.ESP32V2){resolve();return}
             const script=document.createElement("script");
             script.dataset.domV2="true";
-            script.textContent=source;
+            script.async=false;
+            script.src=runtimeUrl+"?domV2CacheBust="+Date.now();
+            script.onload=()=>{
+              if(window.ESP32V2)resolve();
+              else reject(Error("DOM V2 runtime executed but did not create ESP32V2"));
+            };
+            script.onerror=()=>reject(Error("DOM V2 runtime script failed to load"));
             document.head.appendChild(script);
-          }
+          });
           if(!window.ESP32V2?.init)throw Error("DOM V2 runtime loaded but did not initialize");
           if(!window.ESP32V2.init(v2Root))throw Error("DOM V2 runtime initialized without a root");
         }catch(e){
