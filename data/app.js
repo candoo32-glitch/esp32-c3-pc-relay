@@ -143,9 +143,25 @@ function removeExternalUi(keepPending=false){
 
 async function fetchExternalUiSource(url){
   const cacheBustedUrl=url+(url.includes("?")?"&":"?")+"uiCacheBust="+Date.now();
-  const r=await fetchWithTimeout(cacheBustedUrl,{cache:"no-store"});
-  if(!r.ok)throw new Error("UI asset HTTP "+r.status+": "+url);
-  return await r.text();
+  try{
+    const r=await fetchWithTimeout(cacheBustedUrl,{cache:"no-store"});
+    if(r.ok)return await r.text();
+    throw new Error("HTTP "+r.status);
+  }catch(primaryError){
+    /*
+     * GitHub remains the authoritative theme repository. jsDelivr is only
+     * a transport fallback for browser/WebKit fetches of GitHub-hosted
+     * theme assets. This is especially useful for DOM V2 JSON/CSS assets;
+     * it does not move or embed the theme into firmware.
+     */
+    const rawPrefix="https://raw.githubusercontent.com/"+UI_REPOSITORY+"/"+UI_BRANCH+"/";
+    if(!url.startsWith(rawPrefix))throw new Error("UI asset unavailable: "+url+" ("+primaryError.message+")");
+    const cdnUrl="https://cdn.jsdelivr.net/gh/"+UI_REPOSITORY+"@"+UI_BRANCH+"/"+url.slice(rawPrefix.length);
+    const cdnBusted=cdnUrl+"?uiCacheBust="+Date.now();
+    const fallback=await fetchWithTimeout(cdnBusted,{cache:"no-store"});
+    if(!fallback.ok)throw new Error("UI asset HTTP "+fallback.status+" via GitHub and jsDelivr: "+url);
+    return await fallback.text();
+  }
 }
 
 function installExternalUiStyle(source){
