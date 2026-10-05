@@ -13,6 +13,30 @@ let uiInitialLoad=true;
 let uiInitialFallback=false;
 const UI_FETCH_TIMEOUT_MS=4000;
 
+async function loadDomV2Extension(){
+  /*
+   * V2 is strictly optional. Fetching or parsing it may fail without
+   * affecting V1 rendering, application logic, themes, or OTA behavior.
+   */
+  try{
+    const r=await fetchWithTimeout("/dom/v2.html?domV2CacheBust="+Date.now(),{cache:"no-store"});
+    if(!r.ok)throw Error("DOM V2 HTTP "+r.status);
+    const source=await r.text();
+    const parsed=new DOMParser().parseFromString(source,"text/html");
+    const template=parsed.getElementById("builtin-dom-v2-extension");
+    if(!template)throw Error("DOM V2 template missing");
+    const fragment=template.content.cloneNode(true);
+    document.body.appendChild(fragment);
+    if(!$("dom-v2-test-hook"))throw Error("DOM V2 test hook missing");
+    document.documentElement.dataset.domV2="active";
+    console.info("DOM V2 extension loaded successfully");
+    return true;
+  }catch(e){
+    console.warn("Optional DOM V2 extension unavailable; V1 is unchanged:",e);
+    return false;
+  }
+}
+
 function fetchWithTimeout(url,options={},timeoutMs=UI_FETCH_TIMEOUT_MS){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
