@@ -604,7 +604,7 @@
       "navigation": true,
       "layout": {
         "type": "grid",
-        "columns": "1fr",
+        "columns": "repeat(12,minmax(0,1fr))",
         "gap": "16px",
         "children": [
           {
@@ -924,7 +924,7 @@
       "navigation": true,
       "layout": {
         "type": "grid",
-        "columns": "1fr",
+        "columns": "repeat(12,minmax(0,1fr))",
         "gap": "16px",
         "children": [
           {
@@ -1058,14 +1058,15 @@
                 "text": "Formatting NVS erases Wi-Fi credentials, TX power, diagnostics, network settings, relay configuration, and other persistent configuration, then reboots the ESP32-C3."
               },
               {
-                "type": "button",
-                "text": "Format NVS and reboot",
-                "action": {
-                  "action": "form.submit",
-                  "args": {
-                    "url": "/nvs/format"
+                "type": "form",
+                "action": "/nvs/format",
+                "children": [
+                  {
+                    "type": "button",
+                    "text": "Format NVS and reboot",
+                    "submit": true
                   }
-                }
+                ]
               }
             ]
           }
@@ -1143,6 +1144,11 @@
               {
                 "type": "text",
                 "text": "Switch the presentation layer. Built-in and V1 themes remain protected; Nebula V2 is the external DOM V2 presentation."
+              },
+              {
+                "type": "value",
+                "label": "Saved UI",
+                "bind": "system.uiSelection"
               },
               {
                 "type": "button",
