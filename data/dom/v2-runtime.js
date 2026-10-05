@@ -298,6 +298,7 @@
   registry.set("form",(n)=>{
     const e=common(document.createElement("form"),n);
     e.classList.add("v2-form");
+    e.dataset.v2Action=String(bindValue(n.action||""));
     children(e,n);
     e.addEventListener("submit",async ev=>{
       ev.preventDefault();
