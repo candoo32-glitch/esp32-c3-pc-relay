@@ -1,4 +1,44 @@
 /*
+ * Nebula V2 base component layer.
+ * Scoped exclusively to the DOM V2 root.
+ */
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-screen{display:block}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-screen-title{margin:0 0 18px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-grid{display:grid;align-items:start}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-stack{display:flex;flex-direction:column;gap:var(--v2-gap,10px)}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-panel{padding:14px;border:1px solid var(--v2-border);border-radius:var(--v2-radius);margin:0 0 10px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-panel-title{font-weight:800;letter-spacing:.08em;margin-bottom:10px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-value,#dom-v2-root[data-v2-theme="nebula-v2"] .v2-status{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-label{font-size:.78rem;letter-spacing:.04em}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-value-number{font-weight:700}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-button{min-height:38px;padding:8px 14px;border-radius:8px;cursor:pointer}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-form{display:flex;flex-direction:column;gap:12px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-input,#dom-v2-root[data-v2-theme="nebula-v2"] .v2-select,#dom-v2-root[data-v2-theme="nebula-v2"] .v2-textarea{
+  width:100%;box-sizing:border-box;min-height:40px;padding:9px 10px;color:var(--v2-text);
+  background:rgba(6,14,27,.9);border:1px solid var(--v2-border);border-radius:8px;
+}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-textarea{min-height:180px;resize:vertical;font-family:ui-monospace,SFMono-Regular,monospace}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-field{display:flex;flex-direction:column;gap:6px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-field>label{font-size:.72rem;color:var(--v2-muted);letter-spacing:.06em}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-link{display:inline-block;color:var(--v2-accent);padding:8px 0;text-decoration:none}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-link:hover{text-decoration:underline}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-view-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 18px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-view-tabs button{border:1px solid var(--v2-border);background:var(--v2-control);color:var(--v2-text);padding:7px 11px;border-radius:999px;cursor:pointer}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-relay{padding:14px;border:1px solid var(--v2-border);border-radius:var(--v2-radius);background:rgba(10,20,35,.9);display:grid;gap:8px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-relay-title{font-weight:800}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-relay-state{font-size:1.1rem}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-gauge{display:grid;place-items:center;min-height:150px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-gauge-ring{width:108px;height:108px;border-radius:50%;display:grid;place-items:center;position:relative}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-gauge-ring::before{content:"";position:absolute;inset:9px;border-radius:50%}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-gauge-ring>*{position:relative;z-index:1}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-meter{padding:8px 0}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-meter-track{height:12px;border:1px solid var(--v2-border);border-radius:999px;overflow:hidden}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-meter-bar{height:100%;transition:width .3s ease}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-log{white-space:pre-wrap;overflow:auto;max-height:360px;margin:0;padding:12px;background:#050b14;border:1px solid var(--v2-border);border-radius:8px;font:12px/1.45 ui-monospace,SFMono-Regular,monospace}
+@media(max-width:900px){#dom-v2-root[data-v2-theme="nebula-v2"] .v2-grid{grid-template-columns:1fr!important}}
+@media(max-width:700px){#dom-v2-root[data-v2-theme="nebula-v2"]{margin:10px;padding:12px}}
+
+/*
  * Nebula V2 — ESP32-C3 PC Relay
  * Optional DOM V2 theme. Scoped exclusively to #dom-v2-root.
  * It must never style or alter the protected V1 interface.
