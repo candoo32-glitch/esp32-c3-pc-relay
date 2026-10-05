@@ -346,7 +346,7 @@ $("static-fields").style.display=$("net-mode").value==="static"?"grid":"none";
  setRelay(s.relays[0],0);setRelay(s.relays[1],1);
 
  text("dash-uptime",s.system.uptime+" seconds");text("dash-build",s.system.build);text("dash-idf",s.system.idf);text("dash-cpu",s.system.cpu+" MHz");
- text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");const uiSelect=$("ui-selection");if(uiSelect){const selected=String(s.system.uiSelection||"builtin");uiSelect.dataset.savedSelection=selected;if(uiCatalogLoaded)uiSelect.value=[...uiSelect.options].some(o=>o.value===selected)?selected:"builtin";}text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
+ text("sys-repository",UI_REPOSITORY);text("sys-build",s.system.build);text("sys-web-build",s.system.webBuild||"0");const uiSelect=$("ui-selection");if(uiSelect){const selected=String(s.system.uiSelection||"builtin");uiSelect.dataset.savedSelection=selected;if(uiCatalogLoaded)uiSelect.value=[...uiSelect.options].some(o=>o.value===selected)?selected:"builtin";}text("sys-date",s.system.date);text("sys-idf",s.system.idf);text("sys-arduino",s.system.arduino);text("sys-cpu",s.system.cpu+" MHz");text("sys-uptime",s.system.uptime+" seconds");
  $("relay-power-button").textContent=s.relays[0].name;$("relay-reset-button").textContent=s.relays[1].name;
  text("page-status",w.status);
 }
