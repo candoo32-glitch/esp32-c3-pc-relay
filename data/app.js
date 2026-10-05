@@ -13,6 +13,58 @@ let uiInitialLoad=true;
 let uiInitialFallback=false;
 const UI_FETCH_TIMEOUT_MS=4000;
 
+async function activateDomV2Theme(uiId,manifest){
+  /*
+   * DOM V2 themes are additive overlays. They NEVER remove or replace V1.
+   * A failed V2 theme load leaves the existing V1 UI untouched.
+   */
+  const v2Root=$("dom-v2-root");
+  if(!v2Root)throw Error("DOM V2 root unavailable");
+  const assets=manifest?.assets||{};
+  if(!assets.stylesheet)throw Error("DOM V2 stylesheet missing");
+
+  let pendingStyle=null;
+  try{
+    const css=await fetchExternalUiSource(uiAssetUrl(uiId,assets.stylesheet));
+    pendingStyle=document.createElement("style");
+    pendingStyle.dataset.v2ThemePending="true";
+    pendingStyle.textContent=css;
+    document.head.appendChild(pendingStyle);
+
+    document.querySelectorAll("[data-v2-theme]").forEach(e=>e.remove());
+    pendingStyle.removeAttribute("data-v2-theme-pending");
+    pendingStyle.dataset.v2Theme="true";
+
+    v2Root.hidden=false;
+    v2Root.dataset.v2Theme=String(uiId);
+
+    if(assets.schema){
+      const schemaUrl=uiAssetUrl(uiId,assets.schema);
+      await window.ESP32V2.loadSchema(schemaUrl);
+    }
+
+    document.documentElement.dataset.v2Theme=String(uiId);
+    return true;
+  }catch(e){
+    if(pendingStyle)pendingStyle.remove();
+    v2Root.hidden=true;
+    v2Root.removeAttribute("data-v2-theme");
+    document.documentElement.removeAttribute("data-v2-theme");
+    throw e;
+  }
+}
+
+function disableDomV2Theme(){
+  document.querySelectorAll("[data-v2-theme],[data-v2-theme-pending]").forEach(e=>e.remove());
+  const v2Root=$("dom-v2-root");
+  if(v2Root){
+    v2Root.hidden=true;
+    v2Root.removeAttribute("data-v2-theme");
+    v2Root.querySelectorAll(".v2-screen").forEach(e=>e.remove());
+  }
+  document.documentElement.removeAttribute("data-v2-theme");
+}
+
 async function loadDomV2Extension(){
   /*
    * V2 is strictly optional. Fetching or parsing it may fail without
@@ -31,6 +83,7 @@ async function loadDomV2Extension(){
 
     const v2Root=$("dom-v2-root");
     if(v2Root){
+      v2Root.hidden=true;
       const styleUrl=v2Root.dataset.v2Style;
       const runtimeUrl=v2Root.dataset.v2Runtime;
       if(styleUrl){
@@ -135,6 +188,7 @@ async function activateUi(uiId){
   const id=String(uiId||"builtin").trim();
 
   if(id==="builtin"){
+    disableDomV2Theme();
     removeExternalUi();
     activeExternalUi="builtin";
     return true;
@@ -152,6 +206,16 @@ async function activateUi(uiId){
     const manifest=await r.json();
     if(Number(manifest?.version||0)!==UI_MANIFEST_VERSION)throw Error("Unsupported UI manifest");
     if(String(manifest?.id||"")!==id)throw Error("UI manifest ID mismatch");
+
+    if(String(manifest?.engine||"") === "dom-v2"){
+      if(!window.ESP32V2)throw Error("DOM V2 runtime unavailable");
+      await activateDomV2Theme(id,manifest);
+      activeExternalUi=id;
+      document.documentElement.dataset.externalUi="v2";
+      return true;
+    }
+
+    disableDomV2Theme();
     if(String(manifest?.requires||"")!=="builtin-dom-v1")throw Error("Unsupported UI DOM contract");
 
     const assets=manifest.assets||{};
