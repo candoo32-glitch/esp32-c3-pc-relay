@@ -466,7 +466,7 @@
       button.disabled=true;status.textContent="Scanning…";
       try{const r=await fetch("/wifi/scan",{method:"POST",cache:"no-store"});if(!r.ok)throw Error(r.status);render(await r.json());status.textContent="Scan complete"}catch(err){status.textContent="Scan failed";list.innerHTML='<div class="v2-empty">Wi-Fi scan failed.</div>'}finally{button.disabled=false}
     };
-    const input=document.createElement("input");input.className="v2-input";input.placeholder="Selected SSID";input.dataset.v2ScanSsid="true";
+    const input=document.createElement("input");input.className="v2-input";input.placeholder="Selected SSID";input.dataset.v2ScanSsid="true";if(n.name)input.name=String(n.name);
     head.append(button,status);e.append(head,input,list);return e;
   });
   registry.set("file-browser",(n)=>{
