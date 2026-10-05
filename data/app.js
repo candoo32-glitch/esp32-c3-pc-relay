@@ -32,9 +32,19 @@ function removeExternalUi(keepPending=false){
 }
 
 async function fetchExternalUiSource(url){
-  const cacheBustedUrl=url+(url.includes("?")?"&":"?")+"uiCacheBust="+Date.now();
+  /*
+   * Serve external theme assets through jsDelivr. GitHub Raw is excellent
+   * for repository storage, but its content-type/CORS behavior is not
+   * consistent enough across Safari/WebKit for a live UI package.
+   */
+  const rawPrefix="https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/";
+  const cdnPrefix="https://cdn.jsdelivr.net/gh/candoo32-glitch/esp32-c3-pc-relay@idf-6-migration/";
+  const sourceUrl=url.startsWith(rawPrefix)
+    ? cdnPrefix+url.slice(rawPrefix.length)
+    : url;
+  const cacheBustedUrl=sourceUrl+(sourceUrl.includes("?")?"&":"?")+"uiCacheBust="+Date.now();
   const r=await fetchWithTimeout(cacheBustedUrl,{cache:"no-store"});
-  if(!r.ok)throw new Error("UI asset HTTP "+r.status+": "+url);
+  if(!r.ok)throw new Error("UI asset HTTP "+r.status+": "+sourceUrl);
   return await r.text();
 }
 
