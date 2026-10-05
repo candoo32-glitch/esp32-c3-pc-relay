@@ -111,7 +111,13 @@
   actions.set("diagnostics.toggle",()=>post("/diagnostics/toggle"));
   actions.set("system.reboot",()=>post("/system/reboot"));
   actions.set("ota.latest",()=>post("/system/update-latest"));
-  actions.set("ui.select",async({id})=>{\n    const result=await post("/system/ui-selection",{ui:id});\n    // UI selection changes presentation layers. Always restart the page so no\n    // V1/V2 DOM, stylesheet, or runtime state can survive the transition.\n    window.location.reload();\n    return result;\n  });
+  actions.set("ui.select",async({id})=>{
+    const result=await post("/system/ui-selection",{ui:id});
+    // UI selection changes presentation layers. Always restart the page so no
+    // V1/V2 DOM, stylesheet, or runtime state can survive the transition.
+    window.location.reload();
+    return result;
+  });
   actions.set("theme.select",({id})=>post("/system/theme",{theme:id}));
   actions.set("form.submit",({url,form})=>submitForm(url,form));
 
