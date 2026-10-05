@@ -3,8 +3,6 @@ name: Build ESP32-C3 firmware
 on:
   push:
     branches: [main, idf-6-migration]
-    paths-ignore:
-      - "ui/**"
   workflow_dispatch:
 
 permissions:
