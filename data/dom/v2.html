@@ -1,19 +1,13 @@
 <!--
-  ESP32-C3 PC Relay - optional DOM v2 extension
-
-  ARCHITECTURAL INVARIANT:
-  Nothing in this file may be required for builtin-dom-v1 to render or operate.
-  V1 is the production DOM. This file is an optional extension contract.
-
-  V2 may add hooks later. It must never remove, rename, override, or depend on
-  V1 elements, event handlers, forms, relay controls, or application logic.
-
-  Delete this file and its loader to remove the experiment.
+  ESP32-C3 PC Relay — optional DOM V2 extension.
+  V1 never depends on this file.
 -->
 <template id="builtin-dom-v2-extension">
-  <div id="dom-v2-test-hook"
+  <div id="dom-v2-root"
        data-dom-v2="active"
-       style="position:fixed;left:10px;bottom:10px;z-index:2147483647;padding:6px 10px;border-radius:6px;background:#111;color:#7fff7f;font:12px monospace;box-shadow:0 1px 4px rgba(0,0,0,.35);">
-    DOM V2 ACTIVE
+       data-v2-runtime="/dom/v2-runtime.js"
+       data-v2-style="/dom/v2.css"
+       data-poll-ms="1000">
+    <div id="dom-v2-test-hook">DOM V2 ACTIVE</div>
   </div>
 </template>
