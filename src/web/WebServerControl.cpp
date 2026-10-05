@@ -1604,6 +1604,9 @@ void begin() {
   server.on("/", HTTP_GET, handleRoot);
   server.on("/style.css", HTTP_GET, handleStyleCss);
   server.on("/app.js", HTTP_GET, handleAppJs);
+  server.on("/dom/v2.html", HTTP_GET, []() {
+    handleStaticAsset("/dom/v2.html", "text/html; charset=utf-8");
+  });
   server.on("/api/state", HTTP_GET, handlePageState);
   server.on("/api/nvs", HTTP_GET, handleNvsState);
   server.on("/api/nvs/stats", HTTP_GET, handleNvsStats);
