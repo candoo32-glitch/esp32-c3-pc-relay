@@ -124,12 +124,17 @@ async function loadDomV2Extension(){
             if(window.ESP32V2){resolve();return}
             const script=document.createElement("script");
             script.dataset.domV2="true";
+            script.async=false;
             script.src=runtimeUrl+"?domV2CacheBust="+Date.now();
-            script.onload=resolve;
+            script.onload=()=>{
+              if(window.ESP32V2?.init)resolve();
+              else reject(Error("DOM V2 runtime loaded but did not initialize"));
+            };
             script.onerror=()=>reject(Error("DOM V2 runtime could not be loaded"));
             document.head.appendChild(script);
           });
-          if(window.ESP32V2?.init)window.ESP32V2.init(v2Root);
+          if(!window.ESP32V2?.init)throw Error("DOM V2 runtime unavailable after load");
+          if(!window.ESP32V2.init(v2Root))throw Error("DOM V2 runtime initialized without a root");
         }catch(e){console.warn("Optional DOM V2 runtime unavailable:",e)}
       }
     }
