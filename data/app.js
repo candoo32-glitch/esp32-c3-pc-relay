@@ -28,6 +28,37 @@ async function loadDomV2Extension(){
     const fragment=template.content.cloneNode(true);
     document.body.appendChild(fragment);
     if(!$("dom-v2-test-hook"))throw Error("DOM V2 test hook missing");
+
+    const v2Root=$("dom-v2-root");
+    if(v2Root){
+      const styleUrl=v2Root.dataset.v2Style;
+      const runtimeUrl=v2Root.dataset.v2Runtime;
+      if(styleUrl){
+        try{
+          const css=await fetchWithTimeout(styleUrl+"?domV2CacheBust="+Date.now(),{cache:"no-store"});
+          if(css.ok){
+            const style=document.createElement("style");
+            style.dataset.domV2="true";
+            style.textContent=await css.text();
+            document.head.appendChild(style);
+          }
+        }catch(e){console.warn("Optional DOM V2 stylesheet unavailable:",e)}
+      }
+      if(runtimeUrl){
+        try{
+          await new Promise((resolve,reject)=>{
+            if(window.ESP32V2){resolve();return}
+            const script=document.createElement("script");
+            script.dataset.domV2="true";
+            script.src=runtimeUrl+"?domV2CacheBust="+Date.now();
+            script.onload=resolve;
+            script.onerror=()=>reject(Error("DOM V2 runtime could not be loaded"));
+            document.head.appendChild(script);
+          });
+          if(window.ESP32V2?.init)window.ESP32V2.init(v2Root);
+        }catch(e){console.warn("Optional DOM V2 runtime unavailable:",e)}
+      }
+    }
     document.documentElement.dataset.domV2="active";
     console.info("DOM V2 extension loaded successfully");
     return true;
