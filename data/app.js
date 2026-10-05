@@ -13,7 +13,24 @@ let uiInitialLoad=true;
 let uiInitialFallback=false;
 const UI_FETCH_TIMEOUT_MS=4000;
 
+function clearUiLoadError(){
+  const e=$("ui-load-error");
+  if(e){e.hidden=true;e.textContent="";e.removeAttribute("data-ui-error");}
+}
+function showUiLoadError(uiId,stage,error,elapsedMs){
+  const e=$("ui-load-error");
+  if(!e)return;
+  const name=String(uiId||"External UI");
+  const message=String(error?.message||error||"Unknown error");
+  const elapsed=Number.isFinite(elapsedMs)?" ("+(elapsedMs/1000).toFixed(2)+" s)":"";
+  e.textContent="UI load error — "+name+" failed during "+stage+elapsed+": "+message+". Built-in UI activated as fallback.";
+  e.hidden=false;
+  e.dataset.uiError=String(uiId||"");
+}
+
 async function activateDomV2Theme(uiId,manifest){
+  const started=performance.now();
+  let stage="DOM V2 activation";
   /*
    * DOM V2 themes are additive overlays. They NEVER remove or replace V1.
    * A failed V2 theme load leaves the existing V1 UI untouched.
@@ -25,6 +42,7 @@ async function activateDomV2Theme(uiId,manifest){
 
   let pendingStyle=null;
   try{
+    stage="stylesheet load";
     const css=await fetchExternalUiSource(uiAssetUrl(uiId,assets.stylesheet));
     pendingStyle=document.createElement("style");
     pendingStyle.dataset.v2ThemePending="true";
@@ -39,6 +57,7 @@ async function activateDomV2Theme(uiId,manifest){
     v2Root.dataset.v2Theme=String(uiId);
 
     if(assets.schema){
+      stage="schema load";
       const schemaUrl=uiAssetUrl(uiId,assets.schema);
       await window.ESP32V2.loadSchema(schemaUrl);
     }
@@ -50,6 +69,7 @@ async function activateDomV2Theme(uiId,manifest){
     v2Root.hidden=true;
     v2Root.removeAttribute("data-v2-theme");
     document.documentElement.removeAttribute("data-v2-theme");
+    showUiLoadError(uiId,stage,e,performance.now()-started);
     throw e;
   }
 }
@@ -204,6 +224,7 @@ async function activateUi(uiId){
   const id=String(uiId||"builtin").trim();
 
   if(id==="builtin"){
+    clearUiLoadError();
     disableDomV2Theme();
     removeExternalUi();
     activeExternalUi="builtin";
@@ -213,6 +234,8 @@ async function activateUi(uiId){
   if(!/^[A-Za-z0-9._-]{1,63}$/.test(id))throw Error("Invalid UI id");
 
   let pendingStyle=null;
+  const started=performance.now();
+  let stage="manifest load";
 
   try{
     const manifestUrl=UI_ROOT_URL+"/"+encodeURIComponent(id)+"/manifest.json?uiCacheBust="+Date.now();
@@ -244,6 +267,7 @@ async function activateUi(uiId){
      * attempted to load it, which produced a white screen and also called a
      * removed loadExternalUiAsset() helper.
      */
+    stage="stylesheet load";
     const stylesheetSource=await fetchExternalUiSource(uiAssetUrl(id,assets.stylesheet));
     const scriptUrl=assets.script ? uiAssetUrl(id,assets.script) : "";
 
@@ -258,6 +282,7 @@ async function activateUi(uiId){
     pendingStyle=null;
 
     if(scriptUrl){
+      stage="script load";
       await installExternalUiScript(scriptUrl);
       window.dispatchEvent(new Event("external-ui-activate"));
     }
@@ -281,6 +306,7 @@ async function activateUi(uiId){
       document.body.classList.add("external-ui-fallback");
     }
 
+    showUiLoadError(id,stage,e,performance.now()-started);
     console.warn("External UI could not be loaded; keeping the currently active UI:",e);
     return false;
   }
