@@ -4,8 +4,8 @@
   "version": 1,
   "description": "A brass, copper, gauge-and-gear control console inspired by the supplied steampunk reference panel.",
   "assets": {
-    "stylesheet": "steampunk.css",
-    "script": "steampunk.js"
+    "stylesheet": "https://cdn.jsdelivr.net/gh/candoo32-glitch/esp32-c3-pc-relay@idf-6-migration/ui/steampunk/steampunk.css",
+    "script": "https://cdn.jsdelivr.net/gh/candoo32-glitch/esp32-c3-pc-relay@idf-6-migration/ui/steampunk/steampunk.js"
   },
   "requires": "builtin-dom-v1"
 }
