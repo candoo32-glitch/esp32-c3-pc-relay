@@ -8,7 +8,10 @@
  * - Decorative observers/timers do only small, bounded work.
  */
 (()=>{
+  let booted=false;
   const boot=()=>{
+    if(booted)return;
+    booted=true;
     document.body.classList.add("lcars-ready");
 
     const activeTabName=()=>{
@@ -254,6 +257,7 @@
     signalMeter();
   };
 
+  window.addEventListener("external-ui-activate",boot,{once:true});
   if(document.readyState==="loading"){
     document.addEventListener("DOMContentLoaded",boot,{once:true});
   }else{
