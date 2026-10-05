@@ -384,7 +384,7 @@
   registry.set("spacer",(n)=>{const e=common(document.createElement("div"),n);e.classList.add("v2-spacer");e.style.minHeight=String(n.height||"1rem");return e});
   registry.set("view-tabs",(n)=>{
     const e=common(document.createElement("nav"),n);e.classList.add("v2-view-tabs");
-    for(const v of Object.keys(dashboards)){const b=document.createElement("button");b.type="button";b.textContent=dashboards.get(v).title||v;b.dataset.view=v;b.onclick=()=>showView(v);e.appendChild(b)}
+    for(const v of dashboards.keys()){const b=document.createElement("button");b.type="button";b.textContent=dashboards.get(v).title||v;b.dataset.view=v;b.onclick=()=>showView(v);e.appendChild(b)}
     return e;
   });
 
