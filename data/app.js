@@ -2,7 +2,9 @@
 "use strict";
 const $=id=>document.getElementById(id);
 let wifiCredentialsDirty=false;
-const UI_ROOT_URL="https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/ui";
+const UI_REPOSITORY="__UI_REPOSITORY__";
+const UI_BRANCH="__UI_BRANCH__";
+const UI_ROOT_URL="https://raw.githubusercontent.com/"+UI_REPOSITORY+"/"+UI_BRANCH+"/ui";
 const UI_CATALOG_URL=UI_ROOT_URL+"/catalog.json";
 const UI_MANIFEST_VERSION=1;
 let uiCatalogLoaded=false;
@@ -59,8 +61,8 @@ function installExternalUiScript(url){
      * a <script src> tag in Safari/WebKit. Use jsDelivr only for executable
      * theme JavaScript; the files still live in this GitHub branch.
      */
-    const rawPrefix="https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/";
-    const cdnPrefix="https://cdn.jsdelivr.net/gh/candoo32-glitch/esp32-c3-pc-relay@idf-6-migration/";
+    const rawPrefix="https://raw.githubusercontent.com/"+UI_REPOSITORY+"/"+UI_BRANCH+"/";
+    const cdnPrefix="https://cdn.jsdelivr.net/gh/"+UI_REPOSITORY+"@"+UI_BRANCH+"/";
     const scriptUrl=url.startsWith(rawPrefix)
       ? cdnPrefix+url.slice(rawPrefix.length)
       : url;
