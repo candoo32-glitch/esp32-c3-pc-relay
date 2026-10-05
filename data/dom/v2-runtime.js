@@ -153,7 +153,7 @@
   function resolveAsset(src){
     if(!src)return "";
     if(/^https?:\/\//i.test(src)||src[0]==="/")return src;
-    return "/dom/"+src.replace(/^\\.\\//,"");
+    return "/dom/"+src.replace(/^\.\//,"");
   }
 
   async function actionFromNode(el,spec){
