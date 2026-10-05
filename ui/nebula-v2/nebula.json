@@ -1,0 +1,133 @@
+{
+  "version": 2,
+  "name": "Nebula V2 telemetry",
+  "responsive": true,
+  "defaultView": "main",
+  "tokens": {
+    "accent": "#67d9ff",
+    "panel": "rgba(14,22,40,.96)",
+    "surface": "rgba(22,34,58,.94)",
+    "border": "#34547e",
+    "radius": "12px",
+    "panelPadding": "16px"
+  },
+  "views": {
+    "main": {
+      "title": "NEBULA // DOM V2 TELEMETRY",
+      "layout": {
+        "type": "grid",
+        "columns": "repeat(4,minmax(0,1fr))",
+        "gap": "12px",
+        "children": [
+          {
+            "type": "panel",
+            "label": "SYSTEM",
+            "children": [
+              {
+                "type": "value",
+                "label": "Firmware",
+                "bind": "system.build"
+              },
+              {
+                "type": "value",
+                "label": "CPU",
+                "bind": "system.cpu",
+                "format": "number"
+              },
+              {
+                "type": "value",
+                "label": "Uptime",
+                "bind": "system.uptime",
+                "format": "number"
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "WI-FI",
+            "children": [
+              {
+                "type": "status",
+                "label": "Link",
+                "bind": "wifi.status"
+              },
+              {
+                "type": "value",
+                "label": "SSID",
+                "bind": "wifi.ssid"
+              },
+              {
+                "type": "value",
+                "label": "RSSI",
+                "bind": "wifi.rssi",
+                "format": "dbm"
+              }
+            ]
+          },
+          {
+            "type": "gauge",
+            "label": "CPU MHz",
+            "bind": "system.cpu",
+            "min": 0,
+            "max": 240,
+            "format": "number",
+            "animate": "glow"
+          },
+          {
+            "type": "meter",
+            "label": "Signal strength",
+            "bind": "wifi.rssi",
+            "min": -100,
+            "max": 0
+          },
+          {
+            "type": "relay",
+            "relay": 0
+          },
+          {
+            "type": "relay",
+            "relay": 1
+          },
+          {
+            "type": "panel",
+            "label": "NETWORK",
+            "children": [
+              {
+                "type": "value",
+                "label": "IP",
+                "bind": "network.ip"
+              },
+              {
+                "type": "value",
+                "label": "Gateway",
+                "bind": "network.gateway"
+              },
+              {
+                "type": "value",
+                "label": "DNS 1",
+                "bind": "network.dns1"
+              }
+            ]
+          },
+          {
+            "type": "panel",
+            "label": "CONTROLS",
+            "children": [
+              {
+                "type": "button",
+                "text": "Reconnect Wi-Fi",
+                "action": {
+                  "action": "wifi.reconnect"
+                }
+              },
+              {
+                "type": "text",
+                "text": "Live telemetry • 1 second polling"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
