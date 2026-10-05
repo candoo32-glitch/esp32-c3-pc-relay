@@ -1,0 +1,11 @@
+{
+  "id": "steampunk",
+  "name": "Steampunk Foundry",
+  "version": 1,
+  "description": "A fully reimagined Victorian industrial control console for the ESP32-C3 PC Relay.",
+  "assets": {
+    "stylesheet": "steampunk.css",
+    "script": "steampunk.js"
+  },
+  "requires": "builtin-dom-v1"
+}
