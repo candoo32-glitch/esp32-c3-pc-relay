@@ -279,3 +279,53 @@ textarea.diagnostic-console{
   .sp-plaque{display:none}
   .card{padding:15px!important}
 }
+
+.sp-hidden-backend{display:none!important}
+.sp-backend-select{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
+.sp-screen-title{color:#d8b16a;font:800 .76rem Georgia,serif;letter-spacing:.14em;text-transform:uppercase;border-bottom:1px solid #543619;padding-bottom:8px;margin-bottom:10px}
+.sp-dashboard-data{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sp-dashboard-data .card{margin:0!important}
+.sp-dashboard-data .card::after{display:none}
+.sp-radio-console{display:grid;grid-template-columns:minmax(0,1.5fr) 170px 220px;gap:18px;align-items:center}
+.sp-radio-face,.sp-radio-control,.sp-network-console{min-height:110px;padding:15px;border:2px solid #65411f;border-radius:7px;background:linear-gradient(#21150e,#100a07);box-shadow:inset 0 0 20px #000}
+.sp-radio-lamp{display:flex;align-items:center;gap:8px;color:#dcb66e;font:800 1.1rem Georgia,serif;margin:13px 0}
+.sp-radio-reading{display:flex;justify-content:space-between;gap:14px;padding:5px 0;border-bottom:1px solid #3d2817;font:700 .66rem "Courier New",monospace}
+.sp-radio-reading span{color:#987047}.sp-radio-reading b{color:#e8d09b;font-weight:700}
+.sp-control-caption{color:#9d7445;font:800 .61rem Georgia,serif;letter-spacing:.13em;text-align:center;margin-bottom:8px}
+.sp-lever,.sp-mode-lever{
+  position:relative;width:74px;height:112px;margin:0 auto;border:3px solid #70471e;border-radius:9px;
+  background:linear-gradient(90deg,#160d08,#49301d,#160d08);box-shadow:inset 0 0 12px #000,0 4px 7px #000;
+  cursor:pointer;touch-action:manipulation
+}
+.sp-lever::before,.sp-mode-lever::before{
+  content:"";position:absolute;left:50%;top:18px;width:10px;height:58px;transform:translateX(-50%);
+  background:linear-gradient(90deg,#553116,#d08b3d,#5c3518);border:1px solid #c48739;border-radius:8px;
+  transform-origin:50% 44px;rotate:-18deg;transition:rotate .18s ease
+}
+.sp-lever span,.sp-mode-lever i{position:absolute;left:50%;top:67px;width:30px;height:30px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle at 35% 30%,#e5bb68,#754619 60%,#23150b);border:2px solid #9b672b;box-shadow:0 3px 5px #000}
+.sp-lever b,.sp-mode-lever b{position:absolute;bottom:7px;left:0;right:0;text-align:center;color:#b79059;font:800 .58rem Georgia,serif;letter-spacing:.12em}
+.sp-lever.active::before,.sp-mode-lever.active::before{rotate:18deg}
+.sp-lever.active b,.sp-mode-lever.active b{color:#a8e993}
+.sp-network-console{display:grid;grid-template-columns:1fr 1.2fr;gap:18px;align-items:center}
+.sp-network-readout{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sp-network-readout div{padding:10px;border:1px solid #4b3019;background:#130d08;min-width:0}
+.sp-network-readout span{display:block;color:#8f6840;font:800 .55rem Georgia,serif;letter-spacing:.1em;margin-bottom:5px}
+.sp-network-readout b{display:block;overflow:hidden;text-overflow:ellipsis;color:#e4cc96;font:700 .7rem "Courier New",monospace}
+.sp-mode-machine{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.sp-mode-machine>span{color:#aa7e4c;font:800 .64rem Georgia,serif;letter-spacing:.12em}
+.sp-mode-lever{width:140px;height:64px;margin:0}
+.sp-mode-lever::before{top:9px;height:32px;transform-origin:50% 23px;rotate:-20deg}
+.sp-mode-lever i{top:32px;width:22px;height:22px}
+.sp-mode-lever b{bottom:6px}
+.sp-relay-name-input{display:block;width:100%;margin-top:12px!important;text-align:center;font-family:Georgia,serif!important;font-weight:700!important;color:#e3c37b!important}
+.sp-commit{width:100%;margin-top:12px}
+@media(max-width:1000px){
+  .sp-radio-console,.sp-network-console{grid-template-columns:1fr 1fr}
+  .sp-radio-face{grid-column:1/-1}
+  .sp-dashboard-data{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+  .sp-radio-console,.sp-network-console{grid-template-columns:1fr}
+  .sp-network-readout{grid-template-columns:1fr}
+  .sp-mode-machine{justify-content:center;flex-direction:column}
+}
