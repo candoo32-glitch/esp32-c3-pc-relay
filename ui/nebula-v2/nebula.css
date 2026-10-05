@@ -124,3 +124,11 @@
   #dom-v2-root[data-v2-theme="nebula-v2"] .v2-tool-head .v2-button{width:100%}
   #dom-v2-root[data-v2-theme="nebula-v2"] .v2-ota-row{grid-template-columns:1fr}
 }
+
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-field-label{display:block;color:var(--v2-muted);font-size:.72rem;letter-spacing:.07em;text-transform:uppercase}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-field{display:flex;flex-direction:column;gap:6px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-ota-builds{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-ota-builds span{padding:8px 10px;border:1px solid rgba(52,84,126,.7);border-radius:7px;background:#091525;color:#b8cbe5;font:700 .72rem ui-monospace,SFMono-Regular,Menlo,monospace}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-scan-results{max-height:330px}
+#dom-v2-root[data-v2-theme="nebula-v2"] .v2-file-list,#dom-v2-root[data-v2-theme="nebula-v2"] .v2-nvs-list{max-height:520px}
+@media(max-width:700px){#dom-v2-root[data-v2-theme="nebula-v2"] .v2-ota-builds{grid-template-columns:1fr}}
