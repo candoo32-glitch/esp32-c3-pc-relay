@@ -109,7 +109,10 @@ async function activateUi(uiId){
     promotePendingUiStyle(pendingStyle);
     pendingStyle=null;
 
-    if(scriptUrl)await installExternalUiScript(scriptUrl);
+    if(scriptUrl){
+      await installExternalUiScript(scriptUrl);
+      window.dispatchEvent(new Event("external-ui-activate"));
+    }
 
     activeExternalUi=id;
     document.documentElement.dataset.externalUi=id;
