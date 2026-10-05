@@ -86,96 +86,6 @@ function disableDomV2Theme(){
   document.documentElement.removeAttribute("data-v2-theme");
 }
 
-async function loadDomV2Extension(){
-  /*
-   * V2 is strictly optional. Fetching or parsing it may fail without
-   * affecting V1 rendering, application logic, themes, or OTA behavior.
-   */
-  try{
-    const r=await fetchWithTimeout("/dom/v2.html?domV2CacheBust="+Date.now(),{cache:"no-store"});
-    if(!r.ok)throw Error("DOM V2 HTTP "+r.status);
-    const source=await r.text();
-    const parsed=new DOMParser().parseFromString(source,"text/html");
-    const template=parsed.getElementById("builtin-dom-v2-extension");
-    if(!template)throw Error("DOM V2 template missing");
-    const fragment=template.content.cloneNode(true);
-    document.body.appendChild(fragment);
-    if(!$("dom-v2-test-hook"))throw Error("DOM V2 test hook missing");
-
-    const v2Root=$("dom-v2-root");
-    if(v2Root){
-      v2Root.hidden=true;
-      const styleUrl=v2Root.dataset.v2Style;
-      const runtimeUrl=v2Root.dataset.v2Runtime;
-      if(styleUrl){
-        try{
-          const css=await fetchWithTimeout(styleUrl+"?domV2CacheBust="+Date.now(),{cache:"no-store"});
-          if(css.ok){
-            const style=document.createElement("style");
-            style.dataset.domV2="true";
-            style.textContent=await css.text();
-            document.head.appendChild(style);
-          }
-        }catch(e){console.warn("Optional DOM V2 stylesheet unavailable:",e)}
-      }
-      if(runtimeUrl){
-        try{
-          await new Promise(async (resolve,reject)=>{
-            if(window.ESP32V2){resolve();return}
-            let objectUrl="";
-            try{
-              const runtime=await fetchWithTimeout(runtimeUrl+"?domV2CacheBust="+Date.now(),{cache:"no-store"});
-              if(!runtime.ok)throw Error("DOM V2 runtime HTTP "+runtime.status);
-              const source=await runtime.text();
-              if(!source.trim())throw Error("DOM V2 runtime returned an empty response");
-
-              /*
-               * Load the fetched source through a Blob URL. This deliberately
-               * separates transport from execution: the ESP32 only has to
-               * deliver JavaScript text, while WebKit executes it as a normal
-               * external script. It also avoids relying on the ESP32 HTTP
-               * server's JavaScript MIME handling.
-               */
-              const blob=new Blob([source],{type:"text/javascript"});
-              objectUrl=URL.createObjectURL(blob);
-              const script=document.createElement("script");
-              script.dataset.domV2="true";
-              script.async=false;
-              script.src=objectUrl;
-              script.onload=()=>{
-                URL.revokeObjectURL(objectUrl);
-                objectUrl="";
-                if(window.ESP32V2)resolve();
-                else reject(Error("DOM V2 runtime executed but did not create ESP32V2"));
-              };
-              script.onerror=()=>{
-                if(objectUrl)URL.revokeObjectURL(objectUrl);
-                objectUrl="";
-                reject(Error("DOM V2 runtime fetched successfully but WebKit could not execute it"));
-              };
-              document.head.appendChild(script);
-            }catch(e){
-              if(objectUrl)URL.revokeObjectURL(objectUrl);
-              reject(e);
-            }
-          });
-          if(!window.ESP32V2?.init)throw Error("DOM V2 runtime loaded but did not initialize");
-          if(!window.ESP32V2.init(v2Root))throw Error("DOM V2 runtime initialized without a root");
-        }catch(e){
-          window.__ESP32V2_LOAD_ERROR=e;
-          console.warn("Optional DOM V2 runtime unavailable:",e);
-        }
-      }
-    }
-    document.documentElement.dataset.domV2="active";
-    console.info("DOM V2 extension loaded successfully");
-    return true;
-  }catch(e){
-    console.warn("Optional DOM V2 extension unavailable; V1 is unchanged:",e);
-    return false;
-  }
-}
-
 function fetchWithTimeout(url,options={},timeoutMs=UI_FETCH_TIMEOUT_MS){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
@@ -283,10 +193,7 @@ async function activateUi(uiId){
 
     if(String(manifest?.engine||"") === "dom-v2"){
       stage="DOM V2 runtime check";
-      if(!window.ESP32V2){
-        const detail=window.__ESP32V2_LOAD_ERROR?.message||"DOM V2 runtime unavailable";
-        throw Error(detail);
-      }
+      if(!window.ESP32V2) throw Error("DOM V2 runtime unavailable");
       await activateDomV2Theme(id,manifest);
       activeExternalUi=id;
       document.documentElement.dataset.externalUi="v2";
@@ -1068,8 +975,8 @@ async function bootstrapPage(){
   // GitHub-hosted themes are strictly a background enhancement.
   await load(false);
 
-  // Optional DOM v2 extension: V1 is already rendered and remains authoritative.
-  await loadDomV2Extension();
+  // The runtime is a normal browser script. Initialize it only after V1 is rendered.
+  if(window.ESP32V2?.init) window.ESP32V2.init($("dom-v2-root"));
 
   uiInitialLoad=false;
   document.documentElement.classList.remove("ui-boot-pending");
