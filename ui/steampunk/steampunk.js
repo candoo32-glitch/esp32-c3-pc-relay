@@ -8,6 +8,7 @@ const gear=(c="")=>'<svg class="sp-svg-gear '+c+'" viewBox="0 0 100 100"><path d
 const tube=(c="")=>'<svg class="sp-svg-tube '+c+'" viewBox="0 0 70 220"><path d="M22 20Q15 28 18 43v134q-3 15 8 23h18q11-8 8-23V43q3-15-4-23z" fill="#8f6236" opacity=".25" stroke="#d4a25a" stroke-width="3"/><path d="M27 35v150M43 35v150M35 52v92" stroke="#ff9a2d" stroke-width="3"/><path d="M18 16h34M18 204h34" stroke="#754719" stroke-width="8"/><circle cx="35" cy="103" r="9" fill="#ff9b2e"/></svg>';
 const gauge=(label,id,unit)=>'<div class="sp-gauge"><svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="91" fill="#120d09" stroke="#a36a29" stroke-width="6"/><circle cx="100" cy="100" r="76" fill="#d7bd86" stroke="#3b2718" stroke-width="5"/><path d="M43 139A76 76 0 1 1 157 139" fill="none" stroke="#5a3a20" stroke-width="2" stroke-dasharray="2 7"/><path d="M100 100L55 72" stroke="#23170e" stroke-width="6" stroke-linecap="round"/><circle cx="100" cy="100" r="9" fill="#a96d29" stroke="#21140b" stroke-width="4"/></svg><b>'+label+'</b><strong id="'+id+'">— '+unit+'</strong></div>';
 const plate=(title,sub,body,cls="")=>'<section class="sp-plate '+cls+'"><div class="sp-plate-head"><small>'+sub+'</small><b>'+title+'</b></div><div class="sp-plate-body">'+body+'</div></section>';
+const anchors=ids=>{const d=document.createElement("div");d.className="sp-backend-data";ids.forEach(id=>{const e=document.createElement("span");e.id=id;d.append(e)});return d};
 
 function frame(){
  if(q(".sp-frame"))return;
@@ -27,6 +28,7 @@ function dashboard(){
  plate("NETWORK","ADDRESSING",'<b id="sp-side-ip">—</b><span>IP ADDRESS</span><b id="sp-side-gw">—</b><span>GATEWAY</span>')+
  plate("ACTIVITY LOG","EVENT ROLL",'<div class="sp-log-mini">SYSTEM READY<br>WIRELESS LINK STANDBY<br>RELAY CONTROL ARMED</div>')+
  '</aside></div>';
+ t.append(anchors(["dash-wifi-status","dash-ssid","dash-ip","dash-rssi","dash-channel","dash-uptime","dash-build","dash-idf","dash-cpu","dash-relay0-name","dash-relay0-state","dash-relay1-name","dash-relay1-state"]));
 }
 function relay(){
  const t=$("tab-relays");if(!t||t.dataset.spBuilt)return;t.dataset.spBuilt=1;
@@ -60,17 +62,20 @@ function wifi(){
  if(tx){q("#sp-tx-form").append(tx);tx.classList.add("sp-backend-form")}
  $("sp-wtoggle").onclick=()=>toggle?.click();$("sp-wreconnect").onclick=()=>recon?.querySelector("button")?.click();$("sp-scan").onclick=()=>scan?.requestSubmit?.();
  [recon,scan,toggle].forEach(e=>e?.classList.add("sp-backend"));
+ t.append(anchors(["wifi-status","wifi-ssid","wifi-ip","wifi-gateway","wifi-subnet","wifi-dns","wifi-rssi","wifi-channel","wifi-bssid","wifi-tx"]));
 }
 function network(){
  const t=$("tab-network");if(!t||t.dataset.spBuilt)return;t.dataset.spBuilt=1;const f=q('form[action="/network/save"]');
  t.innerHTML='<div class="sp-network-bay">'+plate("ADDRESSING ENGINE","NETWORK EXCHANGE",'<div class="sp-address-mode"><span>ADDRESS MODE</span><button id="sp-mode">DHCP</button></div><div id="sp-net-form"></div>')+plate("LIVE CONNECTION","TELEMETRY",'<div class="sp-network-live"><b id="sp-nip">—</b><span>IP ADDRESS</span><b id="sp-ngw">—</b><span>GATEWAY</span><b id="sp-ndns">—</b><span>DNS 1</span><b id="sp-nrssi">—</b><span>RSSI</span></div>')+'</div>';
  if(f){$("sp-net-form").append(f);f.classList.add("sp-backend-form")}
  $("sp-mode").onclick=()=>{const s=$("net-mode");if(!s)return;s.value=s.value==="static"?"dhcp":"static";s.dispatchEvent(new Event("change",{bubbles:true}));$("sp-mode").textContent=s.value.toUpperCase()};
+ t.append(anchors(["net-state","net-live-ip","net-live-subnet","net-live-gateway","net-live-dns1","net-live-dns2","net-auth","net-bssid","net-rssi"]));
 }
 function diagnostics(){
  const t=$("tab-diagnostics");if(!t||t.dataset.spBuilt)return;t.dataset.spBuilt=1;const f=q('form[action="/diagnostics/toggle"]'),ta=$("diagnostic-console");
  t.innerHTML=plate("ENGINEER'S LOG","DIAGNOSTIC TELEGRAPH",'<div class="sp-console" id="sp-console"></div><div class="sp-diagnostic-controls"><button class="sp-button" id="sp-diag-toggle">DIAGNOSTICS</button><span>LIVE SCROLL</span></div>');
  const mirror=()=>{const c=$("sp-console");if(c){c.textContent=ta?.value||"Waiting for diagnostics…";c.scrollTop=c.scrollHeight}};setInterval(mirror,700);$("sp-diag-toggle").onclick=()=>f?.querySelector("button")?.click();f?.classList.add("sp-backend");
+ t.append(anchors(["diag-state","diag-auth","diag-bssid","diag-rssi"]));
 }
 function simpleTabs(){
  ["tab-storage","tab-system"].forEach(id=>{const t=$(id);if(!t||t.dataset.spBuilt)return;t.dataset.spBuilt=1;t.querySelectorAll(".card").forEach(c=>c.classList.add("sp-system-panel"))});
