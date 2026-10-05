@@ -53,10 +53,21 @@ function promotePendingUiStyle(style){
 
 function installExternalUiScript(url){
   return new Promise((resolve,reject)=>{
+    /*
+     * GitHub Raw intentionally serves repository files as text/plain with
+     * nosniff. That is fine for fetch(), but it is not a reliable source for
+     * a <script src> tag in Safari/WebKit. Use jsDelivr only for executable
+     * theme JavaScript; the files still live in this GitHub branch.
+     */
+    const rawPrefix="https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/";
+    const cdnPrefix="https://cdn.jsdelivr.net/gh/candoo32-glitch/esp32-c3-pc-relay@idf-6-migration/";
+    const scriptUrl=url.startsWith(rawPrefix)
+      ? cdnPrefix+url.slice(rawPrefix.length)
+      : url;
     const script=document.createElement("script");
     script.dataset.externalUi="true";
     script.async=false;
-    script.src=url+(url.includes("?")?"&":"?")+"uiCacheBust="+Date.now();
+    script.src=scriptUrl+(scriptUrl.includes("?")?"&":"?")+"uiCacheBust="+Date.now();
     script.onload=()=>resolve(script);
     script.onerror=()=>reject(new Error("UI script could not be loaded"));
     document.head.appendChild(script);
