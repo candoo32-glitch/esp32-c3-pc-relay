@@ -2498,3 +2498,44 @@ html[data-v2-theme="steampunk-v2"] body::before{
 #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art ~ .v2-panel{
   text-shadow:0 1px 2px #000;
 }
+
+
+/* Real vacuum-tube instrument — transparent artwork, physically mounted
+   over the machine rather than rendered as another UI card. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-hero-vacuum-tube{
+  position:absolute!important;
+  z-index:4!important;
+  left:4.4%!important;
+  top:246px!important;
+  width:128px!important;
+  height:310px!important;
+  object-fit:contain!important;
+  pointer-events:none!important;
+  opacity:1!important;
+  filter:
+    drop-shadow(0 0 7px rgba(255,93,20,.85))
+    drop-shadow(0 0 22px rgba(255,67,8,.35))
+    saturate(1.15);
+  animation:v2-real-tube-breathe 3.7s ease-in-out infinite;
+}
+@keyframes v2-real-tube-breathe{
+  0%,100%{filter:drop-shadow(0 0 6px rgba(255,93,20,.78)) drop-shadow(0 0 18px rgba(255,67,8,.3)) saturate(1.1);opacity:.94}
+  46%{filter:drop-shadow(0 0 10px rgba(255,117,31,.98)) drop-shadow(0 0 30px rgba(255,67,8,.48)) saturate(1.25);opacity:1}
+  49%{filter:drop-shadow(0 0 4px rgba(255,70,10,.7)) drop-shadow(0 0 12px rgba(255,67,8,.22)) saturate(1);opacity:.88}
+  52%{filter:drop-shadow(0 0 11px rgba(255,125,36,1)) drop-shadow(0 0 32px rgba(255,67,8,.5)) saturate(1.28);opacity:1}
+}
+@media(max-width:900px){
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-hero-vacuum-tube{
+    left:2%!important;
+    width:100px!important;
+    height:250px!important;
+  }
+}
+@media(max-width:680px){
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-hero-vacuum-tube{
+    left:1%!important;
+    top:235px!important;
+    width:78px!important;
+    height:205px!important;
+  }
+}
