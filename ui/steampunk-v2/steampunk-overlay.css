@@ -297,3 +297,33 @@
   #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead::before{left:-20px}
   #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead::after{right:-20px}
 }
+
+/* IMAGE-BACKED DASHBOARD: SVG is the physical machine, DOM V2 is the interactive overlay. */
+#dom-v2-root[data-v2-theme="steampunk-v2"]>.v2-screen{padding:0!important;background:#080a0b!important;min-height:1024px!important;overflow:hidden!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen>.v2-grid{position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;margin:0!important;padding:0!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen>.v2-grid>.v2-dashboard-art{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;object-fit:fill!important;margin:0!important;padding:0!important;z-index:0!important;pointer-events:none!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen>.v2-grid>.v2-panel{position:absolute!important;box-sizing:border-box!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;overflow:hidden!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen>.v2-grid>.v2-panel:before,#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen>.v2-grid>.v2-panel:after{display:none!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status{left:22.8%!important;top:24%!important;width:45.9%!important;height:24.9%!important;padding:42px 38px 20px!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status{left:69.7%!important;top:24%!important;width:25.4%!important;height:24.9%!important;padding:42px 28px 20px!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel{left:10.5%!important;top:23.5%!important;width:17.5%!important;height:65%!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard{top:50.8%!important;width:22.2%!important;height:38.2%!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard.v2-span-4{left:22.8%!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard.v2-span-5{left:46%!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-network-summary{left:69.7%!important;top:50.8%!important;width:25.4%!important;height:20%!important;padding:40px 28px 15px!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-activity{left:69.7%!important;top:72.5%!important;width:25.4%!important;height:20.5%!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead{position:absolute!important;left:0!important;top:0!important;width:100%!important;height:12%!important;margin:0!important;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important;pointer-events:none!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead .v2-nixie-strip{position:absolute!important;left:66.1%!important;top:2.8%!important;width:12.4%!important;margin:0!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:3px!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead .v2-nixie-digit{min-height:0!important;padding:3px!important;border:0!important;background:transparent!important;box-shadow:none!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead .v2-nixie-digit:nth-child(3){display:none!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs{position:absolute!important;left:6.2%!important;top:12.9%!important;width:87.6%!important;height:9.1%!important;margin:0!important;padding:0!important;display:grid!important;grid-template-columns:repeat(7,1fr)!important;gap:0!important;border:0!important;background:transparent!important;box-shadow:none!important;z-index:30!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button{min-width:0!important;min-height:0!important;margin:0!important;border:0!important;border-radius:50%!important;background:transparent!important;box-shadow:none!important;color:#f0d39a!important;text-shadow:0 2px 3px #000!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button:hover,#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button[data-active="true"]{background:radial-gradient(circle,rgba(255,176,53,.3),transparent 60%)!important;color:#fff0bb!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen-title{position:absolute!important;left:34.8%!important;top:2.6%!important;width:30.5%!important;height:8.8%!important;margin:0!important;padding:0!important;display:flex!important;align-items:center!important;justify-content:center!important;border:0!important;background:transparent!important;box-shadow:none!important;color:#f4d48d!important;text-shadow:0 2px 3px #000!important;z-index:20!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-panel-title{border:0!important;background:transparent!important;color:#e5bd78!important;text-shadow:0 2px 3px #000!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-value,#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-status{background:transparent!important;border:0!important;box-shadow:none!important;color:#e6d1a4!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard .v2-relay{position:absolute!important;right:8%!important;top:38%!important;width:27%!important;height:24%!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard .v2-button{width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;border-radius:50%!important;opacity:.02!important;cursor:pointer!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel .v2-gauge{opacity:.02!important;pointer-events:none!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel .v2-value{display:none!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-activity .v2-log{position:absolute!important;inset:23% 5% 5%!important;background:rgba(245,220,166,.8)!important;color:#24180d!important;border:0!important}
