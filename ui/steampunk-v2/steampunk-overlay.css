@@ -2,6 +2,8 @@
 
 /* Steampunk image-first overlay: the GitHub-hosted machine artwork is the chassis;
    DOM V2 contributes only live values and real controls. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen{position:relative!important;overflow:hidden!important;background:#090b0c!important;}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid{position:relative!important;}
 #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art{
   position:absolute!important; inset:0!important; z-index:0!important;
   width:100%!important; height:100%!important; object-fit:cover!important;
