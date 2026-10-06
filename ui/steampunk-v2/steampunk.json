@@ -22,6 +22,12 @@
         "gap": "14px",
         "children": [
           {
+            "type": "image",
+            "class": "dashboard-art",
+            "src": "https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/3df5d9597b1c03d97f9239b4fd2368c6f69c4bd5/ui/steampunk-v2/steampunk-dashboard.svg",
+            "alt": ""
+          },
+          {
             "type": "panel",
             "class": "masthead span-12",
             "label": "STEAMPUNK CONTROL DECK",
