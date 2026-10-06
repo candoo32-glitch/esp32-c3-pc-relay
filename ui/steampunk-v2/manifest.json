@@ -1,0 +1,12 @@
+{
+  "id": "steampunk-v2",
+  "name": "Steampunk",
+  "version": 1,
+  "engine": "dom-v2",
+  "requires": "dom-v2",
+  "description": "GitHub-hosted DOM V2 steampunk control-panel presentation.",
+  "assets": {
+    "stylesheet": "steampunk.css",
+    "schema": "steampunk.json"
+  }
+}
