@@ -1229,3 +1229,227 @@ html[data-v2-theme="steampunk-v2"] body::before{
   border:1px solid #8d5928;
 }
 
+
+
+/* ============================================================
+   STEAMPUNK V2 — GRAPHIC UI PASS
+   The dashboard is now a layered instrument interface.
+   Panels are glass/metal frames; artwork lives behind the data.
+   ============================================================ */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid{
+  position:relative;
+  isolation:isolate;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art{
+  position:absolute!important;
+  inset:-8px -12px -20px!important;
+  width:calc(100% + 24px)!important;
+  height:calc(100% + 28px)!important;
+  object-fit:cover;
+  opacity:.78;
+  z-index:0!important;
+  pointer-events:none!important;
+  mix-blend-mode:screen;
+  filter:saturate(.92) contrast(1.08) drop-shadow(0 0 12px rgba(231,151,55,.12));
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid > :not(.v2-dashboard-art){
+  position:relative;
+  z-index:2;
+}
+/* Remove the "brown card" appearance. These are transparent instrument windows. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art ~ .v2-panel{
+  background:
+    linear-gradient(180deg,rgba(255,211,126,.035),transparent 18%),
+    linear-gradient(135deg,rgba(255,143,43,.025),transparent 35%),
+    rgba(7,6,5,.56);
+  backdrop-filter:blur(4px) saturate(1.12);
+  -webkit-backdrop-filter:blur(4px) saturate(1.12);
+  border:1px solid rgba(218,157,76,.68);
+  border-radius:2px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,220,147,.08),
+    inset 0 0 35px rgba(0,0,0,.74),
+    0 10px 28px rgba(0,0,0,.58);
+}
+/* Thin technical framing instead of filled headers. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art ~ .v2-panel::before{
+  inset:7px;
+  border:1px solid rgba(224,163,82,.34);
+  border-radius:1px;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art ~ .v2-panel::after{
+  width:8px;height:8px;top:8px;left:8px;
+  background:#f5c86f;
+  box-shadow:
+    0 0 7px rgba(255,183,65,.7),
+    calc(100% + 0px) 0 0 -1px #8d5a27,
+    0 calc(100% - 16px) 0 -1px #8d5a27,
+    calc(100% + 0px) calc(100% - 16px) 0 -1px #8d5a27;
+}
+/* Modern machine title: a floating HUD plaque, not a giant painted box. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen-title{
+  position:relative;
+  z-index:5;
+  margin:0 11% 12px;
+  padding:11px 24px;
+  min-height:45px;
+  box-sizing:border-box;
+  background:
+    linear-gradient(90deg,transparent,rgba(191,128,48,.15) 18%,rgba(191,128,48,.22) 50%,rgba(191,128,48,.15) 82%,transparent);
+  border:0;
+  border-top:1px solid #bc7c35;
+  border-bottom:1px solid #bc7c35;
+  box-shadow:0 0 18px rgba(217,139,43,.10);
+  text-shadow:0 0 12px rgba(255,192,83,.24),0 2px #000;
+}
+/* Selector rail becomes a modern mechanical command bar. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs{
+  position:relative;
+  z-index:6;
+  margin:0 5% 16px;
+  padding:5px;
+  gap:5px;
+  background:rgba(8,6,5,.72);
+  backdrop-filter:blur(7px);
+  -webkit-backdrop-filter:blur(7px);
+  border:1px solid rgba(203,142,62,.62);
+  border-radius:3px;
+  box-shadow:inset 0 0 18px #000,0 5px 18px rgba(0,0,0,.48);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button{
+  min-height:46px;
+  min-width:122px;
+  border:1px solid rgba(190,130,54,.58);
+  border-radius:2px;
+  background:
+    linear-gradient(90deg,rgba(224,161,78,.08),transparent 28%,rgba(224,161,78,.05)),
+    rgba(19,12,8,.74);
+  box-shadow:inset 0 1px rgba(255,218,144,.12);
+  transition:all .18s cubic-bezier(.2,.8,.2,1);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button:hover{
+  transform:none;
+  border-color:#e0a14d;
+  box-shadow:inset 0 1px #ffe2a0,0 0 18px rgba(230,151,49,.18);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button[data-active="true"]{
+  transform:none;
+  background:linear-gradient(90deg,rgba(214,146,57,.26),rgba(78,45,20,.32),rgba(214,146,57,.10));
+  border-color:#efb45b;
+  box-shadow:inset 0 0 18px rgba(223,151,49,.13),0 0 14px rgba(225,150,49,.15);
+}
+/* Instrument data is laid out like a modern HUD. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-value{
+  border-bottom:1px solid rgba(211,151,75,.18);
+  background:linear-gradient(90deg,rgba(170,109,39,.05),transparent 75%);
+  padding:8px 6px;
+  transition:background .2s ease,border-color .2s ease;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-value:hover{
+  background:linear-gradient(90deg,rgba(220,150,55,.12),transparent 75%);
+  border-color:rgba(236,175,92,.4);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-value::after{
+  width:4px;height:4px;
+  background:#8c5b29;
+  box-shadow:0 0 5px rgba(230,157,58,.3);
+}
+/* Nixie modules: glass, wireframe socket, animated glow. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nixie-digit{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(234,166,72,.85);
+  border-radius:14px;
+  background:
+    radial-gradient(ellipse at 50% 40%,rgba(255,84,12,.15),transparent 45%),
+    linear-gradient(180deg,rgba(12,7,5,.75),rgba(3,3,3,.9));
+  box-shadow:
+    inset 0 0 0 2px rgba(100,55,20,.8),
+    inset 0 0 20px #000,
+    0 0 0 1px rgba(242,176,76,.28),
+    0 0 18px rgba(255,70,10,.14);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nixie-digit::after{
+  content:"";
+  position:absolute;left:8%;right:8%;bottom:6px;height:1px;
+  background:linear-gradient(90deg,transparent,#e3a04b,transparent);
+  box-shadow:0 0 7px rgba(255,143,40,.5);
+}
+/* Relay control becomes a physical actuator on a circuit board. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay{
+  background:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0 1px,transparent 1px 7px),
+    rgba(8,6,4,.55);
+  border:1px solid rgba(205,141,62,.65);
+  box-shadow:inset 0 0 20px #000,0 7px 15px rgba(0,0,0,.45);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay .v2-button{
+  position:relative;
+  transition:transform .1s ease,filter .2s ease;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay .v2-button:hover{
+  transform:scale(1.045);
+  filter:brightness(1.18);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay .v2-button:active{
+  transform:scale(.97);
+}
+/* Gauge gets a moving scanning highlight. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-gauge-ring::before{
+  content:"";
+  position:absolute;
+  inset:18px;
+  border-radius:50%;
+  border:1px solid rgba(230,164,73,.18);
+  background:conic-gradient(from 215deg,transparent 0 72%,rgba(255,181,74,.38) 74%,transparent 76%);
+  animation:v2-gauge-scan 3.8s linear infinite;
+  pointer-events:none;
+}
+@keyframes v2-gauge-scan{to{transform:rotate(360deg)}}
+/* Signal/meter graphics pulse like live instrumentation. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-meter-bar{
+  background:linear-gradient(90deg,#5b2c13,#c56d25,#ffd27a);
+  box-shadow:0 0 9px rgba(238,157,55,.32);
+  animation:v2-signal-breathe 2.4s ease-in-out infinite;
+}
+@keyframes v2-signal-breathe{0%,100%{filter:brightness(.88)}50%{filter:brightness(1.22)}}
+/* Add technical corner brackets to important dashboard modules. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-network-summary,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-activity{
+  overflow:visible;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status::after,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status::after,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard::after{
+  right:-8px;top:50%;
+  width:10px;height:10px;
+  border:1px solid #d89a45;
+  background:#1b0e08;
+  box-shadow:0 0 8px rgba(239,153,45,.4),inset 0 0 4px #000;
+}
+/* Live status lamps */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-status{
+  position:relative;
+  box-shadow:inset 0 0 0 1px rgba(220,157,75,.16);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-status::after{
+  content:"";
+  position:absolute;right:10px;top:50%;width:8px;height:8px;margin-top:-4px;
+  border-radius:50%;background:#84e84b;
+  box-shadow:0 0 5px #8be95b,0 0 14px rgba(103,235,66,.6);
+  animation:v2-status-pulse 2.1s ease-in-out infinite;
+}
+@keyframes v2-status-pulse{0%,100%{opacity:.55;transform:scale(.85)}50%{opacity:1;transform:scale(1.15)}}
+/* Mechanical scanline adds life without looking like a video-game overlay. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art ~ .v2-panel::after{
+  animation:v2-lamp-breathe 2.8s ease-in-out infinite;
+}
+@keyframes v2-lamp-breathe{0%,100%{filter:brightness(.85)}50%{filter:brightness(1.3)}}
+/* On narrow screens the artwork stays decorative rather than blocking controls. */
+@media(max-width:680px){
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art{opacity:.38}
+}
