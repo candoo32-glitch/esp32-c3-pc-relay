@@ -2023,3 +2023,209 @@ html[data-v2-theme="steampunk-v2"] body::before{
     transition:none!important;
   }
 }
+
+
+/* ================================================================
+   MECHANICAL HARDWARE PASS
+   The content is mounted into a machine, rather than presented as
+   a collection of web cards.
+   ================================================================ */
+
+/* Long structural rods behind the instrument field. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen{
+  background:
+    linear-gradient(90deg,
+      transparent 0 2.2%,
+      rgba(177,107,35,.55) 2.25%,
+      rgba(35,19,8,.95) 2.45%,
+      transparent 2.65% 97.35%,
+      rgba(35,19,8,.95) 97.55%,
+      rgba(177,107,35,.55) 97.75%,
+      transparent 97.8%),
+    linear-gradient(180deg,transparent 0 7px,rgba(198,133,48,.38) 8px,transparent 10px);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen::before{
+  clip-path:polygon(0 14px,14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px));
+}
+
+/* Every panel is a pressed metal aperture with four actual-looking fasteners. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-panel{
+  border-radius:2px!important;
+  clip-path:polygon(0 7px,7px 0,calc(100% - 7px) 0,100% 7px,100% calc(100% - 7px),calc(100% - 7px) 100%,7px 100%,0 calc(100% - 7px));
+  background:
+    radial-gradient(circle at 11px 11px,#f0c36c 0 2px,#704319 2.5px 4px,transparent 4.5px),
+    radial-gradient(circle at calc(100% - 11px) 11px,#f0c36c 0 2px,#704319 2.5px 4px,transparent 4.5px),
+    radial-gradient(circle at 11px calc(100% - 11px),#f0c36c 0 2px,#704319 2.5px 4px,transparent 4.5px),
+    radial-gradient(circle at calc(100% - 11px) calc(100% - 11px),#f0c36c 0 2px,#704319 2.5px 4px,transparent 4.5px),
+    linear-gradient(145deg,rgba(255,255,255,.035),transparent 20%),
+    #080b0d!important;
+}
+
+/* Replace the "card title" look with a small bolted instrument placard. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-panel-title{
+  position:relative;
+  margin:-12px 0 17px 2px!important;
+  padding:7px 16px 7px 25px!important;
+  min-width:150px;
+  color:#d8c7aa!important;
+  background:
+    radial-gradient(circle at 9px 50%,#f5d27f 0 2px,#9b6326 2.5px 5px,#261408 5.5px),
+    linear-gradient(180deg,#353a3c,#171b1c 52%,#292018);
+  border:1px solid #a36d31!important;
+  border-radius:2px!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.15),0 3px 8px #000!important;
+  font-size:10px!important;
+}
+
+/* A real mechanical control rail at the bottom of every major panel. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-panel::after{
+  content:"";
+  position:absolute!important;
+  left:18px!important;
+  right:18px!important;
+  bottom:7px!important;
+  height:3px!important;
+  width:auto!important;
+  background:
+    radial-gradient(circle,#d7a153 0 1px,transparent 1.8px) 0 50%/22px 100% repeat-x,
+    linear-gradient(90deg,transparent,#734719 8%,#c48738 50%,#734719 92%,transparent)!important;
+  box-shadow:0 1px 3px #000!important;
+  pointer-events:none;
+}
+
+/* Rotary selector appearance for selects. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] select{
+  border-radius:20px!important;
+  padding-left:18px!important;
+  padding-right:38px!important;
+  background:
+    radial-gradient(circle at 9px 50%,#efbe62 0 2px,#805020 2.5px 5px,transparent 5.5px),
+    linear-gradient(180deg,#34393b,#0b0e10 52%,#272018)!important;
+  box-shadow:
+    inset 0 2px 5px #000,
+    inset 0 1px rgba(255,255,255,.15),
+    0 2px 5px #000!important;
+}
+
+/* Inputs become black-glass instrument windows. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] input{
+  border-radius:2px!important;
+  background:
+    linear-gradient(90deg,rgba(255,166,59,.04),transparent 18%),
+    #050708!important;
+  box-shadow:
+    inset 0 4px 12px #000,
+    inset 0 0 0 1px rgba(255,255,255,.035),
+    0 1px 0 rgba(239,178,89,.12)!important;
+}
+
+/* A small mechanical toggle treatment for action buttons. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-button{
+  border-radius:18px!important;
+  padding-left:20px!important;
+  padding-right:20px!important;
+  background:
+    radial-gradient(circle at 11px 50%,#f0c26d 0 2px,#9b6428 2.5px 5px,#261508 5.5px),
+    linear-gradient(180deg,#45494a,#171a1b 48%,#282019)!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-button::after{
+  content:"";
+  display:block;
+  position:absolute;
+  right:9px;
+  top:50%;
+  width:6px;height:6px;
+  margin-top:-3px;
+  border-radius:50%;
+  background:#8b5420;
+  box-shadow:0 0 5px rgba(255,131,31,.35);
+}
+
+/* Primary buttons are guarded illuminated switches. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-primary{
+  border-radius:4px!important;
+  background:
+    linear-gradient(180deg,rgba(255,239,185,.18),transparent 30%),
+    linear-gradient(180deg,#a76a28,#4c2a12)!important;
+  box-shadow:
+    inset 0 1px rgba(255,240,189,.35),
+    inset 0 -4px 8px rgba(0,0,0,.55),
+    0 0 0 2px #261507,
+    0 0 13px rgba(225,145,43,.12)!important;
+}
+
+/* Nixie rack is physically suspended on two rods. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nixie-strip{
+  border-radius:3px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nixie-strip::before,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nixie-strip::after{
+  width:58px!important;
+  height:9px!important;
+  top:50%!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nixie-strip::before{
+  left:-58px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nixie-strip::after{
+  right:-58px!important;
+}
+
+/* Relay housings get a physical socket and actuator collar. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay{
+  clip-path:polygon(0 8px,8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px));
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay .v2-button{
+  position:relative!important;
+  box-shadow:
+    inset 0 7px 12px rgba(255,225,190,.22),
+    inset 0 -12px 18px rgba(0,0,0,.72),
+    0 0 0 3px #2c1609,
+    0 0 0 6px #9c6123,
+    0 8px 14px #000,
+    0 0 22px rgba(255,58,12,.25)!important;
+}
+
+/* Instrument panel: a real bezel, not a generic gauge circle. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel .v2-gauge{
+  padding:12px!important;
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.06),transparent 25%),
+    #101416;
+  border:1px solid #7e5224;
+  box-shadow:inset 0 0 18px #000,0 8px 18px #000;
+}
+
+/* Activity console becomes a recessed CRT/instrument window. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-log{
+  position:relative;
+  border:6px solid #272c2e!important;
+  box-shadow:
+    inset 0 0 0 1px #a16b2b,
+    inset 0 0 30px #000,
+    0 5px 12px #000!important;
+  background:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.015) 0 1px,transparent 1px 4px),
+    #050708!important;
+  color:#b8d59d!important;
+}
+
+/* Make the page read as one machine: suppress excessive card gaps. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-layout{
+  align-items:stretch;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-grid{
+  align-items:stretch;
+}
+
+/* On the small screen, keep the hardware language instead of reverting to
+   rounded app cards. */
+@media(max-width:680px){
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-panel{
+    clip-path:none;
+    border-radius:3px!important;
+  }
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button{
+    min-width:88px;
+  }
+}
