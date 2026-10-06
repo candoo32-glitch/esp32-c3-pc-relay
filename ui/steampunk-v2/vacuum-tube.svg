@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 620">
+<defs>
+ <radialGradient id="g"><stop stop-color="#fffbd0"/><stop offset=".12" stop-color="#ffd45a"/><stop offset=".3" stop-color="#ff7a16"/><stop offset=".62" stop-color="#b62c08"/><stop offset="1" stop-color="#1a0502" stop-opacity="0"/></radialGradient>
+ <linearGradient id="glass" x2="1"><stop stop-color="#fff" stop-opacity=".22"/><stop offset=".18" stop-color="#ffb35a" stop-opacity=".08"/><stop offset=".5" stop-color="#fff" stop-opacity=".2"/><stop offset=".82" stop-color="#ff6b18" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity=".18"/></linearGradient>
+ <linearGradient id="brass" x2="0" y2="1"><stop stop-color="#f2c46c"/><stop offset=".18" stop-color="#9d5e20"/><stop offset=".48" stop-color="#3b1c08"/><stop offset=".7" stop-color="#d18a32"/><stop offset="1" stop-color="#42200a"/></linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="13"/></filter>
+ <filter id="soft"><feGaussianBlur stdDeviation="3"/></filter>
+</defs>
+<!-- reflected halo -->
+<ellipse cx="130" cy="290" rx="72" ry="245" fill="url(#g)" opacity=".55" filter="url(#glow)"/>
+<!-- top cap -->
+<rect x="89" y="12" width="82" height="42" rx="12" fill="url(#brass)" stroke="#1b0c04" stroke-width="6"/>
+<circle cx="130" cy="12" r="16" fill="url(#brass)" stroke="#241005" stroke-width="5"/>
+<!-- glass envelope -->
+<rect x="48" y="48" width="164" height="430" rx="78" fill="#351508" fill-opacity=".24" stroke="url(#brass)" stroke-width="9"/>
+<rect x="57" y="58" width="146" height="410" rx="68" fill="url(#glass)" stroke="#ffb052" stroke-opacity=".22" stroke-width="2"/>
+<ellipse cx="130" cy="270" rx="55" ry="180" fill="url(#g)" opacity=".35" filter="url(#soft)"/>
+<!-- internal electrode supports -->
+<path d="M94 105V442M166 105V442" stroke="#d7a25a" stroke-width="6"/>
+<path d="M104 112V438M156 112V438" stroke="#54260c" stroke-width="3"/>
+<!-- glowing filament / X -->
+<path d="M98 145C110 195 150 225 162 285S150 390 98 435M162 145C150 195 110 225 98 285S110 390 162 435" fill="none" stroke="#ff7b18" stroke-opacity=".65" stroke-width="12" filter="url(#soft)"/>
+<path d="M98 145C110 195 150 225 162 285S150 390 98 435M162 145C150 195 110 225 98 285S110 390 162 435" fill="none" stroke="#ffbd52" stroke-width="4"/>
+<!-- glass highlights -->
+<path d="M82 92C65 180 69 350 88 422" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="8"/>
+<path d="M185 100C199 180 194 345 178 420" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="5"/>
+<!-- lower seal -->
+<rect x="42" y="455" width="176" height="46" rx="10" fill="url(#brass)" stroke="#1b0c04" stroke-width="6"/>
+<rect x="55" y="468" width="150" height="18" rx="5" fill="#160d07" stroke="#c77d2a" stroke-width="2"/>
+<!-- base -->
+<rect x="28" y="497" width="204" height="82" rx="12" fill="url(#brass)" stroke="#1b0c04" stroke-width="7"/>
+<rect x="48" y="518" width="164" height="38" rx="7" fill="#1a120d" stroke="#7e4b1a" stroke-width="3"/>
+<circle cx="55" cy="537" r="5" fill="#f0bb61"/><circle cx="205" cy="537" r="5" fill="#f0bb61"/>
+<!-- mounting flange -->
+<rect x="12" y="570" width="236" height="38" rx="9" fill="url(#brass)" stroke="#160a03" stroke-width="6"/>
+<circle cx="36" cy="589" r="7" fill="#e9b45d"/><circle cx="224" cy="589" r="7" fill="#e9b45d"/>
+</svg>
