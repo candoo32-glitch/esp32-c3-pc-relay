@@ -24,7 +24,7 @@
           {
             "type": "image",
             "class": "dashboard-art",
-            "src": "https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/f29ea5962bcd08e1c9784b9d5daa740b5b8953b7/ui/steampunk-v2/steampunk-dashboard.svg",
+            "src": "https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/ui/steampunk-v2/steampunk-dashboard.svg",
             "alt": ""
           },
           {
