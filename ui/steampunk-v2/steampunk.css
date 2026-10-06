@@ -839,3 +839,313 @@ html[data-v2-theme="steampunk-v2"] body::before{
  #dom-v2-root[data-v2-theme="steampunk-v2"]::before,#dom-v2-root[data-v2-theme="steampunk-v2"]::after{width:32px}
  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nixie-strip{grid-template-columns:1fr}
 }
+
+
+/* STEAMPUNK DENSITY PASS — physical machine, not a color skin */
+#dom-v2-root[data-v2-theme="steampunk-v2"]{
+  max-width:none;
+  width:100%;
+  min-height:100vh;
+  padding:14px 76px 34px;
+  background-image:
+    url("./steampunk-frame.svg"),
+    radial-gradient(circle at 50% 0%,rgba(255,174,66,.18),transparent 30%),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0 1px,transparent 1px 7px),
+    linear-gradient(90deg,#0b0604,#211109 8%,#0e0906 20%,#160d08 50%,#0e0906 80%,#211109 92%,#0b0604);
+  background-size:100% 100%,100% 100%,100% 100%,100% 100%;
+  background-position:center,center,center,center;
+  background-repeat:no-repeat;
+  background-attachment:scroll;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen{
+  width:100%;
+  max-width:none!important;
+  box-sizing:border-box;
+  padding:0 8px 30px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen::after{
+  content:"";
+  display:block;
+  height:18px;
+  margin:22px 0 0;
+  border:2px solid #8b5929;
+  background:
+    radial-gradient(circle,#efc56f 0 2px,transparent 3px) 7px 50%/28px 100% repeat-x,
+    linear-gradient(#6e431f,#1b0f08 45%,#6e431f);
+  box-shadow:inset 0 1px #f4d58a,0 5px 18px #000;
+}
+/* Keep the artwork as the frame; the old pseudo tube strips become subtle edge illumination. */
+#dom-v2-root[data-v2-theme="steampunk-v2"]> .v2-screen{position:relative;z-index:2}
+#dom-v2-root[data-v2-theme="steampunk-v2"]::before,
+#dom-v2-root[data-v2-theme="steampunk-v2"]::after{
+  width:5px;
+  z-index:40;
+}
+/* Dense mechanical faceplates */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-panel{
+  overflow:visible;
+  border:3px solid #8b5a2a;
+  border-radius:4px;
+  padding:17px;
+  background:
+    linear-gradient(135deg,rgba(255,211,126,.055),transparent 15%),
+    linear-gradient(315deg,rgba(255,143,43,.045),transparent 20%),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 5px),
+    linear-gradient(155deg,#2b1c11,#120b07 46%,#1f120a);
+  box-shadow:
+    inset 0 0 0 2px #241207,
+    inset 0 0 28px rgba(0,0,0,.82),
+    0 0 0 1px #bd7a35,
+    0 9px 25px rgba(0,0,0,.72);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-panel::before{
+  inset:5px;
+  border:1px solid rgba(239,183,91,.38);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,220,148,.08),
+    inset 0 0 18px rgba(0,0,0,.6);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-panel::after{
+  top:7px;left:7px;width:9px;height:9px;
+  background:radial-gradient(circle at 32% 25%,#fff2bd 0 9%,#e1a850 22%,#70441c 55%,#1c1007 100%);
+  box-shadow:
+    calc(100% + 0px) 0 0 -1px #8e5a27,
+    calc(100% + 0px) calc(100% - 15px) 0 -1px #8e5a27,
+    0 calc(100% - 15px) 0 -1px #8e5a27,
+    0 0 7px rgba(255,181,67,.35);
+}
+/* Brass header plaques with actual machine fasteners */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-panel-title{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  margin:-5px 0 13px -3px;
+  padding:5px 18px 5px 27px;
+  color:#f5d69b;
+  background:
+    radial-gradient(circle at 8px 50%,#ffe6a4 0 2px,#c48738 3px 5px,#39200d 6px 7px,transparent 8px),
+    linear-gradient(#704a25,#bd8240 17%,#5a381b 51%,#2d190b 100%);
+  border:2px solid #9c652c;
+  border-radius:3px 8px 8px 3px;
+  box-shadow:inset 0 1px #f7d78e,0 3px 7px #000;
+  text-shadow:0 1px #000;
+  letter-spacing:.13em;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-panel-title::after{
+  content:"";
+  position:absolute;right:6px;top:50%;width:5px;height:5px;margin-top:-3px;
+  border-radius:50%;background:#f2c36d;
+  box-shadow:0 0 6px rgba(255,190,74,.6);
+}
+/* Mechanical navigation selector bank */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs{
+  margin:0 28px 18px;
+  padding:9px;
+  gap:9px;
+  border:2px solid #7f5127;
+  background:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.025) 0 1px,transparent 1px 8px),
+    linear-gradient(#382316,#120b07 48%,#302012);
+  box-shadow:inset 0 0 0 2px #1b0d06,0 8px 18px #000;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button{
+  min-height:52px;
+  border:2px solid #805126;
+  border-radius:4px;
+  background:
+    radial-gradient(circle at 8px 8px,#f6d27f 0 2px,#8c5926 3px 5px,transparent 6px),
+    linear-gradient(#674522,#2e1d11 48%,#140c07);
+  box-shadow:inset 0 1px #f1c67c,0 3px 5px #000;
+  transition:transform .12s ease,filter .15s ease,box-shadow .15s ease;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button:hover{
+  transform:translateY(-2px);
+  filter:brightness(1.18);
+  box-shadow:inset 0 1px #ffe09b,0 0 13px rgba(226,145,46,.28),0 5px 8px #000;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button[data-active="true"]{
+  transform:translateY(2px);
+  background:linear-gradient(#c0843d,#68431f 44%,#2b180b);
+  box-shadow:inset 0 2px #ffe09c,0 0 16px rgba(231,156,54,.25),inset 0 -5px 9px rgba(0,0,0,.35);
+}
+/* Faceplate title */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen-title{
+  margin:0 90px 14px;
+  min-height:52px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  background:
+    radial-gradient(circle at 7px 50%,#ffe7ad 0 2px,#a36b2d 3px 5px,transparent 6px),
+    radial-gradient(circle at calc(100% - 7px) 50%,#ffe7ad 0 2px,#a36b2d 3px 5px,transparent 6px),
+    linear-gradient(#7d532b,#d0974b 17%,#51331a 20%,#24150b 82%,#9b642d);
+  border:3px solid #a96f31;
+  box-shadow:inset 0 1px #ffe0a0,0 6px 17px #000;
+}
+/* Rich controls: switches, knobs, lamps and engraved inputs */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-button{
+  min-height:40px;
+  border:2px solid #915c28;
+  border-radius:4px;
+  background:
+    radial-gradient(circle at 7px 50%,#f5d083 0 2px,#8a5726 3px 5px,transparent 6px),
+    linear-gradient(#704a26,#332014 45%,#160d08);
+  color:#f2d39a;
+  box-shadow:inset 0 1px #f7d58f,0 3px 6px #000;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-button:hover{
+  filter:brightness(1.22);
+  box-shadow:inset 0 1px #ffe3a2,0 0 12px rgba(235,154,50,.28),0 4px 7px #000;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] input,
+#dom-v2-root[data-v2-theme="steampunk-v2"] select,
+#dom-v2-root[data-v2-theme="steampunk-v2"] textarea{
+  border:2px solid #744820;
+  border-radius:3px;
+  background:
+    linear-gradient(180deg,rgba(255,215,139,.04),transparent),
+    #0d0906;
+  color:#f0d6a1;
+  box-shadow:inset 0 3px 8px rgba(0,0,0,.8),0 1px rgba(255,209,125,.12);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] input:focus,
+#dom-v2-root[data-v2-theme="steampunk-v2"] select:focus,
+#dom-v2-root[data-v2-theme="steampunk-v2"] textarea:focus{
+  border-color:#d59a43;
+  box-shadow:inset 0 3px 8px #000,0 0 11px rgba(227,150,49,.24);
+}
+/* Small mechanical data rows */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-value{
+  position:relative;
+  border-bottom:1px solid rgba(204,142,65,.25);
+  padding:7px 5px;
+  background:linear-gradient(90deg,rgba(93,55,22,.13),transparent);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-value::after{
+  content:"";
+  position:absolute;right:0;top:50%;width:5px;height:5px;margin-top:-3px;border-radius:50%;
+  background:#8b5b2a;
+  box-shadow:0 0 4px rgba(228,154,55,.25);
+}
+/* Dashboard instruments become a dense machine bay */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-network-summary,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-activity{
+  background-image:
+    radial-gradient(circle at 92% 10%,rgba(255,170,50,.09),transparent 24%),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 6px);
+}
+/* Nixie housings look like glass bulbs seated in brass sockets */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nixie-digit{
+  min-height:82px;
+  border:5px solid #75451d;
+  border-radius:18px;
+  background:
+    radial-gradient(ellipse at 50% 18%,rgba(255,145,38,.25),transparent 44%),
+    radial-gradient(ellipse at 50% 80%,rgba(92,24,5,.5),transparent 65%),
+    linear-gradient(90deg,#080504,#301408 18%,#100806 50%,#301408 82%,#080504);
+  box-shadow:
+    inset 0 0 20px #000,
+    inset 0 0 10px rgba(255,80,15,.22),
+    0 0 0 2px #d09142,
+    0 0 22px rgba(255,77,12,.28);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nixie-digit .v2-value-number{
+  font-size:28px;
+  color:#ff8a2b;
+  text-shadow:0 0 5px #ff5410,0 0 16px #ff6b18,0 0 30px #ff3f08;
+}
+/* Relay modules: turn them into mounted hardware */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard{
+  padding-top:18px;
+  background:
+    radial-gradient(circle at 88% 18%,rgba(255,180,60,.11),transparent 22%),
+    linear-gradient(160deg,#352315,#17100b 48%,#25150b);
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard::before{
+  box-shadow:inset 0 0 0 1px #d49345,inset 0 0 24px #000;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay{
+  min-height:112px;
+  padding:13px;
+  border:2px solid #875625;
+  background:
+    repeating-linear-gradient(90deg,rgba(255,255,255,.02) 0 1px,transparent 1px 5px),
+    linear-gradient(#302016,#120c08);
+  box-shadow:inset 0 0 0 1px #2a160a,inset 0 0 15px #000,0 5px 12px #000;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay::before{
+  content:"";
+  position:absolute;left:8px;right:8px;top:8px;height:6px;
+  border-radius:3px;
+  background:repeating-linear-gradient(90deg,#d29345 0 8px,#432510 8px 16px);
+  opacity:.55;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay .v2-button{
+  width:86px;height:86px;
+  border:6px solid #623416;
+  box-shadow:inset 0 0 16px #210400,0 0 0 2px #c98436,0 0 22px rgba(255,67,17,.32),0 4px 8px #000;
+  font-weight:700;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-detail{
+  background:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 6px),
+    #100b07;
+  border:2px solid #69421f;
+}
+/* Instruments get brass bezels and tick marks */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-gauge-ring{
+  width:148px;height:148px;
+  border:6px solid #9a6129;
+  box-shadow:0 0 0 3px #271509,0 0 0 7px #b97a32,inset 0 0 26px #000,0 8px 18px #000;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-gauge-ring::after{
+  content:"";
+  position:absolute;inset:-13px;border-radius:50%;
+  border:1px dashed rgba(239,181,88,.48);
+  box-shadow:inset 0 0 0 2px rgba(65,35,12,.65);
+}
+/* Logs and browsers sit in recessed drawers */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-log,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-file-list,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-nvs-list,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-scan-results{
+  border:3px solid #805127;
+  box-shadow:inset 0 0 18px rgba(0,0,0,.65),0 4px 10px #000;
+}
+/* Pipe fittings along panel edges */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status::after,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status::after,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard::after{
+  content:"";
+  position:absolute;right:-11px;top:24px;width:18px;height:18px;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%,#ffe4a1 0 7%,#c68437 18%,#553016 55%,#160b05 100%);
+  border:2px solid #8b5928;
+  box-shadow:0 0 8px rgba(235,150,48,.28);
+}
+/* Reduce motion accessibility */
+@media (prefers-reduced-motion:reduce){
+  #dom-v2-root[data-v2-theme="steampunk-v2"] *,
+  #dom-v2-root[data-v2-theme="steampunk-v2"]::before,
+  #dom-v2-root[data-v2-theme="steampunk-v2"]::after{
+    animation:none!important;
+    transition:none!important;
+  }
+}
+@media(max-width:900px){
+  #dom-v2-root[data-v2-theme="steampunk-v2"]{padding-left:42px;padding-right:42px}
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs{margin-left:8px;margin-right:8px}
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen-title{margin-left:20px;margin-right:20px}
+}
+@media(max-width:680px){
+  #dom-v2-root[data-v2-theme="steampunk-v2"]{padding-left:25px;padding-right:25px}
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen-title{margin-left:4px;margin-right:4px}
+}
+
