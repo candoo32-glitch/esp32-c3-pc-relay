@@ -1,0 +1,51 @@
+@import url("steampunk.css");
+
+/* Steampunk image-first overlay: the GitHub-hosted machine artwork is the chassis;
+   DOM V2 contributes only live values and real controls. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art{
+  position:absolute!important; inset:0!important; z-index:0!important;
+  width:100%!important; height:100%!important; object-fit:cover!important;
+  object-position:center top!important; opacity:1!important; pointer-events:none!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid{
+  position:relative!important; z-index:1!important; min-height:1024px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid > .v2-panel{
+  background:transparent!important; border:0!important; box-shadow:none!important;
+  border-radius:0!important; clip-path:none!important; backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid > .v2-panel::before,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid > .v2-panel::after,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid > .v2-panel > .v2-panel-title{display:none!important;}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs{
+  position:relative!important; z-index:8!important; margin:0 7%!important;
+  background:transparent!important; border:0!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-view-tabs button{
+  border-radius:24px!important; min-height:48px!important;
+  background:linear-gradient(180deg,#3b4143,#111416 55%,#28201a)!important;
+  border:2px solid #9d672b!important;
+  box-shadow:inset 0 1px #ead18c,0 4px 10px #000,0 0 0 3px #241407!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status .v2-value,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status .v2-value,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-network-summary .v2-value,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel .v2-value{
+  background:transparent!important; border:0!important; box-shadow:none!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status .v2-status,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status .v2-status{
+  background:rgba(5,8,9,.76)!important; border:2px solid #9d672b!important;
+  border-radius:20px!important; box-shadow:0 0 14px rgba(89,255,40,.2),inset 0 0 12px #000!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard .v2-relay .v2-button{
+  pointer-events:auto!important; border-radius:50%!important; border:3px solid #b8782c!important;
+  box-shadow:inset 0 8px 14px rgba(255,255,255,.2),inset 0 -14px 18px rgba(0,0,0,.65),0 0 0 4px #241106,0 5px 14px #000!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-activity .v2-log{
+  background:transparent!important; border:0!important; box-shadow:none!important; color:#241b12!important;
+}
+@media(max-width:680px){
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art{object-fit:cover!important;}
+}
