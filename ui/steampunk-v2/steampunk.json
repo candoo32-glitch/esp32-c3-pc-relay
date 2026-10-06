@@ -4,12 +4,12 @@
   "responsive": true,
   "defaultView": "dashboard",
   "tokens": {
-    "accent": "#d59a43",
-    "panel": "#17130f",
-    "surface": "#241c14",
-    "border": "#8c5d2d",
-    "radius": "5px",
-    "panelPadding": "16px",
+    "accent": "#d58a35",
+    "panel": "#17100a",
+    "surface": "#24170d",
+    "border": "#9b6227",
+    "radius": "34px",
+    "panelPadding": "20px",
     "brass": "#c7924e"
   },
   "views": {
@@ -19,19 +19,18 @@
       "layout": {
         "type": "grid",
         "columns": "repeat(12,minmax(0,1fr))",
-        "gap": "14px",
+        "gap": "20px",
         "children": [
           {
-            "type": "image",
-            "class": "dashboard-art",
-            "src": "https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/idf-6-migration/ui/steampunk-v2/steampunk-dashboard.svg",
-            "alt": ""
-          },
-          {
             "type": "panel",
-            "class": "masthead span-12",
+            "class": "command-plaque span-12",
             "label": "STEAMPUNK CONTROL DECK",
             "children": [
+              {
+                "type": "text",
+                "class": "machine-title",
+                "text": "ESP32-C3 RELAY CONTROLLER"
+              },
               {
                 "type": "container",
                 "class": "chassis-tubes tubes-left",
@@ -43,36 +42,6 @@
                 "children": []
               },
               {
-                "type": "grid",
-                "columns": "repeat(3,minmax(64px,1fr))",
-                "class": "nixie-strip",
-                "children": [
-                  {
-                    "type": "value",
-                    "class": "nixie-digit",
-                    "label": "BUILD",
-                    "bind": "system.build",
-                    "animate": "glow"
-                  },
-                  {
-                    "type": "value",
-                    "class": "nixie-digit",
-                    "label": "CPU",
-                    "bind": "system.cpu",
-                    "format": "number",
-                    "animate": "glow"
-                  },
-                  {
-                    "type": "value",
-                    "class": "nixie-digit",
-                    "label": "UPTIME",
-                    "bind": "system.uptime",
-                    "format": "number",
-                    "animate": "glow"
-                  }
-                ]
-              },
-              {
                 "type": "text",
                 "class": "masthead-title",
                 "text": "ESP32-C3 RELAY CONTROLLER"
@@ -80,36 +49,38 @@
               {
                 "type": "grid",
                 "columns": "repeat(3,minmax(0,1fr))",
-                "class": "masthead-meta",
+                "class": "nixie-ring",
                 "children": [
                   {
                     "type": "value",
+                    "class": "nixie-vial",
                     "label": "BUILD",
-                    "bind": "system.build"
+                    "bind": "system.build",
+                    "animate": "glow"
                   },
                   {
                     "type": "value",
+                    "class": "nixie-vial",
+                    "label": "CPU",
+                    "bind": "system.cpu",
+                    "format": "number",
+                    "animate": "glow"
+                  },
+                  {
+                    "type": "value",
+                    "class": "nixie-vial",
                     "label": "UPTIME",
                     "bind": "system.uptime",
-                    "format": "number"
-                  },
-                  {
-                    "type": "value",
-                    "label": "DATE / TIME",
-                    "bind": "system.date"
+                    "format": "number",
+                    "animate": "glow"
                   }
                 ]
               }
             ]
           },
           {
-            "type": "container",
-            "class": "vacuum-tube-instrument",
-            "children": []
-          },
-          {
             "type": "panel",
-            "class": "system-status span-7",
+            "class": "bronze-bay system-status span-7",
             "label": "SYSTEM STATUS",
             "children": [
               {
@@ -157,7 +128,7 @@
           },
           {
             "type": "panel",
-            "class": "wireless-status span-5",
+            "class": "bronze-bay wireless-status span-5",
             "label": "WIRELESS",
             "children": [
               {
@@ -221,7 +192,7 @@
           },
           {
             "type": "panel",
-            "class": "instrument-panel span-3",
+            "class": "instrument-bowl instrument-panel span-3",
             "label": "INSTRUMENTS",
             "children": [
               {
@@ -247,7 +218,7 @@
           },
           {
             "type": "panel",
-            "class": "relay-dashboard span-4",
+            "class": "relay-engine relay-one span-4",
             "label": "RELAY 1",
             "children": [
               {
@@ -263,7 +234,7 @@
           },
           {
             "type": "panel",
-            "class": "relay-dashboard span-5",
+            "class": "relay-engine relay-two span-5",
             "label": "RELAY 2",
             "children": [
               {
@@ -279,7 +250,7 @@
           },
           {
             "type": "panel",
-            "class": "network-summary span-5",
+            "class": "bronze-bay network-summary span-5",
             "label": "NETWORK",
             "children": [
               {
@@ -321,7 +292,7 @@
           },
           {
             "type": "panel",
-            "class": "activity span-7",
+            "class": "parchment-scroll activity span-7",
             "label": "ACTIVITY LOG",
             "children": [
               {
@@ -329,16 +300,6 @@
                 "bind": "diagnosticsLog"
               }
             ]
-          },
-          {
-            "type": "container",
-            "class": "gear-decor gear-one",
-            "children": []
-          },
-          {
-            "type": "container",
-            "class": "gear-decor gear-two",
-            "children": []
           }
         ]
       }
@@ -353,7 +314,7 @@
         "children": [
           {
             "type": "panel",
-            "class": "connection-card span-5",
+            "class": "instrument-bowl span-5",
             "label": "CURRENT CONNECTION",
             "children": [
               {
@@ -433,7 +394,7 @@
           },
           {
             "type": "panel",
-            "class": "credentials-card span-7",
+            "class": "valve-bank span-7",
             "label": "WI-FI CREDENTIALS",
             "children": [
               {
@@ -493,7 +454,7 @@
           },
           {
             "type": "panel",
-            "class": "radio-power span-5",
+            "class": "instrument-bowl span-5",
             "label": "RADIO POWER",
             "children": [
               {
@@ -532,7 +493,7 @@
           },
           {
             "type": "panel",
-            "class": "wifi-note span-7",
+            "class": "parchment-scroll span-7",
             "label": "RADIO NOTES",
             "children": [
               {
@@ -572,7 +533,7 @@
         "children": [
           {
             "type": "panel",
-            "class": "network-config span-7",
+            "class": "valve-bank span-7",
             "label": "ADDRESSING",
             "children": [
               {
@@ -694,7 +655,7 @@
           },
           {
             "type": "panel",
-            "class": "live-network span-5",
+            "class": "instrument-bowl span-5",
             "label": "LIVE CONNECTION",
             "children": [
               {
@@ -747,7 +708,7 @@
           },
           {
             "type": "panel",
-            "class": "network-foot span-12",
+            "class": "parchment-scroll span-12",
             "label": "NETWORK IDENTITY",
             "children": [
               {
@@ -780,7 +741,7 @@
         "children": [
           {
             "type": "panel",
-            "class": "diagnostic-control span-4",
+            "class": "instrument-bowl span-4",
             "label": "DIAGNOSTIC CONTROL",
             "children": [
               {
@@ -816,7 +777,7 @@
           },
           {
             "type": "panel",
-            "class": "console span-8",
+            "class": "parchment-scroll span-8",
             "label": "LIVE SERIAL CONSOLE",
             "children": [
               {
@@ -827,7 +788,7 @@
           },
           {
             "type": "panel",
-            "class": "connection-snapshot span-12",
+            "class": "instrument-bowl span-12",
             "label": "CONNECTION SNAPSHOT",
             "children": [
               {
@@ -872,7 +833,7 @@
         "children": [
           {
             "type": "panel",
-            "class": "relay-intro span-12",
+            "class": "parchment-scroll span-12",
             "label": "RELAY CONTROL",
             "children": [
               {
@@ -884,7 +845,7 @@
           },
           {
             "type": "form",
-            "class": "relay-config span-12",
+            "class": "relay-workshop span-12",
             "action": "/relay/config",
             "children": [
               {
@@ -1094,7 +1055,7 @@
         "children": [
           {
             "type": "panel",
-            "class": "filesystem span-7",
+            "class": "instrument-bowl span-7",
             "label": "SPIFFS FILESYSTEM",
             "children": [
               {
@@ -1127,7 +1088,7 @@
           },
           {
             "type": "panel",
-            "class": "nvs-panel span-5",
+            "class": "instrument-bowl span-5",
             "label": "NVS INSPECTOR",
             "children": [
               {
@@ -1137,7 +1098,7 @@
           },
           {
             "type": "panel",
-            "class": "backup span-6",
+            "class": "valve-bank span-6",
             "label": "CONFIGURATION BACKUP",
             "children": [
               {
@@ -1178,7 +1139,7 @@
           },
           {
             "type": "panel",
-            "class": "danger-zone span-6",
+            "class": "danger-vault span-6",
             "label": "DANGER ZONE",
             "children": [
               {
@@ -1218,7 +1179,7 @@
         "children": [
           {
             "type": "panel",
-            "class": "device-info span-4",
+            "class": "instrument-bowl span-4",
             "label": "DEVICE",
             "children": [
               {
@@ -1262,7 +1223,7 @@
           },
           {
             "type": "panel",
-            "class": "presentation span-8",
+            "class": "valve-bank span-8",
             "label": "PRESENTATION",
             "children": [
               {
@@ -1327,7 +1288,7 @@
           },
           {
             "type": "panel",
-            "class": "updates span-6",
+            "class": "instrument-bowl span-6",
             "label": "SOFTWARE UPDATES",
             "children": [
               {
@@ -1357,7 +1318,7 @@
           },
           {
             "type": "panel",
-            "class": "manual-update span-6",
+            "class": "valve-bank span-6",
             "label": "MANUAL UPDATE",
             "children": [
               {
@@ -1412,7 +1373,7 @@
           },
           {
             "type": "panel",
-            "class": "system-actions span-12",
+            "class": "parchment-scroll span-12",
             "label": "SYSTEM ACTIONS",
             "children": [
               {
@@ -1446,5 +1407,6 @@
         ]
       }
     }
-  }
+  },
+  "description": "Steampunk mechanical control deck. No square UI surfaces."
 }
