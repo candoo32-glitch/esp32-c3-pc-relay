@@ -6,7 +6,7 @@
   "requires": "dom-v2",
   "description": "GitHub-hosted DOM V2 steampunk control-panel presentation.",
   "assets": {
-    "stylesheet": "steampunk.css",
+    "stylesheet": "steampunk-overlay.css",
     "schema": "steampunk.json"
   }
 }
