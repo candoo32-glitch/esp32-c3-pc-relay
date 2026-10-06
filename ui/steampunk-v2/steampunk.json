@@ -28,12 +28,6 @@
             "alt": ""
           },
           {
-            "type": "image",
-            "class": "hero-vacuum-tube",
-            "src": "https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/d1e41cc934e810f4d442833cebb28ae82ee615da/ui/steampunk-v2/vacuum-tube.svg",
-            "alt": "Glowing vacuum tube"
-          },
-          {
             "type": "panel",
             "class": "masthead span-12",
             "label": "STEAMPUNK CONTROL DECK",
@@ -107,6 +101,11 @@
                 ]
               }
             ]
+          },
+          {
+            "type": "container",
+            "class": "vacuum-tube-instrument",
+            "children": []
           },
           {
             "type": "panel",
