@@ -2229,3 +2229,272 @@ html[data-v2-theme="steampunk-v2"] body::before{
     min-width:88px;
   }
 }
+
+
+/* ================================================================
+   REFERENCE REBUILD — dashboard composition
+   The SVG is the physical machine. DOM V2 supplies the live data
+   through transparent instrument apertures laid over it.
+   ================================================================ */
+#dom-v2-root[data-v2-theme="steampunk-v2"]{
+  position:relative;
+  overflow:hidden;
+  background:#080a0b!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art{
+  position:absolute!important;
+  z-index:0!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  object-fit:fill!important;
+  opacity:1!important;
+  pointer-events:none!important;
+  mix-blend-mode:normal!important;
+  filter:none!important;
+  animation:none!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen{
+  position:relative!important;
+  z-index:1!important;
+  max-width:1480px!important;
+  min-height:980px;
+  padding:0 34px 40px!important;
+  background:transparent!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen::before,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen::after{
+  display:none!important;
+}
+
+/* Dashboard is now an overlay on the machine plate. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid{
+  position:relative!important;
+  min-height:980px;
+  display:grid!important;
+  grid-template-columns:repeat(12,minmax(0,1fr))!important;
+  grid-auto-rows:auto!important;
+  column-gap:14px!important;
+  row-gap:10px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid > .v2-panel{
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  clip-path:none!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  padding:0!important;
+  overflow:visible!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid > .v2-panel::before,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid > .v2-panel::after{
+  display:none!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-screen > .v2-grid > .v2-panel > .v2-panel-title{
+  display:none!important;
+}
+
+/* Masthead occupies the title/nav machinery region. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead{
+  grid-column:1 / -1!important;
+  min-height:210px!important;
+  padding:0!important;
+  pointer-events:none;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead .v2-nixie-strip{
+  position:absolute!important;
+  left:39%!important;
+  top:4px!important;
+  width:34%!important;
+  margin:0!important;
+  padding:5px!important;
+  transform:none!important;
+  pointer-events:none;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead .v2-nixie-digit{
+  min-height:52px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead .v2-nixie-digit .v2-value-number{
+  font-size:18px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead-title{
+  position:absolute!important;
+  top:22px!important;
+  left:35%!important;
+  width:31%!important;
+  color:#20150c!important;
+  font-family:Georgia,"Times New Roman",serif!important;
+  font-size:24px!important;
+  font-weight:900!important;
+  letter-spacing:.06em!important;
+  text-align:center!important;
+  text-shadow:0 1px #f3d88e!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-masthead-meta{
+  display:none!important;
+}
+
+/* Live system text sits inside the engraved central plate. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status{
+  grid-column:4 / span 6!important;
+  grid-row:2!important;
+  margin-top:4px!important;
+  min-height:255px!important;
+  padding:48px 24px 20px!important;
+  color:#e7ded0!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status .v2-status{
+  position:absolute!important;
+  top:20px!important;
+  right:30px!important;
+  width:145px!important;
+  padding:8px 12px!important;
+  border:2px solid #7e5122!important;
+  background:#101516!important;
+  border-radius:4px!important;
+  color:#7dff31!important;
+  box-shadow:0 0 18px rgba(77,255,35,.18),inset 0 0 15px #000!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status .v2-value{
+  border-bottom:1px solid rgba(196,139,67,.25)!important;
+  padding:5px 0!important;
+  background:transparent!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status .v2-value .v2-label{
+  color:#c4aa80!important;
+  font-size:10px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-system-status .v2-value-number{
+  color:#eee2cf!important;
+  font-size:13px!important;
+}
+
+/* Wireless live data sits inside the right-hand instrument. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status{
+  grid-column:10 / span 3!important;
+  grid-row:2!important;
+  min-height:255px!important;
+  padding:90px 28px 15px 150px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status .v2-panel-title{display:none!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status .v2-status{
+  position:absolute!important;
+  left:146px!important;
+  top:72px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-wireless-status .v2-value{
+  padding:4px 0!important;
+  border-bottom:1px solid rgba(196,139,67,.18)!important;
+  background:transparent!important;
+}
+
+/* Instrument column is represented by the three SVG gauges. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel{
+  grid-column:1 / span 3!important;
+  grid-row:2 / span 2!important;
+  min-height:650px!important;
+  padding:240px 18px 0!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel .v2-gauge{
+  display:none!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel .v2-value{
+  background:transparent!important;
+  border:0!important;
+  justify-content:center!important;
+  padding:5px!important;
+  color:#e9d5ad!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-instrument-panel .v2-value:first-of-type{
+  display:none!important;
+}
+
+/* Relay panels overlay the two physical coil housings. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard{
+  min-height:390px!important;
+  padding:175px 35px 0!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard:nth-of-type(5){
+  grid-column:4 / span 3!important;
+  grid-row:3!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard:nth-of-type(6){
+  grid-column:7 / span 3!important;
+  grid-row:3!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard .v2-relay{
+  min-height:100px!important;
+  padding:0!important;
+  display:block!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard .v2-relay::before{display:none!important}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard .v2-relay-title{
+  position:absolute!important;
+  left:15px!important;
+  top:105px!important;
+  color:#1d1209!important;
+  font-family:Georgia,serif!important;
+  font-size:19px!important;
+  font-weight:900!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard .v2-relay .v2-button{
+  position:absolute!important;
+  right:0!important;
+  top:82px!important;
+  width:68px!important;
+  height:68px!important;
+  min-height:68px!important;
+  z-index:3!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard .v2-relay-detail{
+  margin-top:112px!important;
+  color:#e5d4b4!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-relay-dashboard .v2-relay-detail > *{
+  background:transparent!important;
+}
+
+/* Network and activity consoles occupy the right-hand lower hardware. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-network-summary{
+  grid-column:10 / span 3!important;
+  grid-row:3!important;
+  min-height:205px!important;
+  padding:72px 28px 20px 130px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-network-summary .v2-value{
+  padding:3px 0!important;
+  background:transparent!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-activity{
+  grid-column:10 / span 3!important;
+  grid-row:4!important;
+  min-height:210px!important;
+  padding:78px 22px 25px!important;
+}
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-activity .v2-log{
+  height:130px!important;
+  padding:10px!important;
+  border:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:#2b2116!important;
+  font-family:"Courier New",monospace!important;
+  font-size:10px!important;
+}
+
+/* Hide the decorative containers from layout—they are drawn by the SVG. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-chassis-tubes,
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-gear-decor{
+  display:none!important;
+}
+
+/* The reference machine has no generic web-card treatment on dashboard. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-dashboard-art ~ .v2-panel{
+  text-shadow:0 1px 2px #000;
+}
