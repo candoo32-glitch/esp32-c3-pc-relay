@@ -2539,3 +2539,39 @@ html[data-v2-theme="steampunk-v2"] body::before{
     height:205px!important;
   }
 }
+
+
+/* Physical vacuum tube: a real DOM V2 element, with the artwork mounted
+   into the panel as a transparent instrument — not a colored rectangle. */
+#dom-v2-root[data-v2-theme="steampunk-v2"] .v2-vacuum-tube-instrument{
+  position:absolute!important;
+  z-index:6!important;
+  left:18px!important;
+  top:330px!important;
+  width:112px!important;
+  height:270px!important;
+  margin:0!important;
+  padding:0!important;
+  pointer-events:none!important;
+  background:transparent url("https://raw.githubusercontent.com/candoo32-glitch/esp32-c3-pc-relay/d1e41cc934e810f4d442833cebb28ae82ee615da/ui/steampunk-v2/vacuum-tube.svg") center/contain no-repeat!important;
+  filter:drop-shadow(0 0 8px rgba(255,82,12,.9)) drop-shadow(0 0 24px rgba(255,72,8,.42));
+  animation:v2-tube-real-flicker 3.2s ease-in-out infinite;
+}
+@keyframes v2-tube-real-flicker{
+  0%,100%{opacity:.96;filter:drop-shadow(0 0 7px rgba(255,82,12,.82)) drop-shadow(0 0 19px rgba(255,72,8,.30))}
+  42%{opacity:1;filter:drop-shadow(0 0 11px rgba(255,118,25,1)) drop-shadow(0 0 31px rgba(255,72,8,.55))}
+  45%{opacity:.78}
+  47%{opacity:1}
+  50%{opacity:.9}
+  53%{opacity:1;filter:drop-shadow(0 0 12px rgba(255,125,30,1)) drop-shadow(0 0 34px rgba(255,72,8,.58))}
+}
+@media(max-width:900px){
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-vacuum-tube-instrument{
+    left:10px!important;top:300px!important;width:88px!important;height:220px!important;
+  }
+}
+@media(max-width:680px){
+  #dom-v2-root[data-v2-theme="steampunk-v2"] .v2-vacuum-tube-instrument{
+    left:4px!important;top:280px!important;width:66px!important;height:180px!important;
+  }
+}
