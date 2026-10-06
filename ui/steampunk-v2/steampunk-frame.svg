@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1200" fill="none">
+<defs>
+ <linearGradient id="brass" x1="0" x2="1"><stop stop-color="#3b1e0d"/><stop offset=".3" stop-color="#d28a39"/><stop offset=".52" stop-color="#6f3b18"/><stop offset=".78" stop-color="#efb65d"/><stop offset="1" stop-color="#301609"/></linearGradient>
+ <linearGradient id="copper"><stop stop-color="#4a1d0c"/><stop offset=".35" stop-color="#d96f28"/><stop offset=".55" stop-color="#6b2b10"/><stop offset=".8" stop-color="#ed9340"/><stop offset="1" stop-color="#391508"/></linearGradient>
+ <radialGradient id="glow"><stop stop-color="#ffd36b"/><stop offset=".18" stop-color="#ff8b22"/><stop offset=".55" stop-color="#8c2d0d"/><stop offset="1" stop-color="#120604"/></radialGradient>
+ <filter id="shadow"><feGaussianBlur stdDeviation="5"/></filter>
+ <filter id="light"><feGaussianBlur stdDeviation="8"/></filter>
+</defs>
+<g opacity=".96">
+ <path d="M30 1140V90h70V35h220v55h940V35h220v55h70v1050" stroke="#120805" stroke-width="34"/>
+ <path d="M30 1140V90h70V35h220v55h940V35h220v55h70v1050" stroke="url(#brass)" stroke-width="18"/>
+ <path d="M55 1120V115h55V60h180M1545 1120V115h-55V60h-180" stroke="#f0ad4f" stroke-width="3" opacity=".7"/>
+ <!-- left/right copper pipe trunks -->
+ <g stroke="url(#copper)" stroke-width="20">
+  <path d="M78 1080V170h55V90h110"/>
+  <path d="M1522 1080V170h-55V90h-110"/>
+  <path d="M120 320H60M120 620H60M1480 320h60M1480 620h60"/>
+ </g>
+ <g stroke="#f1b65c" stroke-width="3" opacity=".7">
+  <path d="M78 1080V170h55V90h110M1522 1080V170h-55V90h-110"/>
+ </g>
+ <!-- top pipe labyrinth -->
+ <g stroke="url(#copper)" stroke-width="16" stroke-linecap="round">
+  <path d="M350 55v55h90v35h180V70"/>
+  <path d="M1250 55v55h-90v35H980V70"/>
+  <path d="M520 110h560"/>
+ </g>
+ <!-- vacuum tubes -->
+ <g>
+  <g transform="translate(155 120)">
+   <path d="M0 30h78M0 135h78" stroke="url(#brass)" stroke-width="13"/>
+   <rect x="10" y="38" width="58" height="90" rx="29" fill="#1a0904" stroke="#c77a2d" stroke-width="5"/>
+   <path d="M27 55v56M51 55v56M18 84h42" stroke="#ff9d30" stroke-width="5" opacity=".85"/>
+   <ellipse cx="39" cy="83" rx="30" ry="51" fill="url(#glow)" opacity=".25"/>
+  </g>
+  <g transform="translate(1367 120)">
+   <path d="M0 30h78M0 135h78" stroke="url(#brass)" stroke-width="13"/>
+   <rect x="10" y="38" width="58" height="90" rx="29" fill="#1a0904" stroke="#c77a2d" stroke-width="5"/>
+   <path d="M27 55v56M51 55v56M18 84h42" stroke="#ff9d30" stroke-width="5" opacity=".85"/>
+   <ellipse cx="39" cy="83" rx="30" ry="51" fill="url(#glow)" opacity=".25"/>
+  </g>
+ </g>
+ <!-- side tube banks -->
+ <g>
+  <g transform="translate(44 210)">
+   <g><rect x="0" y="0" width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+   <g transform="translate(0 165)"><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+   <g transform="translate(0 330)"><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+   <g transform="translate(0 495)"><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+   <g transform="translate(0 660)"><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+   <g transform="translate(0 825)"><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+  </g>
+  <g transform="translate(1501 210)">
+   <g><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+   <g transform="translate(0 165)"><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+   <g transform="translate(0 330)"><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+   <g transform="translate(0 495)"><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+   <g transform="translate(0 660)"><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+   <g transform="translate(0 825)"><rect width="55" height="118" rx="27" fill="#180905" stroke="url(#brass)" stroke-width="5"/><path d="M17 25v68M38 25v68M10 59h35" stroke="#ff8b25" stroke-width="4"/></g>
+  </g>
+ </g>
+ <!-- gears -->
+ <g stroke="url(#brass)" stroke-width="9" opacity=".8">
+  <circle cx="120" cy="1030" r="55"/><circle cx="1480" cy="1030" r="55"/>
+  <circle cx="120" cy="1030" r="22"/><circle cx="1480" cy="1030" r="22"/>
+ </g>
+ <g stroke="#d48a3d" stroke-width="7" opacity=".55">
+  <path d="M120 960v140M50 1030h140M78 988l84 84M78 1072l84-84"/>
+  <path d="M1480 960v140M1410 1030h140M1438 988l84 84M1438 1072l84-84"/>
+ </g>
+ <!-- rivets -->
+ <g fill="#f2bf67">
+  <circle cx="102" cy="70" r="5"/><circle cx="1498" cy="70" r="5"/><circle cx="102" cy="1130" r="5"/><circle cx="1498" cy="1130" r="5"/>
+  <circle cx="350" cy="60" r="4"/><circle cx="1250" cy="60" r="4"/>
+ </g>
+</g>
+</svg>
