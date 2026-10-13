@@ -92,7 +92,7 @@ ESP32-C3 PC Relay — DOM V2 runtime
     return r;
   }
 
-  async function post(url,body){
+  async async function post(url,body){
     const encoded=typeof body==="string"?body:new URLSearchParams(body||{}).toString();
     const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:encoded,cache:"no-store"});
     if(!r.ok)throw Error("V2 action HTTP "+r.status);
