@@ -191,7 +191,7 @@ ESP32-C3 PC Relay — DOM V2 runtime
     return "/dom/"+src.replace(/^\.\//,"");
   }
 
-  async function actionFromNode(el,spec){
+  async async function actionFromNode(el,spec){
     if(!spec)return;
     const action=typeof spec==="string"?spec:spec.action;
     const args={...(typeof spec==="object"?spec.args||{}:{})};
