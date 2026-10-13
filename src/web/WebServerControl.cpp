@@ -1464,91 +1464,79 @@ void handleNetworkSave() {
 }
 
 void handleRelayAction() {
-  DiagnosticsLog::line(String("WEB | RELAY ACTION | id=") + server.arg("id") + " action=" + server.arg("action"));
-  if (!server.hasArg("id") || !server.hasArg("action")) {
-    sendNoCache(204);
+  const String idText=server.arg("id");
+  const String action=server.arg("action");
+  DiagnosticsLog::line(String("WEB | RELAY ACTION | id=")+idText+" action="+action);
+  if (!server.hasArg("id") || !server.hasArg("action") ||
+      (idText!="0" && idText!="1") ||
+      (action!="activate" && action!="deactivate")) {
+    DiagnosticsLog::line("WEB | RELAY ACTION | REJECTED: invalid id or action");
+    sendNoCache(400,"application/json; charset=utf-8","{\"message\":\"Invalid relay command.\"}");
     return;
   }
-  const int id = server.arg("id").toInt();
-  if (id < 0 || id > 1) {
-    sendNoCache(204);
-    return;
-  }
-  const Relay::Id relay = static_cast<Relay::Id>(id);
-  if (server.arg("action") == "activate") Relay::activate(relay);
-  else if (server.arg("action") == "deactivate") Relay::deactivate(relay);
-  String returnTab = server.hasArg("return") ? server.arg("return") : "relays";
-  if (returnTab != "dashboard" && returnTab != "wifi" && returnTab != "network" &&
-      returnTab != "diagnostics" && returnTab != "relays" && returnTab != "storage" && returnTab != "system") {
-    returnTab = "relays";
-  }
+  const Relay::Id relay=static_cast<Relay::Id>(idText.toInt());
+  if(action=="activate") Relay::activate(relay);
+  else Relay::deactivate(relay);
+  DiagnosticsLog::line(String("WEB | RELAY ACTION | APPLIED | relay=")+idText+
+                       " state="+(Relay::state(relay)?"ACTIVE":"NORMAL"));
   sendNoCache(204);
 }
 
 void handleRelayConfig() {
-  DiagnosticsLog::line("WEB | RELAY CONFIG SAVE");
-  // Either relay's Save button submits the complete two-relay configuration.
-  // Missing/blank fields intentionally fall back to the documented defaults.
-  struct Defaults {
-    const char* name;
+  DiagnosticsLog::line("WEB | RELAY CONFIG SAVE | BEGIN");
+  struct Requested {
+    String name;
     Relay::NormalState normal;
     Relay::ActivationMode mode;
     uint32_t pulse;
-  };
-  constexpr Defaults defaults[] = {
-    {"Relay 1", Relay::NormalState::OPEN, Relay::ActivationMode::LATCHED, 250},
-    {"Relay 2", Relay::NormalState::OPEN, Relay::ActivationMode::LATCHED, 250}
-  };
-
-  for (uint8_t i = 0; i < 2; ++i) {
-    const Relay::Id relay = static_cast<Relay::Id>(i);
-    const String prefix = i == 0 ? "relay0_" : "relay1_";
-
-    String name = server.hasArg(prefix + "name") ? server.arg(prefix + "name") : "";
-    name.trim();
-    if (name.isEmpty()) name = defaults[i].name;
-    if (!Relay::setName(relay, name)) {
-      sendNoCache(204);
+  } requested[2];
+  // Validate both relay configurations BEFORE writing anything to NVS.
+  for(uint8_t i=0;i<2;++i){
+    const String prefix=i==0?"relay0_":"relay1_";
+    Requested &v=requested[i];
+    v.name=server.arg(prefix+"name");
+    v.name.trim();
+    if(v.name.isEmpty())v.name=i==0?"Relay 1":"Relay 2";
+    const String normal=server.hasArg(prefix+"normal")?server.arg(prefix+"normal"):"open";
+    const String mode=server.hasArg(prefix+"mode")?server.arg(prefix+"mode"):"latched";
+    const String pulseText=server.arg(prefix+"pulse");
+    if(v.name.length()>32 || (normal!="open" && normal!="closed") ||
+       (mode!="latched" && mode!="pulse")){
+      DiagnosticsLog::line(String("WEB | RELAY CONFIG | INVALID | relay=")+String(i+1));
+      sendNoCache(400,"application/json; charset=utf-8","{\"message\":\"Invalid relay configuration.\"}");
       return;
     }
-
-    String normal = server.hasArg(prefix + "normal") ? server.arg(prefix + "normal") : "";
-    normal.trim();
-    if (normal.isEmpty()) normal = "open";
-    if (normal == "open") Relay::setNormalState(relay, Relay::NormalState::OPEN);
-    else if (normal == "closed") Relay::setNormalState(relay, Relay::NormalState::CLOSED);
-    else {
-      sendNoCache(204);
-      return;
-    }
-
-    String mode = server.hasArg(prefix + "mode") ? server.arg(prefix + "mode") : "";
-    mode.trim();
-    if (mode.isEmpty()) mode = "latched";
-    if (mode == "latched") Relay::setActivationMode(relay, Relay::ActivationMode::LATCHED);
-    else if (mode == "pulse") Relay::setActivationMode(relay, Relay::ActivationMode::PULSE);
-    else {
-      sendNoCache(204);
-      return;
-    }
-
-    String pulseText = server.hasArg(prefix + "pulse") ? server.arg(prefix + "pulse") : "";
-    pulseText.trim();
-    uint32_t pulse = defaults[i].pulse;
-    if (!pulseText.isEmpty()) {
-      const long parsed = pulseText.toInt();
-      if (parsed >= 10 && parsed <= 60000) pulse = static_cast<uint32_t>(parsed);
-      else {
-        sendNoCache(204);
+    v.normal=normal=="closed"?Relay::NormalState::CLOSED:Relay::NormalState::OPEN;
+    v.mode=mode=="pulse"?Relay::ActivationMode::PULSE:Relay::ActivationMode::LATCHED;
+    v.pulse=250;
+    if(!pulseText.isEmpty()){
+      for(size_t j=0;j<pulseText.length();++j){
+        if(!isDigit(pulseText[j])){
+          sendNoCache(400,"application/json; charset=utf-8","{\"message\":\"Invalid relay pulse duration.\"}");
+          return;
+        }
+      }
+      const long parsed=pulseText.toInt();
+      if(parsed<10 || parsed>60000){
+        sendNoCache(400,"application/json; charset=utf-8","{\"message\":\"Relay pulse must be 10-60000 ms.\"}");
         return;
       }
-    }
-    if (!Relay::setPulseMs(relay, pulse)) {
-      sendNoCache(204);
-      return;
+      v.pulse=static_cast<uint32_t>(parsed);
     }
   }
-
+  for(uint8_t i=0;i<2;++i){
+    const Relay::Id id=static_cast<Relay::Id>(i);
+    const Requested &v=requested[i];
+    if(!Relay::setName(id,v.name) ||
+       !Relay::setNormalState(id,v.normal) ||
+       !Relay::setActivationMode(id,v.mode) ||
+       !Relay::setPulseMs(id,v.pulse)){
+      DiagnosticsLog::line(String("WEB | RELAY CONFIG | NVS WRITE FAILED | relay=")+String(i+1));
+      sendNoCache(500,"application/json; charset=utf-8","{\"message\":\"Relay settings could not be saved to NVS.\"}");
+      return;
+    }
+    DiagnosticsLog::line(String("WEB | RELAY CONFIG | SAVED | relay=")+String(i+1));
+  }
   sendNoCache(204);
 }
 
