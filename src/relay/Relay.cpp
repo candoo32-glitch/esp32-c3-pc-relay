@@ -81,7 +81,7 @@ bool setName(Id id, const String& value) {
   String trimmed = value;
   trimmed.trim();
   if (trimmed.isEmpty() || trimmed.length() > 32) return false;
-  preferences.putString(cfg(id).nameKey, trimmed);
+  if(preferences.putString(cfg(id).nameKey, trimmed)==0 || preferences.getString(cfg(id).nameKey, "")!=trimmed)return false;
   DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) +
                        " | NAME=" + trimmed);
   return true;
@@ -93,7 +93,7 @@ NormalState normalState(Id id) {
 }
 
 bool setNormalState(Id id, NormalState value) {
-  preferences.putUChar(cfg(id).normalKey, static_cast<uint8_t>(value));
+  if(preferences.putUChar(cfg(id).normalKey, static_cast<uint8_t>(value))!=1 || preferences.getUChar(cfg(id).normalKey, 255)!=static_cast<uint8_t>(value))return false;
   // A configuration change never leaves an active relay energized.
   deactivate(id);
   DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) +
@@ -108,7 +108,7 @@ ActivationMode activationMode(Id id) {
 }
 
 bool setActivationMode(Id id, ActivationMode value) {
-  preferences.putUChar(cfg(id).modeKey, static_cast<uint8_t>(value));
+  if(preferences.putUChar(cfg(id).modeKey, static_cast<uint8_t>(value))!=1 || preferences.getUChar(cfg(id).modeKey, 255)!=static_cast<uint8_t>(value))return false;
   if (value == ActivationMode::LATCHED) pulseDeadline[index(id)] = 0;
   DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) +
                        " | MODE=" +
@@ -125,7 +125,7 @@ uint32_t pulseMs(Id id) {
 
 bool setPulseMs(Id id, uint32_t value) {
   if (value < MIN_PULSE_MS || value > MAX_PULSE_MS) return false;
-  preferences.putUInt(cfg(id).pulseKey, value);
+  if(preferences.putUInt(cfg(id).pulseKey, value)!=sizeof(uint32_t) || preferences.getUInt(cfg(id).pulseKey, 0)!=value)return false;
   DiagnosticsLog::line(String("RELAY | ") + String(index(id) + 1) +
                        " | PULSE=" + String(value) + "ms");
   return true;
