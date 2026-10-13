@@ -352,7 +352,10 @@ function fmt(v,s){return v===null||v===undefined||v===""?"-":String(v)+(s||"")}
 function setRelay(r,i){
  text("relay-title-"+i,r.name); text("relay-state-"+i,r.state?"ACTIVE":"NORMAL"); text("relay-normal-"+i,r.normal);
  text("relay-mode-display-"+i,r.mode); text("relay-pulse-display-"+i,r.mode==="PULSE"?r.pulse+" ms":"-");
- $("relay"+i+"-name").value=r.name; $("relay"+i+"-normal").value=r.normal.toLowerCase(); $("relay"+i+"-mode").value=r.mode.toLowerCase(); $("relay"+i+"-pulse").value=r.pulse;
+ const form=$("relay"+i+"-name")?.closest("form");
+ if(!form?.dataset.relayDirty){
+  $("relay"+i+"-name").value=r.name; $("relay"+i+"-normal").value=r.normal.toLowerCase(); $("relay"+i+"-mode").value=r.mode.toLowerCase(); $("relay"+i+"-pulse").value=r.pulse;
+ }
  text("dash-relay"+i+"-name",r.name); $("dash-relay"+i+"-state").innerHTML=r.state?'<span class="ok">ON</span>':'OFF';
 }
 let storageFiles=[];
@@ -981,6 +984,10 @@ async function upload(e,q){
    }
  }
 }
+document.querySelectorAll('form[action="/relay/config"]').forEach(f=>{
+ f.addEventListener("input",()=>{f.dataset.relayDirty="1"});
+ f.addEventListener("change",()=>{f.dataset.relayDirty="1"});
+});
 document.querySelectorAll('form[method="POST"]').forEach(f=>{
  if(["wifi-scan-form","update-latest-form","firmware-upload-form","web-upload-form","config-restore-form"].includes(f.id))return;
  f.addEventListener("submit",async e=>{
@@ -991,6 +998,7 @@ document.querySelectorAll('form[method="POST"]').forEach(f=>{
        await waitForRebootAndReset();
        return;
      }
+     if(f.action.endsWith("/relay/config"))delete f.dataset.relayDirty;
      setPageStatus("Saved","ok");
      setTimeout(load,300);
    }catch(x){
