@@ -991,16 +991,19 @@ async function upload(e,q){
    }
  }
 }
-// Dedicated handler for the always-visible relay dock. Do not rely on generic form handling.
+// Serialize relay-dock commands and prevent rapid presses from racing state refresh.
+const relayDockCooldownMs=400;
 document.querySelectorAll('.relay-float form[action="/relay/action"]').forEach(f=>{
  f.addEventListener("submit",async e=>{
   e.preventDefault();
-  const button=e.submitter||f.querySelector('button[name="action"]');
-  if(!button)return setPageStatus("Relay command failed: no button","bad");
-  if(f.dataset.busy==="1")return;
+  const button=f.querySelector('button[name="action"]');
+  if(!button)return setPageStatus("Relay button unavailable","bad");
+  const now=Date.now();
+  if(f.dataset.busy==="1" || now<Number(f.dataset.nextAllowed||0))return;
   f.dataset.busy="1";
   button.disabled=true;
   const id=f.querySelector('input[name="id"]')?.value;
+  // The action is determined by the most recent confirmed state.
   const action=button.value||"activate";
   setPageStatus("Relay "+(Number(id)+1)+": sending "+action+"…","muted");
   try{
@@ -1011,11 +1014,20 @@ document.querySelectorAll('.relay-float form[action="/relay/action"]').forEach(f
     try{const body=await response.json();if(body.message)reason=body.message;}catch(_){}
     throw Error(reason);
    }
-   setPageStatus("Relay "+(Number(id)+1)+": "+action+" command accepted","ok");
-   await load(false);
+   // Immediately update the latched action, without relying on an asynchronous
+   // poll that may return stale state. Pulse mode always activates.
+   if(button.dataset.relayMode!=="PULSE"){
+    button.value=action==="activate"?"deactivate":"activate";
+    button.dataset.relayState=action==="activate"?"active":"normal";
+   }
+   setPageStatus("Relay "+(Number(id)+1)+": "+action+" accepted","ok");
   }catch(err){
    setPageStatus("Relay "+(Number(id)+1)+": "+err.message,"bad");
-  }finally{button.disabled=false;delete f.dataset.busy;}
+  }finally{
+   f.dataset.nextAllowed=String(Date.now()+relayDockCooldownMs);
+   // Avoid a synchronous state refresh racing a rapid follow-up press.
+   setTimeout(()=>{button.disabled=false;delete f.dataset.busy;},relayDockCooldownMs);
+  }
  });
 });
 document.querySelectorAll('form[action="/relay/config"]').forEach(f=>{
