@@ -686,7 +686,13 @@ function setOtaUpdateButtonDisabled(disabled){
  b.textContent=disabled?"Update in progress…":"Check for and install updates";
 }
 async function rd(r){const t=r.headers.get("content-type")||"";return t.includes("application/json")?await r.json():null}
-async function pf(f){const r=await fetch(f.action,{method:"POST",body:new URLSearchParams(new FormData(f)),cache:"no-store"});if(!r.ok)throw Error(r.status);return rd(r)}
+async function pf(f,submitter){
+ const data=new FormData(f);
+ if(submitter&&submitter.name&&!submitter.disabled)data.set(submitter.name,submitter.value);
+ const r=await fetch(f.action,{method:"POST",body:new URLSearchParams(data),cache:"no-store"});
+ if(!r.ok)throw Error(r.status);
+ return rd(r);
+}
 async function pfu(f){const r=await fetch(f.action,{method:"POST",body:new FormData(f),cache:"no-store"});if(!r.ok)throw Error(r.status);return rd(r)}
 function renderScan(d){
  const e=$("wifi-scan-results"),options=$("wifi-ssid-options");
@@ -980,7 +986,7 @@ document.querySelectorAll('form[method="POST"]').forEach(f=>{
  f.addEventListener("submit",async e=>{
    e.preventDefault();
    try{
-     await pf(f);
+     await pf(f,e.submitter);
      if(f.action.endsWith("/system/reboot")){
        await waitForRebootAndReset();
        return;
