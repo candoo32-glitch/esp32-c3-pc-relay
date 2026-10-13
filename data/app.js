@@ -991,11 +991,39 @@ async function upload(e,q){
    }
  }
 }
+// Dedicated handler for the always-visible relay dock. Do not rely on generic form handling.
+document.querySelectorAll('.relay-float form[action="/relay/action"]').forEach(f=>{
+ f.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const button=e.submitter||f.querySelector('button[name="action"]');
+  if(!button)return setPageStatus("Relay command failed: no button","bad");
+  if(f.dataset.busy==="1")return;
+  f.dataset.busy="1";
+  button.disabled=true;
+  const id=f.querySelector('input[name="id"]')?.value;
+  const action=button.value||"activate";
+  setPageStatus("Relay "+(Number(id)+1)+": sending "+action+"…","muted");
+  try{
+   const data=new URLSearchParams({id:String(id),action});
+   const response=await fetch("/relay/action",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:data.toString(),cache:"no-store"});
+   if(!response.ok){
+    let reason="HTTP "+response.status;
+    try{const body=await response.json();if(body.message)reason=body.message;}catch(_){}
+    throw Error(reason);
+   }
+   setPageStatus("Relay "+(Number(id)+1)+": "+action+" command accepted","ok");
+   await load(false);
+  }catch(err){
+   setPageStatus("Relay "+(Number(id)+1)+": "+err.message,"bad");
+  }finally{button.disabled=false;delete f.dataset.busy;}
+ });
+});
 document.querySelectorAll('form[action="/relay/config"]').forEach(f=>{
  f.addEventListener("input",()=>{f.dataset.relayDirty="1"});
  f.addEventListener("change",()=>{f.dataset.relayDirty="1"});
 });
 document.querySelectorAll('form[method="POST"]').forEach(f=>{
+ if(f.closest(".relay-float"))return;
  if(["wifi-scan-form","update-latest-form","firmware-upload-form","web-upload-form","config-restore-form"].includes(f.id))return;
  f.addEventListener("submit",async e=>{
    e.preventDefault();
