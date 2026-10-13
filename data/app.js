@@ -356,6 +356,13 @@ function setRelay(r,i){
  if(!form?.dataset.relayDirty){
   $("relay"+i+"-name").value=r.name; $("relay"+i+"-normal").value=r.normal.toLowerCase(); $("relay"+i+"-mode").value=r.mode.toLowerCase(); $("relay"+i+"-pulse").value=r.pulse;
  }
+ const button=$("relay-"+(i===0?"power":"reset")+"-button");
+ if(button){
+  button.textContent=r.name;
+  button.value=r.mode==="PULSE"?"activate":(r.state?"deactivate":"activate");
+  button.dataset.relayMode=r.mode;
+  button.dataset.relayState=r.state?"active":"normal";
+ }
  text("dash-relay"+i+"-name",r.name); $("dash-relay"+i+"-state").innerHTML=r.state?'<span class="ok">ON</span>':'OFF';
 }
 let storageFiles=[];
